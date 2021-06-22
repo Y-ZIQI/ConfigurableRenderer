@@ -240,7 +240,7 @@ vec3 evalPtLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.dist = length(ls.posW - sd.posW);
-    float falloff = 1.0 / (ptLights[index].constant + ptLights[index].linear*ls.dist + ptLights[index].quadratic*ls.dist*ls.dist);
+    float falloff = 2.0 / (ptLights[index].constant + ptLights[index].linear*ls.dist + 3.0*ptLights[index].quadratic*ls.dist*ls.dist);
     ls.color = ptLights[index].intensity * falloff;
     vec3 ambient = ptLights[index].ambient * ls.color * sd.diffuse * sd.ao;
     if(visibility < EPS)
