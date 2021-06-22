@@ -103,8 +103,8 @@ public:
     /**
     * Default means clear all
     */
-    void clear(int flag = -2, const GLfloat* color = _clear_color) {
-        if (flag <= -2) {
+    void clear(int flag = ALL_TARGETS, const GLfloat* color = _clear_color) {
+        if (flag == ALL_TARGETS) {
             use();
             glClearColor(color[0], color[1], color[2], color[3]);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);

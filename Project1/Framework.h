@@ -5,12 +5,12 @@ const float values[][3] = {
 	{0.6f, 0.8f, 1.0f},
 	{0.25f, 0.5f, 1.0f}
 };
-enum Level : int {
+enum Level : uint {
 	level1 = 0,
 	level2,
 	level3
 };
-enum Mode : int {
+enum Mode : uint {
 	mode1 = 0,
 	mode2
 };
@@ -33,11 +33,25 @@ public:
 	* 3: 100%
 	*/
 	Level shadow_resolution;
+	/** SSAO level
+	* 1: no SSAO
+	* 2: has SSAO
+	* 3: TODO
+	*/
+	Level ssao_level;
+	/** SMAA level
+	* 1: no SMAA
+	* 2: has SMAA
+	* 3: TODO
+	*/
+	Level smaa_level;
 
 	Settings() {
 		renderer = mode2;
 		resolution = level3;
 		shadow_resolution = level3;
+		ssao_level = level1;
+		smaa_level = level1;
 	}
 };
 
@@ -67,6 +81,8 @@ private:
 	FrameBuffer* screenFbo;
 
 	OmnidirectionalPass* oPass;
+
+	SMAA* smaaPass;
 	
 	nanogui::Screen* screen = nullptr;
 	nanogui::FormHelper* gui;
@@ -99,11 +115,14 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
 	gui->addVariable("Renderer", settings.renderer, enabled)->setItems({ "Forward", "Deferred" });
 	gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
 	gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "512", "1024", "2048" });
+	gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "1", "2" });
+	gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "1", "2" });
 }
 
 void RenderFrame::config(uint index) {
 	if (index == 0) {
 		resolution = values[0][settings.resolution];
+		smaaPass->setResolution(resolution);
 	}
 	else if (index == 1) {
 		float shadow_resolution = values[1][settings.shadow_resolution];
@@ -111,6 +130,12 @@ void RenderFrame::config(uint index) {
 			scene->dirLights[i]->setResolution(shadow_resolution);
 		for (int i = 0; i < scene->ptLights.size(); i++)
 			scene->ptLights[i]->setResolution(shadow_resolution);
+	}
+	else if (index == 2) {
+
+	}
+	else if (index == 3) {
+		dRenderer->ssao = (uint)settings.ssao_level;
 	}
 }
 
@@ -125,13 +150,14 @@ void RenderFrame::onLoad() {
 	//oPass = new OmnidirectionalPass(1024, 1024);
 	//oPass->setTransforms(glm::vec3(-3.0, 5.0, 0.0), glm::perspective(glm::radians(90.0f), 1.0f, 1.0f, 20.0f));
 	//oPass->setShader(sManager.getShader(SID_CUBEMAP_RENDER));
+
+	smaaPass = new SMAA(width, height);
 	
 	resolvePass = new ScreenPass;
 	Shader* ups_shader = sManager.getShader(SID_UPSAMPLING);
 	resolvePass->setShader(ups_shader);
 
 	{
-
 		scene = new Scene;
 		//scene->loadModel("resources/Arcade/Arcade.fbx");
 		if (test_scene == 1) {
@@ -214,6 +240,7 @@ void RenderFrame::onFrameRender() {
 
 	config(0);
 	config(1);
+	config(3);
 	duration = glfw->lastFrame - glfw->recordTime;
 	if (duration >= 0.25f) {
 		fps = (float)(glfw->frame_count - glfw->record_frame) / duration;
@@ -231,11 +258,16 @@ void RenderFrame::onFrameRender() {
 		screenFbo->clear();
 		dRenderer->renderScene(*scene, *screenFbo, resolution);
 	}
+	if(settings.smaa_level != level1)
+		smaaPass->Draw(screenFbo->colorAttachs[0].texture);
 	glViewport(0, 0, width, height);
 	targetFbo->prepare();
 	resolvePass->shader->use();
 	resolvePass->shader->setFloat("resolution", resolution);
-	resolvePass->shader->setTextureSource("screenTex", 0, screenFbo->colorAttachs[0].texture->id);
+	if (settings.smaa_level == level1)
+		resolvePass->shader->setTextureSource("screenTex", 0, screenFbo->colorAttachs[0].texture->id);
+	else
+		resolvePass->shader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
 	resolvePass->render();
 }
 

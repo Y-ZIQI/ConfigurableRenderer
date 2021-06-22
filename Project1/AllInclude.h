@@ -4,6 +4,7 @@
 
 #include "utils/glfwEnv.h"
 
+#include "utils/antialiasing.h"
 #include "utils/camera.h"
 #include "utils/framebuffer.h"
 #include "utils/light.h"

@@ -136,6 +136,8 @@ public:
 	std::default_random_engine generator;
 	std::vector<glm::vec3> ssaoKernel;
 
+	uint ssao = 0;
+
 	DeferredRenderer(uint Width, uint Height) {
 		width = Width; height = Height;
 		gBuffer = new FrameBuffer;
@@ -197,7 +199,8 @@ public:
 	}
 	void renderScene(Scene& scene, FrameBuffer& fbo, float resolution = 1.0f) {
 		renderGeometry(scene, resolution);
-		renderAO(scene, resolution);
+		if(ssao)
+			renderAO(scene, resolution);
 		renderScreen(scene, fbo, resolution);
 	}
 	void setBaseUniforms(Scene& scene) {
@@ -223,7 +226,8 @@ public:
 		shadingPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[1].texture->id);
 		shadingPass.shader->setTextureSource("albedoTex", 2, gBuffer->colorAttachs[2].texture->id);
 		shadingPass.shader->setTextureSource("specularTex", 3, gBuffer->colorAttachs[3].texture->id);
-		shadingPass.shader->setTextureSource("aoTex", 4, aoBuffer->colorAttachs[0].texture->id);
+		if(ssao)
+			shadingPass.shader->setTextureSource("aoTex", 4, aoBuffer->colorAttachs[0].texture->id);
 	}
 };
 

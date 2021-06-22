@@ -154,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="AllInclude.h" />
     <ClInclude Include="Framework.h" />
+    <ClInclude Include="utils\antialiasing.h" />
     <ClInclude Include="utils\camera.h" />
     <ClInclude Include="utils\DDSReader.h" />
     <ClInclude Include="utils\defines.h" />

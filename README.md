@@ -13,13 +13,13 @@ OpenGL实现的一个渲染管线，仿照Nvidia的Falcor。并添加了一些�
 
 ## Demo
 
-![](D:\project\OpenGL\pipeline\Project1\src\1.png)
+![](src\1.png)
 
-![](D:\project\OpenGL\pipeline\Project1\src\2.png)
+![](src\2.png)
 
-![](D:\project\OpenGL\pipeline\Project1\src\3.png)
+![](src\3.png)
 
-![](D:\project\OpenGL\pipeline\Project1\src\4.png)
+![](src\4.png)
 
 ## Dependency
 

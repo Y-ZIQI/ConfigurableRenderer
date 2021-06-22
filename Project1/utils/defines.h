@@ -28,6 +28,7 @@ typedef unsigned int uint;
 typedef unsigned char uchar;
 
 #define MAX_TARGETS 8
+#define ALL_TARGETS -2
 const GLuint _color_attachments[MAX_TARGETS] = {
 	GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3,
 	GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, GL_COLOR_ATTACHMENT6, GL_COLOR_ATTACHMENT7
@@ -44,17 +45,23 @@ const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define SID_SHADOWMAP 6
 #define SID_CUBEMAP_RENDER 7
 #define SID_SSAO 8
+#define SID_SMAA_EDGEPASS 9
+#define SID_SMAA_BLENDPASS 10
+#define SID_SMAA_NEIGHBORPASS 11
 const std::vector<const char*> _shader_paths
 {
-    "shaders/main/mainvs.vs", "shaders/main/mainfs.fs", nullptr,
-    "shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
-    "shaders/deferred/shadingPass.vs", "shaders/deferred/shadingPass.fs", nullptr,
-    "shaders/envmap/forward.vs", "shaders/envmap/forward.fs", nullptr,
-    "shaders/envmap/deferred.vs", "shaders/envmap/deferred.fs", nullptr,
-    "shaders/upsampling/main.vs", "shaders/upsampling/main.fs", nullptr,
-    "shaders/shadow/shadow.vs", "shaders/shadow/shadow.fs", nullptr,
-    "shaders/omnidirectional/main.vs", "shaders/omnidirectional/main.fs", "shaders/omnidirectional/main.gs",
-    "shaders/ssao/ssao.vs", "shaders/ssao/ssao.fs", nullptr
+    /* 0*/"shaders/main/mainvs.vs", "shaders/main/mainfs.fs", nullptr,
+    /* 1*/"shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
+    /* 2*/"shaders/deferred/shadingPass.vs", "shaders/deferred/shadingPass.fs", nullptr,
+    /* 3*/"shaders/envmap/forward.vs", "shaders/envmap/forward.fs", nullptr,
+    /* 4*/"shaders/envmap/deferred.vs", "shaders/envmap/deferred.fs", nullptr,
+    /* 5*/"shaders/upsampling/main.vs", "shaders/upsampling/main.fs", nullptr,
+    /* 6*/"shaders/shadow/shadow.vs", "shaders/shadow/shadow.fs", nullptr,
+    /* 7*/"shaders/omnidirectional/main.vs", "shaders/omnidirectional/main.fs", "shaders/omnidirectional/main.gs",
+    /* 8*/"shaders/ssao/ssao.vs", "shaders/ssao/ssao.fs", nullptr,
+    /* 9*/"shaders/smaa/edgeDetection.vs", "shaders/smaa/edgeDetection.fs", nullptr,
+    /*10*/"shaders/smaa/blendCalculation.vs", "shaders/smaa/blendCalculation.fs", nullptr,
+    /*11*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr
 };
 const std::string _glsl_version = "#version 430 core\n";
 
