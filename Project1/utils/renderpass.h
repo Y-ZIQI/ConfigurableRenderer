@@ -176,39 +176,38 @@ public:
 		basePass.reload();
 		shadingPass.reload();
 	}
-	void renderGeometry(Scene& scene, float resolution = 1.0f) {
-		glViewport(0, 0, width * resolution, height * resolution);
+	void renderGeometry(Scene& scene) {
+		glViewport(0, 0, width, height);
 		basePass.shader->use();
 		gBuffer->clear();
 		gBuffer->prepare();
 		setBaseUniforms(scene);
 		basePass.renderScene(scene, 0, true, true);
 	}
-	void renderAO(Scene& scene, float resolution = 1.0f) {
+	void renderAO(Scene& scene) {
 		ssaoPass.shader->use();
 		aoBuffer->clear();
 		aoBuffer->prepare();
-		setSSAOUniforms(scene, 16, resolution);
+		setSSAOUniforms(scene, 16);
 		ssaoPass.render();
 	}
-	void renderScreen(Scene& scene, FrameBuffer& fbo, float resolution = 1.0f) {
+	void renderScreen(Scene& scene, FrameBuffer& fbo) {
 		shadingPass.shader->use();
 		fbo.prepare();
-		setShadingUniforms(scene, resolution);
+		setShadingUniforms(scene);
 		shadingPass.render();
 	}
-	void renderScene(Scene& scene, FrameBuffer& fbo, float resolution = 1.0f) {
-		renderGeometry(scene, resolution);
+	void renderScene(Scene& scene, FrameBuffer& fbo) {
+		renderGeometry(scene);
 		if(ssao)
-			renderAO(scene, resolution);
-		renderScreen(scene, fbo, resolution);
+			renderAO(scene);
+		renderScreen(scene, fbo);
 	}
 	void setBaseUniforms(Scene& scene) {
 		scene.setCameraUniforms(*basePass.shader);
 	}
-	void setSSAOUniforms(Scene& scene, int sample_num, float resolution = 1.0f) {
+	void setSSAOUniforms(Scene& scene, int sample_num) {
 		scene.setCameraUniforms(*ssaoPass.shader);
-		ssaoPass.shader->setFloat("resolution", resolution);
 		ssaoPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[0].texture->id);
 		ssaoPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[1].texture->id);
 		
@@ -218,10 +217,9 @@ public:
 			ssaoPass.shader->setVec3(tmp, ssaoKernel[i]);
 		}
 	}
-	void setShadingUniforms(Scene& scene, float resolution = 1.0f) {
+	void setShadingUniforms(Scene& scene) {
 		scene.setLightUniforms(*shadingPass.shader);
 		scene.setCameraUniforms(*shadingPass.shader);
-		shadingPass.shader->setFloat("resolution", resolution);
 		shadingPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[0].texture->id);
 		shadingPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[1].texture->id);
 		shadingPass.shader->setTextureSource("albedoTex", 2, gBuffer->colorAttachs[2].texture->id);

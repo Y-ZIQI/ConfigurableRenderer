@@ -36,6 +36,9 @@ const GLuint _color_attachments[MAX_TARGETS] = {
 const GLfloat _clear_color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
+#define VSHADER 0
+#define FSHADER 1
+#define GSHADER 2
 #define SID_FORWARD 0
 #define SID_DEFERRED_BASE 1
 #define SID_DEFERRED_SHADING 2
@@ -62,6 +65,21 @@ const std::vector<const char*> _shader_paths
     /* 9*/"shaders/smaa/edgeDetection.vs", "shaders/smaa/edgeDetection.fs", nullptr,
     /*10*/"shaders/smaa/blendCalculation.vs", "shaders/smaa/blendCalculation.fs", nullptr,
     /*11*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr
+};
+const std::vector<std::initializer_list<std::pair<const std::string, std::string>>> _shader_defs
+{
+    /* 0*/{}, {}, {},
+    /* 1*/{}, {}, {},
+    /* 2*/{}, {}, {},
+    /* 3*/{}, {}, {},
+    /* 4*/{}, {}, {},
+    /* 5*/{}, {}, {},
+    /* 6*/{}, {{"SHADOW_SOFT_ESM", ""}}, {},
+    /* 7*/{}, {}, {},
+    /* 8*/{}, {{"SSAO_RANGE", "0.4"}, {"SSAO_THRESHOLD", "1.0"}, {"SAMPLE_NUM", "16"}, {"SAMPLE_BIAS", "0.05"}}, {},
+    /* 9*/{}, {}, {},
+    /*10*/{{"MAX_SEARCH_STEPS", "32"}}, {{"MAX_SEARCH_STEPS", "32"}}, {},
+    /*11*/{}, {}, {}
 };
 const std::string _glsl_version = "#version 430 core\n";
 

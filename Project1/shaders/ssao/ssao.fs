@@ -1,13 +1,19 @@
-#define SSAO_RANGE 0.4
-#define SSAO_THRESHOLD 1.0
+#ifndef SAMPLE_NUM
 #define SAMPLE_NUM 16
+#endif
+#ifndef SSAO_RANGE
+#define SSAO_RANGE 0.4
+#endif
+#ifndef SSAO_THRESHOLD
+#define SSAO_THRESHOLD 1.0
+#endif
+#ifndef SAMPLE_BIAS
 #define SAMPLE_BIAS 0.05
+#endif
 
 out float AO;
 
 in vec2 TexCoords;
-
-uniform float resolution;
 
 uniform vec3 camera_pos;
 uniform vec4 camera_params;
@@ -90,7 +96,7 @@ float ambientOcclusion(vec3 posW, vec3 normal, float range, float threshold, mat
         samplePos = TBN * randPos + posW;
         ssPos = transform * vec4(samplePos, 1.0);
         ndc = clamp((ssPos.xyz / ssPos.w + 1.0) / 2.0, 0.0, 1.0);
-        mindep = texture(positionTex, ndc.xy * resolution).w;
+        mindep = texture(positionTex, ndc.xy).w;
         ndc.z = LinearizeDepth(ndc.z, inv_nf);
         sum += step(ndc.z, mindep + SAMPLE_BIAS) + step(mindep + threshold, ndc.z);
     }

@@ -12,7 +12,6 @@ struct DirectionalLight{
     bool has_shadow;
     mat4 viewProj;
     sampler2D shadowMap;
-    float resolution;
 };
 
 struct PointLight{
@@ -27,7 +26,6 @@ struct PointLight{
     bool has_shadow;
     mat4 viewProj;
     sampler2D shadowMap;
-    float resolution;
 };
 
 #define M_PI                3.14159265358979323846  // pi
@@ -107,9 +105,9 @@ float PCF_dir_visible(int index, vec3 position, float bias) {
     vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
     if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
         return 1.0;
-    vec2 uv = ndc.xy * dirLights[index].resolution;
+    vec2 uv = ndc.xy;
     float zReceiver = ndc.z; // Assumed to be eye-space z in this code
-    float filterRadius = 0.002 * dirLights[index].resolution;
+    float filterRadius = 0.002;
 
     poissonDiskSamples(uv);
     return PCF_Filter(dirLights[index].shadowMap, uv, zReceiver, filterRadius, bias);
@@ -119,9 +117,9 @@ float PCF_pt_visible(int index, vec3 position, float bias) {
     vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
     if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
         return 1.0;
-    vec2 uv = ndc.xy * ptLights[index].resolution;
+    vec2 uv = ndc.xy;
     float zReceiver = ndc.z; // Assumed to be eye-space z in this code
-    float filterRadius = 0.002 * ptLights[index].resolution;
+    float filterRadius = 0.002;
 
     poissonDiskSamples(uv);
     return PCF_Filter(ptLights[index].shadowMap, uv, zReceiver, filterRadius, bias);
@@ -131,7 +129,7 @@ float ESM_dir_visible(int index, vec3 position, float bias){
     vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
     if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
         return 1.0;
-    vec2 uv = ndc.xy * dirLights[index].resolution;
+    vec2 uv = ndc.xy;
     ndc.z -= bias;
     float mindep = textureLod(dirLights[index].shadowMap, uv, SM_LOD).r;
     float sx = exp(-80.0 * ndc.z) * mindep;
@@ -143,7 +141,7 @@ float ESM_pt_visible(int index, vec3 position, float bias){
     vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
     if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
         return 1.0;
-    vec2 uv = ndc.xy * ptLights[index].resolution;
+    vec2 uv = ndc.xy;
     ndc.z -= bias;
     float mindep = textureLod(ptLights[index].shadowMap, uv, SM_LOD).r;
     float sx = exp(-80.0 * ndc.z) * mindep;
@@ -155,7 +153,7 @@ float HARD_dir_visible(int index, vec3 position, float bias){
     vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
     if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
         return 1.0;
-    vec2 uv = ndc.xy * dirLights[index].resolution;
+    vec2 uv = ndc.xy;
     float mindep = texture(dirLights[index].shadowMap, uv).r;
     return step(ndc.z, mindep + bias);
 }
@@ -164,7 +162,7 @@ float HARD_pt_visible(int index, vec3 position, float bias){
     vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
     if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
         return 1.0;
-    vec2 uv = ndc.xy * ptLights[index].resolution;
+    vec2 uv = ndc.xy;
     float mindep = texture(ptLights[index].shadowMap, uv).r;
     return step(ndc.z, mindep + bias);
 }

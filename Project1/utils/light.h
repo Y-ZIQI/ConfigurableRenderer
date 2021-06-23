@@ -7,35 +7,20 @@ class ShadowMap {
 public:
 	bool initialized = false;
 	FrameBuffer* smBuffer;
-	Shader* shader;
 	uint width, height;
-	float resolution;
-	glm::mat4 viewProj, viewMat, projMat;
 
-	ShadowMap() {};
-	void initialize(uint Width, uint Height) {
-		if (!initialized) {
-			initialized = true;
-			width = Width; height = Height;
-			smBuffer = new FrameBuffer;
-			//smBuffer->attachDepthTarget(Texture::create(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT));
-			smBuffer->addDepthStencil(width, height);
-			Texture* ntex = Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT);
-			//ntex->setTexParami(GL_TEXTURE_REDUCTION_MODE_ARB, GL_MAX);
-			ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-			ntex->setTexParami(GL_TEXTURE_BASE_LEVEL, 0);
-			ntex->setTexParami(GL_TEXTURE_MAX_LEVEL, 3);
-			smBuffer->attachColorTarget(ntex, 0);
-			resolution = 1.0f;
-			shader = sManager.getShader(SID_SHADOWMAP);
-		}
-	}
-	void setViewProj(const glm::mat4& vpMat) {
-		viewProj = vpMat;
-	}
-	void setResolution(const float Resolution) {
-		resolution = Resolution;
-	}
+	ShadowMap(uint Width, uint Height) {
+		initialized = true;
+		width = Width; height = Height;
+		smBuffer = new FrameBuffer;
+		smBuffer->addDepthStencil(width, height);
+		Texture* ntex = Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT);
+		ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+		ntex->setTexParami(GL_TEXTURE_BASE_LEVEL, 0);
+		ntex->setTexParami(GL_TEXTURE_MAX_LEVEL, 3);
+		smBuffer->attachColorTarget(ntex, 0);
+		//ntex->setTexParami(GL_TEXTURE_REDUCTION_MODE_ARB, GL_MAX);
+	};
 };
 
 enum class LType : int {
@@ -54,7 +39,10 @@ public:
 	glm::vec3 direction;
 
 	bool shadow_enabled = false;
+	std::vector<ShadowMap*> smList;
 	ShadowMap* shadowMap;
+	Shader* smShader;
+	glm::mat4 viewProj, viewMat, projMat;
 
 	void addGui(nanogui::FormHelper* gui) {
 		gui->addGroup(name);
@@ -86,26 +74,28 @@ public:
 	}
 	void update() {
 		if (shadow_enabled) {
-			glm::mat4 viewMat = glm::lookAt(position, position + direction, glm::vec3(0.0f, 1.0f, 0.0f));
-			glm::mat4 projMat = glm::ortho(-rangeX / 2.0f, rangeX / 2.0f, -rangeY / 2.0f, rangeY / 2.0f, 0.0f, rangeZ);
-			shadowMap->setViewProj(projMat * viewMat);
+			viewMat = glm::lookAt(position, position + direction, glm::vec3(0.0f, 1.0f, 0.0f));
+			projMat = glm::ortho(-rangeX / 2.0f, rangeX / 2.0f, -rangeY / 2.0f, rangeY / 2.0f, 0.0f, rangeZ);
+			viewProj = projMat * viewMat;
 		}
 	}
-	void enableShadow(float rangeX, float rangeY, float rangeZ, uint width = 512, uint height = 512) {
+	void enableShadow(float rangeX, float rangeY, float rangeZ, std::vector<uint> width_list) {
 		if (!shadow_enabled) {
 			shadow_enabled = true;
-			shadowMap = new ShadowMap;
-			shadowMap->initialize(width, height);
+			smList.resize(width_list.size());
+			for(uint i = 0;i < width_list.size();i++)
+				smList[i] = new ShadowMap(width_list[i], width_list[i]);
+			shadowMap = smList[0];
+			smShader = sManager.getShader(SID_SHADOWMAP);
 		}
 		this->rangeX = rangeX;
 		this->rangeY = rangeY;
 		this->rangeZ = rangeZ;
 		update();
 	}
-	void setResolution(const float Resolution) {
-		if (shadow_enabled) {
-			shadowMap->setResolution(Resolution);
-		}
+	void setShadowMap(uint idx) {
+		if (shadow_enabled)
+			shadowMap = smList[idx];
 	}
 };
 
@@ -142,26 +132,28 @@ public:
 	}*/
 	void update() {
 		if (shadow_enabled) {
-			glm::mat4 viewMat = glm::lookAt(position, position + direction, glm::vec3(0.0f, 1.0f, 0.0f));
-			glm::mat4 projMat = glm::perspective(glm::radians(Zoom), Aspect, nearZ, farZ);
-			shadowMap->setViewProj(projMat * viewMat);
+			viewMat = glm::lookAt(position, position + direction, glm::vec3(0.0f, 1.0f, 0.0f));
+			projMat = glm::perspective(glm::radians(Zoom), Aspect, nearZ, farZ);
+			viewProj = projMat * viewMat;
 		}
 	}
-	void enableShadow(float Zoom, float nearZ, float farZ, uint width = 512, uint height = 512) {
+	void enableShadow(float Zoom, float nearZ, float farZ, std::vector<uint> width_list) {
 		if (!shadow_enabled) {
 			shadow_enabled = true;
-			shadowMap = new ShadowMap;
-			shadowMap->initialize(width, height);
+			smList.resize(width_list.size());
+			for (uint i = 0; i < width_list.size(); i++)
+				smList[i] = new ShadowMap(width_list[i], width_list[i]);
+			shadowMap = smList[0];
+			smShader = sManager.getShader(SID_SHADOWMAP);
 		}
 		this->nearZ = nearZ;
 		this->farZ = farZ;
 		this->Zoom = Zoom;
-		this->Aspect = (float)width / height;
+		this->Aspect = 1.0f;
 		update();
 	}
-	void setResolution(const float Resolution) {
-		if (shadow_enabled) {
-			shadowMap->setResolution(Resolution);
-		}
+	void setShadowMap(uint idx) {
+		if (shadow_enabled)
+			shadowMap = smList[idx];
 	}
 };

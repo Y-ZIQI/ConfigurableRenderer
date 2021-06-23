@@ -111,12 +111,12 @@ public:
 			if (dirLights[i]->shadow_enabled) {
 				sm_ptr = dirLights[i]->shadowMap;
 				glEnable(GL_DEPTH_TEST);
-				glViewport(0, 0, sm_ptr->width * sm_ptr->resolution, sm_ptr->height * sm_ptr->resolution);
+				glViewport(0, 0, sm_ptr->width, sm_ptr->height);
 				sm_ptr->smBuffer->clear();
 				sm_ptr->smBuffer->prepare();
-				sm_ptr->shader->use();
-				sm_ptr->shader->setMat4("viewProj", sm_ptr->viewProj);
-				DrawMesh(*sm_ptr->shader);
+				dirLights[i]->smShader->use();
+				dirLights[i]->smShader->setMat4("viewProj", dirLights[i]->viewProj);
+				DrawMesh(*dirLights[i]->smShader);
 				sm_ptr->smBuffer->colorAttachs[0].texture->genMipmap();
 			}
 		}
@@ -124,12 +124,12 @@ public:
 			if (ptLights[i]->shadow_enabled) {
 				sm_ptr = ptLights[i]->shadowMap;
 				glEnable(GL_DEPTH_TEST);
-				glViewport(0, 0, sm_ptr->width * sm_ptr->resolution, sm_ptr->height * sm_ptr->resolution);
+				glViewport(0, 0, sm_ptr->width, sm_ptr->height);
 				sm_ptr->smBuffer->clear();
 				sm_ptr->smBuffer->prepare();
-				sm_ptr->shader->use();
-				sm_ptr->shader->setMat4("viewProj", sm_ptr->viewProj);
-				DrawMesh(*sm_ptr->shader);
+				ptLights[i]->smShader->use();
+				ptLights[i]->smShader->setMat4("viewProj", ptLights[i]->viewProj);
+				DrawMesh(*ptLights[i]->smShader);
 				sm_ptr->smBuffer->colorAttachs[0].texture->genMipmap();
 			}
 		}
@@ -142,7 +142,6 @@ public:
 		shader.setMat4("model", modelMats[model_index]);
 	}
 	void setVPUniforms(Shader& shader, bool remove_trans = false) {
-		// view/projection transformations
 		glm::mat4 projectionMat = camera->GetProjMatrix();
 		glm::mat4 viewMat = camera->GetViewMatrix();
 		if(remove_trans)
@@ -166,12 +165,9 @@ public:
 			shader.setBool(tmp, dirLights[i]->shadow_enabled);
 			if (dirLights[i]->shadow_enabled) {
 				sprintf(tmp, "dirLights[%d].viewProj", i);
-				shader.setMat4(tmp, dirLights[i]->shadowMap->viewProj);
+				shader.setMat4(tmp, dirLights[i]->viewProj);
 				sprintf(tmp, "dirLights[%d].shadowMap", i);
-				//shader.setTextureSource(tmp, sm_index, dirLights[i]->shadowMap->smBuffer->depthAttach.texture->id);
 				shader.setTextureSource(tmp, sm_index, dirLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->id);
-				sprintf(tmp, "dirLights[%d].resolution", i);
-				shader.setFloat(tmp, dirLights[i]->shadowMap->resolution);
 				sm_index++;
 			}
 		}
@@ -192,12 +188,9 @@ public:
 			shader.setBool(tmp, ptLights[i]->shadow_enabled);
 			if (ptLights[i]->shadow_enabled) {
 				sprintf(tmp, "ptLights[%d].viewProj", i);
-				shader.setMat4(tmp, ptLights[i]->shadowMap->viewProj);
+				shader.setMat4(tmp, ptLights[i]->viewProj);
 				sprintf(tmp, "ptLights[%d].shadowMap", i);
-				//shader.setTextureSource(tmp, sm_index, ptLights[i]->shadowMap->smBuffer->depthAttach.texture->id);
 				shader.setTextureSource(tmp, sm_index, ptLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->id);
-				sprintf(tmp, "ptLights[%d].resolution", i);
-				shader.setFloat(tmp, ptLights[i]->shadowMap->resolution);
 				sm_index++;
 			}
 		}

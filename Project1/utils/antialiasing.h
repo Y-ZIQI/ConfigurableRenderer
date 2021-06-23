@@ -16,7 +16,6 @@ public:
 	Texture* areaTex;
 	Texture* searchTex;
 	uint width, height;
-	float resolution = 1.0f;
 
 	SMAA(uint Width, uint Height) {
 		width = Width; height = Height;
@@ -34,9 +33,6 @@ public:
 		areaTex = Texture::createFromArray(AREATEX_WIDTH, AREATEX_HEIGHT, GL_RG, GL_RG, GL_UNSIGNED_BYTE, areaTexBytes, GL_LINEAR);
 		searchTex = Texture::createFromArray(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, GL_R8, GL_RED, GL_UNSIGNED_BYTE, searchTexBytes, GL_NEAREST);
 	}
-	void setResolution(float resolution) {
-		this->resolution = resolution;
-	}
 	void Draw(Texture* no_aa_image) {
 		edgeDetection(no_aa_image);
 		blendCalculation();
@@ -44,7 +40,6 @@ public:
 	}
 	void edgeDetection(Texture* no_aa_image) {
 		edgePass.shader->use();
-		edgePass.shader->setFloat("resolution", resolution);
 		edgePass.shader->setTextureSource("Texture", 0, no_aa_image->id);
 		edgeBuffer->clear();
 		edgeBuffer->prepare();
@@ -52,7 +47,6 @@ public:
 	}
 	void blendCalculation() {
 		blendPass.shader->use();
-		blendPass.shader->setFloat("resolution", resolution);
 		blendPass.shader->setTextureSource("edgeTex_linear", 0, edgeBuffer->colorAttachs[0].texture->id);
 		blendPass.shader->setTextureSource("areaTex", 1, areaTex->id);
 		blendPass.shader->setTextureSource("searchTex", 2, searchTex->id);
@@ -65,7 +59,6 @@ public:
 	}
 	void neighborBlending(Texture* no_aa_image) {
 		neighborPass.shader->use();
-		neighborPass.shader->setFloat("resolution", resolution);
 		neighborPass.shader->setTextureSource("blendTex", 0, blendBuffer->colorAttachs[0].texture->id);
 		neighborPass.shader->setTextureSource("screenTex", 1, no_aa_image->id);
 		neighborPass.shader->setFloat("width", width);

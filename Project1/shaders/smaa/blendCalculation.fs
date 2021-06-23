@@ -1,4 +1,6 @@
+#ifndef MAX_SEARCH_STEPS
 #define MAX_SEARCH_STEPS 32
+#endif
 
 out vec4 FragColor;
 

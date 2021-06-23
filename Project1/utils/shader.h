@@ -32,18 +32,30 @@ public:
     std::string vertHead = _glsl_version;
     std::string fragHead = _glsl_version;
     std::string geometryHead = _glsl_version;
+    std::vector<DefineList> defs;
+    std::string vertDefs;
+    std::string fragDefs;
+    std::string geometryDefs;
 
     Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr)
     {
-        paths.push_back(vertexPath);
-        paths.push_back(fragmentPath);
+        has_gshader = geometryPath ? true : false;
+        if (has_gshader) {
+            paths.resize(3);
+            defs.resize(3);
+        }
+        else {
+            paths.resize(2);
+            defs.resize(2);
+        }
+        paths[VSHADER] = vertexPath;
+        paths[FSHADER] = fragmentPath;
         readFile(vertexCode, vertexPath);
         readFile(fragmentCode, fragmentPath);
         vertHead += preProcess(vertexCode);
         fragHead += preProcess(fragmentCode);
-        if (geometryPath) {
-            has_gshader = true;
-            paths.push_back(geometryPath);
+        if (has_gshader) {
+            paths[GSHADER] = geometryPath;
             readFile(geometryCode, geometryPath);
             geometryHead += preProcess(geometryCode);
         }
@@ -69,16 +81,14 @@ public:
         }
         return head;
     }
-    void addDefineList(uint shader, DefineList defs) {
-        if (shader == 1) {
-            vertHead += defs.toDefineString();
-        }
-        else if (shader == 2) {
-            fragHead += defs.toDefineString();
-        }
-        else if (shader == 3) {
-            geometryHead += defs.toDefineString();
-        }
+    void setDefineList(uint shader, DefineList ndef) {
+        defs[shader] = ndef;
+    }
+    void addDef(uint shader, const std::string& name, const std::string& val = "") {
+        defs[shader].add(name, val);
+    }
+    void removeDef(uint shader, const std::string& name) {
+        defs[shader].remove(name);
     }
     void createProgram() {
         if (ID != 0)
@@ -123,13 +133,16 @@ public:
             glDeleteShader(geometry);
     }
     void reload() {
-        readFile(vertexCode, paths[0].c_str());
-        readFile(fragmentCode, paths[1].c_str());
-        vertHead = _glsl_version + preProcess(vertexCode);
-        fragHead = _glsl_version + preProcess(fragmentCode);
+        readFile(vertexCode, paths[VSHADER].c_str());
+        readFile(fragmentCode, paths[FSHADER].c_str());
+        vertDefs = defs[VSHADER].toDefineString();
+        fragDefs = defs[FSHADER].toDefineString();
+        vertHead = _glsl_version + vertDefs + preProcess(vertexCode);
+        fragHead = _glsl_version + fragDefs + preProcess(fragmentCode);
         if (has_gshader) {
-            readFile(geometryCode, paths[2].c_str());
-            geometryHead = _glsl_version + preProcess(geometryCode);
+            readFile(geometryCode, paths[GSHADER].c_str());
+            geometryDefs = defs[GSHADER].toDefineString();
+            geometryHead = _glsl_version + geometryDefs + preProcess(geometryCode);
         }
         createProgram();
     }
@@ -235,11 +248,14 @@ public:
     std::vector<Status> status;
 
     ShaderManager() {
-        int shader_amount = _shader_paths.size() / 3;
+        uint shader_amount = _shader_paths.size() / 3;
         shaders.resize(shader_amount);
         status.resize(shader_amount);
-        for (int i = 0; i < shader_amount; i++) {
+        for (uint i = 0; i < shader_amount; i++) {
             shaders[i] = new Shader(_shader_paths[i * 3], _shader_paths[i * 3 + 1], _shader_paths[i * 3 + 2]);
+            //shaders[i]->setDefineList(VSHADER, DefineList(_shader_defs[i * 3]));
+            //shaders[i]->setDefineList(FSHADER, DefineList(_shader_defs[i * 3 + 1]));
+            //shaders[i]->setDefineList(GSHADER, DefineList(_shader_defs[i * 3 + 2]));
             status[i] = Status::Loaded;
         }
     };
@@ -255,7 +271,7 @@ public:
     }
     void reload(int index = -1) {
         if (index == -1) {
-            for (int i = 0; i < shaders.size(); i++) {
+            for (uint i = 0; i < shaders.size(); i++) {
                 shaders[i]->reload();
                 status[i] = Status::Loaded;
             }

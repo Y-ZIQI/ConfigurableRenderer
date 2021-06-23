@@ -1,6 +1,7 @@
 //++`shaders/shading/shading.glsl`
 
-#define SSAO
+//#define SSAO
+//#define SHOW_GRID
 
 out vec4 FragColor;
 
@@ -14,8 +15,6 @@ uniform sampler2D specularTex;
 #ifdef SSAO
 uniform sampler2D aoTex;
 #endif
-
-//#define SHOW_GRID
 
 void main()
 {
@@ -63,4 +62,7 @@ void main()
         //FragColor = vec4(vec3(1.0 - ao), 1.0);
     }
     //FragColor = vec4(normal, 1.0);
+    /*if(TexCoords.x<0.5 && TexCoords.y<0.5){
+        FragColor = sqrt(vec4(texture(dirLights[0].shadowMap, TexCoords * 2.0).rrr, 1.0));
+    }*/
 }

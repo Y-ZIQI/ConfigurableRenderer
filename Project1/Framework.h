@@ -5,6 +5,7 @@ const float values[][3] = {
 	{0.6f, 0.8f, 1.0f},
 	{0.25f, 0.5f, 1.0f}
 };
+const std::vector<uint> sm_width_list{ 512, 1024, 2048 };
 enum Level : uint {
 	level1 = 0,
 	level2,
@@ -61,10 +62,10 @@ public:
 	void onLoad();
 	void onFrameRender();
 	void processInput();
-	void config(uint index);
+	void config(bool force_update);
 	void run();
 
-	Settings settings;
+	Settings settings, stHistory;
 
 private:
 	int width, height;
@@ -75,14 +76,15 @@ private:
 	Camera* camera;
 
 	ScreenPass* resolvePass;
-	ForwardRenderer* fRenderer;
-	DeferredRenderer* dRenderer;
+	std::vector<DeferredRenderer*> dRdrList;
+	std::vector<FrameBuffer*> sFboList;
+	std::vector<SMAA*> smaaList;
 	FrameBuffer* targetFbo;
+	DeferredRenderer* dRenderer;
 	FrameBuffer* screenFbo;
+	SMAA* smaaPass;
 
 	OmnidirectionalPass* oPass;
-
-	SMAA* smaaPass;
 	
 	nanogui::Screen* screen = nullptr;
 	nanogui::FormHelper* gui;
@@ -112,46 +114,82 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
 	gui->addGroup("Status");
 	gui->addVariable("FPS", fps, false);
 	gui->addGroup("Config");
-	gui->addVariable("Renderer", settings.renderer, enabled)->setItems({ "Forward", "Deferred" });
 	gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
 	gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "512", "1024", "2048" });
 	gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "1", "2" });
 	gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "1", "2" });
 }
 
-void RenderFrame::config(uint index) {
-	if (index == 0) {
+void RenderFrame::config(bool force_update = false) {
+	if (settings.resolution != stHistory.resolution || force_update) {
+		stHistory.resolution = settings.resolution;
 		resolution = values[0][settings.resolution];
-		smaaPass->setResolution(resolution);
+		dRenderer = dRdrList[settings.resolution];
+		screenFbo = sFboList[settings.resolution];
+		smaaPass = smaaList[settings.resolution];
 	}
-	else if (index == 1) {
-		float shadow_resolution = values[1][settings.shadow_resolution];
+	if (settings.shadow_resolution != stHistory.shadow_resolution || force_update) {
+		stHistory.shadow_resolution = settings.shadow_resolution;
 		for (int i = 0; i < scene->dirLights.size(); i++)
-			scene->dirLights[i]->setResolution(shadow_resolution);
+			scene->dirLights[i]->setShadowMap(settings.shadow_resolution);
 		for (int i = 0; i < scene->ptLights.size(); i++)
-			scene->ptLights[i]->setResolution(shadow_resolution);
+			scene->ptLights[i]->setShadowMap(settings.shadow_resolution);
 	}
-	else if (index == 2) {
-
+	if (settings.ssao_level != stHistory.ssao_level || force_update) {
+		stHistory.ssao_level = settings.ssao_level;
+		dRdrList[0]->ssao = (uint)settings.ssao_level;
+		dRdrList[1]->ssao = (uint)settings.ssao_level;
+		dRdrList[2]->ssao = (uint)settings.ssao_level;
+		if (settings.ssao_level == level1)
+			sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SSAO");
+		else if (settings.ssao_level == level2) {
+			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
+			sManager.getShader(SID_SSAO)->addDef(FSHADER, "SAMPLE_NUM", "4");
+			sManager.getShader(SID_SSAO)->reload();
+		}
+		else if (settings.ssao_level == level3) {
+			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
+			sManager.getShader(SID_SSAO)->addDef(FSHADER, "SAMPLE_NUM", "16");
+			sManager.getShader(SID_SSAO)->reload();
+		}
+		sManager.getShader(SID_DEFERRED_SHADING)->reload();
 	}
-	else if (index == 3) {
-		dRenderer->ssao = (uint)settings.ssao_level;
+	if (settings.smaa_level != stHistory.smaa_level || force_update) {
+		stHistory.smaa_level = settings.smaa_level;
+		if (settings.smaa_level == level2) {
+			sManager.getShader(SID_SMAA_BLENDPASS)->addDef(VSHADER, "MAX_SEARCH_STEPS", "4");
+			sManager.getShader(SID_SMAA_BLENDPASS)->addDef(FSHADER, "MAX_SEARCH_STEPS", "4");
+		}
+		else if (settings.smaa_level == level3) {
+			sManager.getShader(SID_SMAA_BLENDPASS)->addDef(VSHADER, "MAX_SEARCH_STEPS", "32");
+			sManager.getShader(SID_SMAA_BLENDPASS)->addDef(FSHADER, "MAX_SEARCH_STEPS", "32");
+		}
+		sManager.getShader(SID_SMAA_BLENDPASS)->reload();
 	}
 }
 
 void RenderFrame::onLoad() {
-	dRenderer = new DeferredRenderer(width, height);
-	fRenderer = new ForwardRenderer();
 	targetFbo = new FrameBuffer(true);
-	screenFbo = new FrameBuffer;
-	screenFbo->attachColorTarget(Texture::create(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
-	screenFbo->addDepthStencil(width, height);
+	dRdrList.resize(3);
+	dRdrList[0] = new DeferredRenderer(width * values[0][0], height * values[0][0]);
+	dRdrList[1] = new DeferredRenderer(width * values[0][1], height * values[0][1]);
+	dRdrList[2] = new DeferredRenderer(width, height);
+	sFboList.resize(3);
+	sFboList[0] = new FrameBuffer;
+	sFboList[0]->attachColorTarget(Texture::create(width * values[0][0], height * values[0][0], GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
+	sFboList[1] = new FrameBuffer;
+	sFboList[1]->attachColorTarget(Texture::create(width * values[0][1], height * values[0][1], GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
+	sFboList[2] = new FrameBuffer;
+	sFboList[2]->attachColorTarget(Texture::create(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
 
 	//oPass = new OmnidirectionalPass(1024, 1024);
 	//oPass->setTransforms(glm::vec3(-3.0, 5.0, 0.0), glm::perspective(glm::radians(90.0f), 1.0f, 1.0f, 20.0f));
 	//oPass->setShader(sManager.getShader(SID_CUBEMAP_RENDER));
 
-	smaaPass = new SMAA(width, height);
+	smaaList.resize(3);
+	smaaList[0] = new SMAA(width * values[0][0], height * values[0][0]);
+	smaaList[1] = new SMAA(width * values[0][1], height * values[0][1]);
+	smaaList[2] = new SMAA(width, height);
 	
 	resolvePass = new ScreenPass;
 	Shader* ups_shader = sManager.getShader(SID_UPSAMPLING);
@@ -168,9 +206,9 @@ void RenderFrame::onLoad() {
 			modelmat = glm::scale(modelmat, glm::vec3(0.003, 0.003, 0.003));
 			scene->setModelMat(0, modelmat);
 			DirectionalLight* light1 = new DirectionalLight("light1", glm::vec3(3.0, 3.0, 3.0), glm::vec3(0.6, -0.7, -0.3), glm::vec3(-6.0, 7.0, 3.0), 0.03f);
-			light1->enableShadow(10.0f, 10.0f, 20.0f, 2048, 2048);
+			light1->enableShadow(10.0f, 10.0f, 20.0f, sm_width_list);
 			PointLight* light2 = new PointLight("light2", glm::vec3(15.0, 15.0, 15.0), glm::vec3(-3.0, 5.0, 0.0), glm::vec3(0.3, -0.5, 0.0), 0.03f);
-			light2->enableShadow(90.0f, 0.5f, 20.0f, 2048, 2048);
+			light2->enableShadow(90.0f, 0.5f, 20.0f, sm_width_list);
 			scene->addLight(light1);
 			scene->addLight(light2);
 			light1->addGui(gui);
@@ -198,7 +236,7 @@ void RenderFrame::onLoad() {
 			//PointLight* light5 = new PointLight("FirePitFront3", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(-7.98f, 4.41f, -2.06f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
 			//PointLight* light6 = new PointLight("FirePitFront4", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(-3.10f, 4.41f, 7.86f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
 			scene->addLight(light1);
-			light1->enableShadow(40.0f, 40.0f, 200.0f, 2048, 2048);
+			light1->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
 			scene->addLight(light2);
 			scene->addLight(light3);
 			scene->addLight(light4);
@@ -227,6 +265,8 @@ void RenderFrame::onLoad() {
 	}
 	screen->setVisible(true);
 	screen->performLayout();
+
+	config(true);
 }
 
 void RenderFrame::onFrameRender() {
@@ -238,32 +278,22 @@ void RenderFrame::onFrameRender() {
 	scene->update();
 	targetFbo->clear();
 
-	config(0);
-	config(1);
-	config(3);
+	config();
 	duration = glfw->lastFrame - glfw->recordTime;
 	if (duration >= 0.25f) {
 		fps = (float)(glfw->frame_count - glfw->record_frame) / duration;
 		glfw->record();
 	}
 
-	//oPass->renderScene(*scene, resolution);
-	
-	if (settings.renderer == mode1) {
-		glViewport(0, 0, width * resolution, height * resolution);
-		screenFbo->clear();
-		fRenderer->renderScene(*scene, *screenFbo);
-	}
-	else if (settings.renderer == mode2) {
-		screenFbo->clear();
-		dRenderer->renderScene(*scene, *screenFbo, resolution);
-	}
+	glViewport(0, 0, width * resolution, height * resolution);
+	screenFbo->clear();
+	dRenderer->renderScene(*scene, *screenFbo);
+
 	if(settings.smaa_level != level1)
 		smaaPass->Draw(screenFbo->colorAttachs[0].texture);
 	glViewport(0, 0, width, height);
 	targetFbo->prepare();
 	resolvePass->shader->use();
-	resolvePass->shader->setFloat("resolution", resolution);
 	if (settings.smaa_level == level1)
 		resolvePass->shader->setTextureSource("screenTex", 0, screenFbo->colorAttachs[0].texture->id);
 	else
