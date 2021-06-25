@@ -9,6 +9,7 @@ using namespace std;
 class Scene {
 public:
 	Camera* camera;
+	vector<Camera*> cameras;
 	vector<Model*> models;
 	vector<PointLight*> ptLights;
 	vector<DirectionalLight*> dirLights;
@@ -19,8 +20,10 @@ public:
 	uint envIdx;
 	bool envMap_enabled = false;
 
+	jsonxx::json jscene;
+
 	Scene() {};
-	void setCamera(Camera& newCamera) { camera = &newCamera; };
+	void addCamera(Camera* newCamera) { cameras.push_back(newCamera); }
 	void setCamera(Camera* newCamera) { camera = newCamera; };
 	void addLight(PointLight* nLight) { ptLights.push_back(nLight); };
 	void addLight(DirectionalLight* nLight) { dirLights.push_back(nLight); };
@@ -44,6 +47,88 @@ public:
 		envMaps.push_back(envMap); 
 	};
 	void setEnvMap(uint idx) { envIdx = idx; };
+	void loadScene(string const& path) {
+		try
+		{
+			std::ifstream ifs(path);
+			ifs >> jscene;
+		}
+		catch (std::ifstream::failure& e)
+		{
+			std::cout << "ERROR::SCENE::FILE_NOT_SUCCESFULLY_READ" << std::endl;
+			return;
+		}
+		clearScene();
+		uint mid = 0;
+		auto models = jscene["models"].as_array();
+		for (uint i = 0; i < models.size(); i++) {
+			std::string mpath = models[i]["file"].as_string();
+			std::string directory = path.substr(0, path.find_last_of('/'));
+			mpath = directory + '/' + mpath;
+			auto instances = models[i]["instances"].as_array();
+			for (uint j = 0; j < instances.size(); j++) {
+				loadModel(mpath);
+				auto translation = instances[j]["translation"].as_array();
+				auto scaling = instances[j]["scaling"].as_array();
+				auto rotation = instances[j]["rotation"].as_array();
+				glm::mat4 modelmat = glm::mat4(1.0);
+				modelmat = glm::translate(modelmat, glm::vec3(translation[0].as_float(), translation[1].as_float(), translation[2].as_float()));
+				modelmat = glm::scale(modelmat,glm::vec3(scaling[0].as_float(), scaling[1].as_float(), scaling[2].as_float()));
+				//TODO: Rotate
+				//modelmat = glm::rotate(modelmat, rotation[0], glm::vec3(1.0, 0.0, 0.0));
+				setModelMat(mid++, modelmat);
+			}
+		}
+
+		auto lights = jscene["lights"].as_array();
+		for (uint i = 0; i < lights.size(); i++) {
+			std::string name = lights[i]["name"].as_string();
+			std::string type = lights[i]["type"].as_string();
+			auto intensity = lights[i]["intensity"].as_array();
+			auto direction = lights[i]["direction"].as_array();
+			auto pos = lights[i]["pos"].as_array();
+			float ambient = lights[i]["ambient"].as_float();
+			if (type == "dir_light") {
+				addLight(new DirectionalLight(
+					name,
+					glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
+					glm::vec3(direction[0].as_float(), direction[1].as_float(), direction[2].as_float()),
+					glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
+					ambient));
+			}
+			else if (type == "point_light") {
+				float range = lights[i]["range"].as_float();
+				addLight(new PointLight(
+					name,
+					glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
+					glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
+					glm::vec3(direction[0].as_float(), direction[1].as_float(), direction[2].as_float()),
+					ambient, range));
+			}
+		}
+
+		auto cameras = jscene["cameras"].as_array();
+		for (uint i = 0; i < cameras.size(); i++) {
+			//std::string name = cameras[i]["name"].as_string();
+			auto pos = cameras[i]["pos"].as_array();
+			auto target = cameras[i]["target"].as_array();
+			auto up = cameras[i]["up"].as_array();
+			auto depth_range = cameras[i]["depth_range"].as_array();
+			float focal_length = cameras[i]["focal_length"].as_float();
+			float aspect_ratio = cameras[i]["aspect_ratio"].as_float();
+			Camera* nCamera = new Camera(
+				glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
+				glm::vec3(target[0].as_float(), target[1].as_float(), target[2].as_float()),
+				glm::vec3(up[0].as_float(), up[1].as_float(), up[2].as_float()),
+				focal_length, aspect_ratio, depth_range[0].as_float(), depth_range[1].as_float()
+			);
+			addCamera(nCamera);
+		}
+		setCamera(this->cameras[0]);
+	}
+	void clearScene() {
+		//TODO: clear loaded data
+	};
 	void Draw(Shader& shader, uint blend_mode = 0, bool draw_envmap = true, bool deferred = true) {
 		if (blend_mode == 0) {
 			for (uint i = 0; i < models.size(); i++) {
@@ -140,14 +225,6 @@ public:
 		if (normal_model)
 			shader.setMat3("normal_model", normalModelMats[model_index]);
 		shader.setMat4("model", modelMats[model_index]);
-	}
-	void setVPUniforms(Shader& shader, bool remove_trans = false) {
-		glm::mat4 projectionMat = camera->GetProjMatrix();
-		glm::mat4 viewMat = camera->GetViewMatrix();
-		if(remove_trans)
-			viewMat = glm::mat4(glm::mat3(viewMat));
-		shader.setMat4("projection", projectionMat);
-		shader.setMat4("view", viewMat);
 	}
 	void setLightUniforms(Shader& shader) {
 		shader.setInt("dirLtCount", dirLights.size());

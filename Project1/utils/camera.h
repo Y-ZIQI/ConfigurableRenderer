@@ -55,6 +55,20 @@ public:
         updateCameraVectors();
         updateViewProjMat();
     }
+    Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, float focal_length, float aspect_ratio, float nearz, float farz, float yaw = YAW, float pitch = PITCH)
+    : MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY) {
+        Position = position;
+        WorldUp = up;
+        Front = target - position;
+        Yaw = yaw;
+        Pitch = pitch;
+        Zoom = 60.0f;
+        Aspect = aspect_ratio;
+        nearZ = nearz;
+        farZ = farz;
+        updateCameraVectors();
+        updateViewProjMat();
+    }
     // constructor with scalar values
     Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch)
     : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM), Aspect(ASPECT), nearZ(NEARZ), farZ(FARZ)

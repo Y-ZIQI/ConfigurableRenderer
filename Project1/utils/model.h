@@ -213,18 +213,18 @@ private:
         // normal: texture_normalN
 
         // 1. diffuse maps
-        vector<Texture*> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
+        vector<Texture*> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse", true);
         textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
         // 2. specular maps
-        vector<Texture*> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
+        vector<Texture*> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular", false);
         textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
         // 3. normal maps
         // aiTextureType_HEIGHT are normal maps type if load .obj
         //std::vector<Texture*> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
-        std::vector<Texture*> normalMaps = loadMaterialTextures(material, aiTextureType_NORMALS, "texture_normal");
+        std::vector<Texture*> normalMaps = loadMaterialTextures(material, aiTextureType_NORMALS, "texture_normal", false);
         textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
         // 4. height maps
-        std::vector<Texture*> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
+        std::vector<Texture*> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height", false);
         textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
         
         // return a mesh object created from the extracted mesh data
@@ -233,7 +233,7 @@ private:
 
     // checks all material textures of a given type and loads the textures if they're not loaded yet.
     // the required info is returned as a Texture struct.
-    vector<Texture*> loadMaterialTextures(aiMaterial *mat, aiTextureType type, string typeName)
+    vector<Texture*> loadMaterialTextures(aiMaterial *mat, aiTextureType type, string typeName, bool gammaCorrection = false)
     {
         vector<Texture*> textures;
         for(uint i = 0; i < mat->GetTextureCount(type); i++)
@@ -253,8 +253,8 @@ private:
             }
             if(!skip)
             {   // if texture hasn't been loaded already, load it
-                Texture* texture = Texture::createFromFile(str.C_Str(), this->directory, true, true);
-                //Texture* texture = Texture::createFromFile(str.C_Str(), this->directory, true, false);
+                Texture* texture = Texture::createFromFile(str.C_Str(), this->directory, true, gammaCorrection, true);
+                //Texture* texture = Texture::createFromFile(str.C_Str(), this->directory, true, false, false);
                 texture->type = typeName;
                 texture->path = str.C_Str();
                 textures.push_back(texture);

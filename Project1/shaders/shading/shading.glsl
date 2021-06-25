@@ -36,7 +36,7 @@ struct PointLight{
 #define MAX_DIRECTIONAL_LIGHT 2
 #endif
 #ifndef MAX_POINT_LIGHT
-#define MAX_POINT_LIGHT 6
+#define MAX_POINT_LIGHT 15
 #endif
 
 uniform int dirLtCount;
@@ -59,6 +59,9 @@ uniform PointLight ptLights[MAX_POINT_LIGHT];
 #define EVAL_DIFFUSE
 #define EVAL_SPECULAR
 
+#ifndef SHADING_MODEL
+#define SHADING_MODEL 1
+#endif
 /***************************************Shadow Making******************************************/
 vec2 poissonDisk[NUM_SAMPLES];
 highp float rand_2to1(vec2 uv ) { 
@@ -238,7 +241,7 @@ vec3 evalPtLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.dist = length(ls.posW - sd.posW);
-    float falloff = 2.0 / (ptLights[index].constant + ptLights[index].linear*ls.dist + 3.0*ptLights[index].quadratic*ls.dist*ls.dist);
+    float falloff = 1.0 / (ptLights[index].constant + ptLights[index].linear*ls.dist + ptLights[index].quadratic*ls.dist*ls.dist);
     ls.color = ptLights[index].intensity * falloff;
     vec3 ambient = ptLights[index].ambient * ls.color * sd.diffuse * sd.ao;
     if(visibility < EPS)
@@ -255,6 +258,7 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     sd.lineardep = position.w;
     sd.ao = 1.0 - ao;
 
+    #if SHADING_MODEL == 1
     // Shading Model Metal Rough
     float IoR = 1.5;
     float f = (IoR - 1.0) / (IoR + 1.0);
@@ -263,7 +267,16 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     sd.metallic = specColor.b;
     sd.specular = mix(F0, baseColor.rgb, specColor.b);
     sd.linearRoughness = specColor.g;
-    sd.ggxAlpha = max(0.0064, specColor.g * specColor.g);
+    sd.ggxAlpha = max(0.0064, sd.linearRoughness * sd.linearRoughness);
+    #elif SHADING_MODEL == 2
+    sd.diffuse = baseColor.rgb;
+    sd.specular = specColor.rgb;
+    sd.linearRoughness = 0.0;
+    sd.ggxAlpha = 0.0;
+    //sd.metallic = specColor.b;
+    //sd.linearRoughness = 1 - specColor.a;
+    //sd.ggxAlpha = max(0.0064, specColor.g * specColor.g);
+    #endif
 
     vec3 color = vec3(0.0, 0.0, 0.0);    
     int count = min(dirLtCount, MAX_DIRECTIONAL_LIGHT);

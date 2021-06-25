@@ -43,9 +43,10 @@ void main()
     if(has_normalmap){
         //vec3 normal = sampleTexture(texture_normal1, TexCoords).rgb;
         vec3 normal = vec3(sampleTexture(texture_normal1, TexCoords).rg, 0.0);
-        normal.z = sqrt(1.0 - dot(normal, normal));
 
-        normal = normal * 2.0 - 1.0;
+        normal.z = sqrt(1.0 - clamp(dot(normal, normal), 0.0, 1.0));
+        normal.xy = normal.xy * 2.0 - 1.0;
+
         fNormal = vec4(normalize(TBN * normal), alpha);
     }else{
         fNormal = vec4(normalize(TBN[2]), alpha);

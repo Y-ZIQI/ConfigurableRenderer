@@ -15,6 +15,9 @@ uniform mat4 camera_vp;
 void main()
 {
     TBN = normal_model * mat3(aTangent, aBitangent, aNormal);
+    TBN[0] = normalize(TBN[0]);
+    TBN[1] = normalize(TBN[1]);
+    TBN[2] = normalize(TBN[2]);
     TexCoords = aTexCoords;
     vec4 _WorldPos = model * vec4(aPos, 1.0);
     WorldPos = _WorldPos.xyz / _WorldPos.w;

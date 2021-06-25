@@ -95,6 +95,7 @@ public:
         const char* path,
         const std::string& directory = "",
         bool genMipmap = true,
+        bool gammaCorrection = false,
         bool filp_vertically_on_load = true
     ) {
         std::string p = std::string(path);
@@ -102,7 +103,7 @@ public:
 
         std::string extname = p.substr(p.rfind('.', p.size()) + 1);
         if (extname == "dds") {
-            TexProps tp = load_dds_textures(filename.c_str(), genMipmap);
+            TexProps tp = load_dds_textures(filename.c_str(), genMipmap, gammaCorrection);
             if (tp.id == -1) return nullptr;
             Texture* tex = new Texture;
             tex->id = tp.id;
@@ -118,15 +119,14 @@ public:
         if (data)
         {
             Texture* tex = new Texture;
-            GLenum format;
-            if (nrComponents == 1) format = GL_RED;
-            else if (nrComponents == 3) format = GL_RGB;
-            else if (nrComponents == 4) format = GL_RGBA;
+            GLenum format, internalformat;
+            internalformat = nrComponents == 1 ? GL_RED : nrComponents == 3 ? GL_RGB : GL_RGBA;
+            format = gammaCorrection ? (nrComponents == 3 ? GL_SRGB : GL_SRGB_ALPHA) : internalformat;
             tex->format = format;
 
             glGenTextures(1, &tex->id);
             glBindTexture(GL_TEXTURE_2D, tex->id);
-            glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+            glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, internalformat, GL_UNSIGNED_BYTE, data);
             tex->width = width; tex->height = height;
             tex->target = GL_TEXTURE_2D;
             if (genMipmap)

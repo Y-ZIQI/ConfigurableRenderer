@@ -17,11 +17,6 @@ enum Mode : uint {
 };
 class Settings {
 public:
-	/** Renderer
-	* 1: forward
-	* 2: deferred
-	*/
-	Mode renderer;
 	/** Resolution ratio
 	* 1: 60%
 	* 2: 80%
@@ -36,10 +31,16 @@ public:
 	Level shadow_resolution;
 	/** SSAO level
 	* 1: no SSAO
-	* 2: has SSAO
-	* 3: TODO
+	* 2: SSAO sample 4
+	* 3: SSAO sample 16
 	*/
 	Level ssao_level;
+	/** Shading
+	* 1: TODO: 
+	* 2: TODO: 
+	* 3: TODO: 
+	*/
+	Level shading;
 	/** SMAA level
 	* 1: no SMAA
 	* 2: has SMAA
@@ -48,10 +49,10 @@ public:
 	Level smaa_level;
 
 	Settings() {
-		renderer = mode2;
 		resolution = level3;
 		shadow_resolution = level3;
 		ssao_level = level1;
+		shading = level1;
 		smaa_level = level1;
 	}
 };
@@ -116,6 +117,7 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
 	gui->addGroup("Config");
 	gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
 	gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "512", "1024", "2048" });
+	gui->addVariable("Shading", settings.shading, enabled)->setItems({ "1", "2", "3" });
 	gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "1", "2" });
 	gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "1", "2" });
 }
@@ -134,6 +136,22 @@ void RenderFrame::config(bool force_update = false) {
 			scene->dirLights[i]->setShadowMap(settings.shadow_resolution);
 		for (int i = 0; i < scene->ptLights.size(); i++)
 			scene->ptLights[i]->setShadowMap(settings.shadow_resolution);
+	}
+	if (settings.shading != stHistory.shading || force_update) {
+		stHistory.shading = settings.shading;
+		if (settings.shading == level1) {
+			//sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "EVAL_SPECULAR");
+			//sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "EVAL_SPECULAR");
+			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADING_MODEL", "1");
+		}
+		else if (settings.shading == level2) {
+			//sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "EVAL_SPECULAR");
+			//sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "EVAL_SPECULAR");
+			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADING_MODEL", "2");
+		}
+		else if (settings.shading == level3) {
+		}
+		sManager.getShader(SID_DEFERRED_SHADING)->reload();
 	}
 	if (settings.ssao_level != stHistory.ssao_level || force_update) {
 		stHistory.ssao_level = settings.ssao_level;
@@ -221,33 +239,12 @@ void RenderFrame::onLoad() {
 		}
 		else if (test_scene == 2) {
 			/***************************SunTemple*********************************/
-			scene->loadModel("resources/SunTemple/SunTemple.fbx");
-			glm::mat4 modelmat = glm::mat4(1.0);
-			modelmat = glm::scale(modelmat, glm::vec3(0.01, 0.01, 0.01));
-			scene->setModelMat(0, modelmat);
-			DirectionalLight* light1 = new DirectionalLight("SunLight", glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.86f, -0.12f, 0.50f), glm::vec3(-8.60f, 1.20f, -5.0f), 0.05f);
-			PointLight* light2 = new PointLight("FirePitBackHall1", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(1.64f, 2.45f, 70.86f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			PointLight* light3 = new PointLight("FirePitBackHall2", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(-1.45f, 2.45f, 70.86f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			PointLight* light4 = new PointLight("FirePitBackHall3", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(-2.09f, 2.45f, 50.81f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			PointLight* light5 = new PointLight("FireBowlBackHall", glm::vec3(1.0f, 0.08f, 0.0f), glm::vec3(0.0f, 1.72f, 58.02f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			PointLight* light6 = new PointLight("FirePitBackHallEntrance1", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(-7.14f, 2.45f, 43.18f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			//PointLight* light3 = new PointLight("FirePitFront1", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(7.90f, 4.41f, -2.15f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			//PointLight* light4 = new PointLight("FirePitFront2", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(2.11f, 4.41f, -7.97f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			//PointLight* light5 = new PointLight("FirePitFront3", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(-7.98f, 4.41f, -2.06f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			//PointLight* light6 = new PointLight("FirePitFront4", glm::vec3(1.0f, 0.24f, 0.08f), glm::vec3(-3.10f, 4.41f, 7.86f), glm::vec3(0.0f, -1.0f, 0.0f), 0.05f, 20.0f);
-			scene->addLight(light1);
-			light1->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
-			scene->addLight(light2);
-			scene->addLight(light3);
-			scene->addLight(light4);
-			scene->addLight(light5);
-			scene->addLight(light6);
-			light1->addGui(gui);
-
-			camera = new Camera(glm::vec3(0.0f, 3.2f, 71.1f));
+			scene->loadScene("resources/SunTemple/SunTemple.json");
+			camera = scene->camera;
 			camera->setPerspective((float)width / (float)height, 0.01f, 100.0f);
-			camera->addGui(gui);
-			scene->setCamera(camera);
+			scene->camera->addGui(gui);
+			scene->dirLights[0]->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
+			scene->dirLights[0]->addGui(gui);
 		}
 
 		std::vector<std::string> skybox_path

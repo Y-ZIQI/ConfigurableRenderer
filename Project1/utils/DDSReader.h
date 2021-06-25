@@ -82,7 +82,7 @@ struct TexProps {
     uint width, height;
 };
 
-bool gl_load_dds(TexProps &props, GLvoid *pBuffer, const char* path, bool genMipmap)
+bool gl_load_dds(TexProps &props, GLvoid *pBuffer, const char* path, bool genMipmap, bool gammaCorrection)
 {
     DDS_FILEHEADER    *header;
     DWORD            compressFormat;
@@ -129,27 +129,32 @@ bool gl_load_dds(TexProps &props, GLvoid *pBuffer, const char* path, bool genMip
     props.width = header->Header.dwWidth;
     props.height = header->Header.dwHeight;
 
+    GLenum format;
     switch (compressFormat)
     {
     case D3DFMT_DXT1:
-        props.format = GL_RGB;
+        props.format = gammaCorrection ? GL_SRGB : GL_RGB;
+        format = gammaCorrection ? GL_COMPRESSED_SRGB_S3TC_DXT1_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
         imageSize = SIZE_OF_DXT1(header->Header.dwWidth, header->Header.dwHeight);
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, header->Header.dwWidth, header->Header.dwHeight, 0, imageSize, data);
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, format, header->Header.dwWidth, header->Header.dwHeight, 0, imageSize, data);
         break;
     case D3DFMT_DXT3:
-        props.format = GL_RGBA;
+        props.format = gammaCorrection ? GL_SRGB_ALPHA : GL_RGBA;
+        format = gammaCorrection ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
         imageSize = SIZE_OF_DXT2(header->Header.dwWidth, header->Header.dwHeight);
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT3_EXT, header->Header.dwWidth, header->Header.dwHeight, 0, imageSize, data);
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, format, header->Header.dwWidth, header->Header.dwHeight, 0, imageSize, data);
         break;
     case D3DFMT_DXT5:
-        props.format = GL_RGBA;
+        props.format = gammaCorrection ? GL_SRGB_ALPHA : GL_RGBA;
+        format = gammaCorrection ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
         imageSize = SIZE_OF_DXT2(header->Header.dwWidth, header->Header.dwHeight);
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, header->Header.dwWidth, header->Header.dwHeight, 0, imageSize, data);
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, format, header->Header.dwWidth, header->Header.dwHeight, 0, imageSize, data);
         break;
     case D3DFMT_ATI2:
         props.format = GL_RG;
+        format = GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
         imageSize = SIZE_OF_DXT2(header->Header.dwWidth, header->Header.dwHeight);
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RED_GREEN_RGTC2_EXT, header->Header.dwWidth, header->Header.dwHeight, 0, imageSize, data);
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, format, header->Header.dwWidth, header->Header.dwHeight, 0, imageSize, data);
         break;
     }
 
@@ -168,7 +173,7 @@ bool gl_load_dds(TexProps &props, GLvoid *pBuffer, const char* path, bool genMip
     return true;
 }
 
-TexProps load_dds_textures(const char* path, bool genMipmap)
+TexProps load_dds_textures(const char* path, bool genMipmap, bool gammaCorrection)
 {
     FILE    *fp;
     int     size;
@@ -199,7 +204,7 @@ TexProps load_dds_textures(const char* path, bool genMipmap)
     fclose(fp);
 
     // Load DDS to GL texture
-    bool success = gl_load_dds(t, data, path, genMipmap);
+    bool success = gl_load_dds(t, data, path, genMipmap, gammaCorrection);
     free(data);
 
     if (success)
