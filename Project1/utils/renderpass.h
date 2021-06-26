@@ -138,6 +138,8 @@ public:
 
 	uint ssao = 0;
 
+	Record record[2]; // Shading, AO
+
 	DeferredRenderer(uint Width, uint Height) {
 		width = Width; height = Height;
 		gBuffer = new FrameBuffer;
@@ -185,17 +187,21 @@ public:
 		basePass.renderScene(scene, 0, true, true);
 	}
 	void renderAO(Scene& scene) {
+		record[0].start();
 		ssaoPass.shader->use();
 		aoBuffer->clear();
 		aoBuffer->prepare();
 		setSSAOUniforms(scene, 16);
 		ssaoPass.render();
+		record[0].stop();
 	}
 	void renderScreen(Scene& scene, FrameBuffer& fbo) {
+		record[1].start();
 		shadingPass.shader->use();
 		fbo.prepare();
 		setShadingUniforms(scene);
 		shadingPass.render();
+		record[1].stop();
 	}
 	void renderScene(Scene& scene, FrameBuffer& fbo) {
 		renderGeometry(scene);

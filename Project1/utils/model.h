@@ -32,6 +32,8 @@ public:
     string directory;
     bool gammaCorrection;
 
+    glm::mat4 model_mat;
+
     // constructor, expects a filepath to a 3D model.
     Model(string const &path, bool gamma = false) : gammaCorrection(gamma)
     {
@@ -39,10 +41,10 @@ public:
     }
 
     // draws the model, and thus all its meshes
-    void Draw(Shader &shader)
+    void Draw(Shader &shader, bool pre_cut_off = false, glm::mat4 model_mat = glm::mat4(1.0), glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
     {
         for(uint i = 0; i < meshes.size(); i++)
-            meshes[i]->Draw(shader);
+            meshes[i]->Draw(shader, pre_cut_off, model_mat, camera_pos, camera_front);
     }
     void DrawOpaque(Shader& shader) {
         glDisable(GL_BLEND);
@@ -69,6 +71,11 @@ public:
             tOrder[i] = { i, (transform * glm::vec4(meshes[tIndex[i]]->aabb.center, 1.0f)).z };
         }
         std::sort(tOrder.begin(), tOrder.end(), [](T_Ptr a, T_Ptr b) { return a.dist >= b.dist; });
+    }
+    void setModelMat(glm::mat4 new_mat) {
+        model_mat = new_mat;
+        for (uint i = 0; i < meshes.size(); i++)
+            meshes[i]->setModelMat(new_mat);
     }
     
 private:

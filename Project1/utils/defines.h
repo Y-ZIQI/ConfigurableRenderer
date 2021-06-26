@@ -143,3 +143,23 @@ const float _envMapVertices[] = {
 };
 uint _envmap_vao, _envmap_vbo;
 bool is_envmap_vao_initialized = false;
+
+struct Record {
+    float time = 0.0f, time_last = 0.0f, time_current = 0.0f;
+    void start() {
+        time_current = glfwGetTime();
+    }
+    void stop() {
+        time_last = time_current;
+        time_current = glfwGetTime();
+        time += time_current - time_last;
+    }
+    void clear() {
+        time = time_last = time_current = 0.0f;
+    }
+    float getTime(bool is_clear = true) {
+        float rtime = time;
+        if (is_clear) clear();
+        return rtime;
+    }
+};

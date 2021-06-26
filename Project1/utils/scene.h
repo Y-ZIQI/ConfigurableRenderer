@@ -22,6 +22,8 @@ public:
 
 	jsonxx::json jscene;
 
+	Record record[2]; // GenShadow, Draw
+
 	Scene() {};
 	void addCamera(Camera* newCamera) { cameras.push_back(newCamera); }
 	void setCamera(Camera* newCamera) { camera = newCamera; };
@@ -41,6 +43,7 @@ public:
 			return;
 		modelMats[idx] = nMat;
 		normalModelMats[idx] = glm::transpose(glm::inverse(glm::mat3(nMat)));
+		models[idx]->setModelMat(nMat);
 	}
 	void addEnvMap(Texture* envMap) {
 		if (!envMap_enabled) envMap_enabled = true;
@@ -130,10 +133,12 @@ public:
 		//TODO: clear loaded data
 	};
 	void Draw(Shader& shader, uint blend_mode = 0, bool draw_envmap = true, bool deferred = true) {
+		record[1].start();
 		if (blend_mode == 0) {
 			for (uint i = 0; i < models.size(); i++) {
 				setModelUniforms(shader, i);
-				models[i]->Draw(shader);
+				models[i]->Draw(shader, false);
+				//models[i]->Draw(shader, true, modelMats[i], camera->Position, camera->Front);
 			}
 			if (draw_envmap && envMap_enabled && envIdx >= 0)
 				DrawEnvMap(*sManager.getShader(deferred ? SID_DEFERRED_ENVMAP : SID_FORWARD_ENVMAP));
@@ -151,6 +156,7 @@ public:
 				models[i]->DrawTransparent(shader);
 			}
 		}
+		record[1].stop();
 	}
 	void DrawMesh(Shader& shader) {
 		for (uint i = 0; i < models.size(); i++) {
@@ -181,12 +187,14 @@ public:
 		glDepthFunc(GL_LESS);
 	}
 	void update() {
+		record[0].start();
 		camera->update();
 		for (int i = 0; i < dirLights.size(); i++)
 			dirLights[i]->update();
 		for (int i = 0; i < ptLights.size(); i++)
 			ptLights[i]->update();
 		genShadow();
+		record[0].stop();
 	}
 	void genShadow(bool cull_front = false) {
 		if(cull_front)

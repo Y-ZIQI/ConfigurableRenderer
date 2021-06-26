@@ -10,6 +10,8 @@
 #undef max(a,b)
 #endif
 
+#define DOTVEC3(a,b) ((a[0]*b[0])+(a[1]*b[1])+(a[2]*b[2]))
+
 using namespace std;
 
 struct Vertex {
@@ -36,11 +38,15 @@ public:
     struct AABB {
         glm::vec3 minB, maxB; // min and max bound for XYZ
         glm::vec3 center;
+        glm::vec3 points[8];
     };
 
     // Properties
     uint alphaMode;
-    AABB aabb;
+    bool has_aabb = false;
+    AABB aabb, aabb_transform;
+
+    glm::mat4 model_mat;
 
     // constructor
     Mesh(vector<Vertex> vertices, vector<uint> indices, vector<Texture*> textures)
@@ -51,12 +57,25 @@ public:
 
         setupMesh();
         //setupProperities();
-        //setupAABB();
+        setupAABB();
     }
 
     // render the mesh
-    void Draw(Shader &shader) 
+    void Draw(Shader &shader, bool pre_cut_off = false, glm::mat4 model_mat = glm::mat4(1.0), glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
     {
+        // Pre cut off
+        if (pre_cut_off && has_aabb) {
+            bool is_cut_off = true;
+            for (uint i = 0; i < 8; i++) {
+                glm::vec3 vec = aabb_transform.points[i] - camera_pos;
+                if (DOTVEC3(vec, camera_front) > 0.0f) {
+                    is_cut_off = false;
+                    break;
+                }
+            }
+            if (is_cut_off)
+                return;
+        }
         // bind appropriate textures
         uint diffuseNr  = 1;
         uint specularNr = 1;
@@ -96,6 +115,14 @@ public:
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
+    }
+    void setModelMat(glm::mat4 new_mat) {
+        model_mat = new_mat;
+        aabb_transform.minB = glm::vec3(new_mat * glm::vec4(aabb.minB, 1.0));
+        aabb_transform.maxB = glm::vec3(new_mat * glm::vec4(aabb.maxB, 1.0));
+        aabb_transform.center = glm::vec3(new_mat * glm::vec4(aabb.center, 1.0));
+        for (uint i = 0; i < 8; i++)
+            aabb_transform.points[i] = glm::vec3(new_mat * glm::vec4(aabb.points[i], 1.0));
     }
 
 private:
@@ -148,19 +175,28 @@ private:
     }
     void setupAABB() {
         // Center defined by (min+max)/2
-        /*aabb = { vertices[0].Position ,vertices[0].Position ,glm::vec3(0.5f, 0.5f, 0.5f) };
+        aabb = { vertices[0].Position ,vertices[0].Position ,glm::vec3(0.5f, 0.5f, 0.5f) };
         for (uint i = 1; i < vertices.size(); i++) {
             aabb.minB = glm::min(aabb.minB, vertices[i].Position);
             aabb.maxB = glm::max(aabb.maxB, vertices[i].Position);
         }
-        aabb.center *= aabb.minB + aabb.maxB;*/
+        aabb.center *= aabb.minB + aabb.maxB;
         // Center defined by centroid
-        aabb = { vertices[0].Position ,vertices[0].Position ,glm::vec3(0.0f, 0.0f, 0.0f) };
+        /*aabb = { vertices[0].Position ,vertices[0].Position ,glm::vec3(0.0f, 0.0f, 0.0f) };
         for (uint i = 1; i < vertices.size(); i++) {
             aabb.minB = glm::min(aabb.minB, vertices[i].Position);
             aabb.maxB = glm::max(aabb.maxB, vertices[i].Position);
             aabb.center += vertices[i].Position;
         }
-        aabb.center /= (float)vertices.size();
+        aabb.center /= (float)vertices.size();*/
+        aabb.points[0] = aabb.minB;
+        aabb.points[1] = glm::vec3(aabb.minB[0], aabb.minB[1], aabb.maxB[2]);
+        aabb.points[2] = glm::vec3(aabb.minB[0], aabb.maxB[1], aabb.minB[2]);
+        aabb.points[3] = glm::vec3(aabb.minB[0], aabb.maxB[1], aabb.maxB[2]);
+        aabb.points[4] = glm::vec3(aabb.maxB[0], aabb.minB[1], aabb.minB[2]);
+        aabb.points[5] = glm::vec3(aabb.maxB[0], aabb.minB[1], aabb.maxB[2]);
+        aabb.points[6] = glm::vec3(aabb.maxB[0], aabb.maxB[1], aabb.minB[2]);
+        aabb.points[7] = aabb.maxB;
+        has_aabb = true;
     }
 };

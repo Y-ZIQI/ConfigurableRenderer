@@ -100,6 +100,8 @@ private:
 	*/
 	uint test_scene = 2;
 	float fps, duration;
+	Record record[2]; // All, SMAA+resolve
+	float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
 };
 
 RenderFrame::RenderFrame(int width, int height, const char* title) {
@@ -114,6 +116,11 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
 	nanoguiWindow = gui->addWindow(Eigen::Vector2i(10, 10), "Demo");
 	gui->addGroup("Status");
 	gui->addVariable("FPS", fps, false);
+	gui->addVariable("Shadow", time_ratio[0], false);
+	gui->addVariable("Draw", time_ratio[1], false);
+	gui->addVariable("Shading", time_ratio[2], false);
+	gui->addVariable("AO", time_ratio[3], false);
+	gui->addVariable("Post", time_ratio[4], false);
 	gui->addGroup("Config");
 	gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
 	gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "512", "1024", "2048" });
@@ -280,12 +287,18 @@ void RenderFrame::onFrameRender() {
 	if (duration >= 0.25f) {
 		fps = (float)(glfw->frame_count - glfw->record_frame) / duration;
 		glfw->record();
+		time_ratio[0] = scene->record[0].getTime() / duration;
+		time_ratio[1] = scene->record[1].getTime() / duration;
+		time_ratio[2] = dRenderer->record[0].getTime() / duration;
+		time_ratio[3] = dRenderer->record[1].getTime() / duration;
+		time_ratio[4] = record[1].getTime() / duration;
 	}
 
 	glViewport(0, 0, width * resolution, height * resolution);
 	screenFbo->clear();
 	dRenderer->renderScene(*scene, *screenFbo);
 
+	record[1].start();
 	if(settings.smaa_level != level1)
 		smaaPass->Draw(screenFbo->colorAttachs[0].texture);
 	glViewport(0, 0, width, height);
@@ -296,6 +309,7 @@ void RenderFrame::onFrameRender() {
 	else
 		resolvePass->shader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
 	resolvePass->render();
+	record[1].stop();
 }
 
 void RenderFrame::processInput() {
@@ -340,6 +354,7 @@ void RenderFrame::processInput() {
 void RenderFrame::run() {
 	while (!glfwWindowShouldClose(glfw->window))
 	{
+		record[0].start();
 		glfw->updateTime();
 		glfw->processInput();
 		processInput();
@@ -351,6 +366,7 @@ void RenderFrame::run() {
 
 		glfwSwapBuffers(glfw->window);
 		glfwPollEvents();
+		record[0].stop();
 	}
 	glfwTerminate();
 }
