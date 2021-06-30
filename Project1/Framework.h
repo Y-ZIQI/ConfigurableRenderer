@@ -35,6 +35,12 @@ public:
 	* 3: SSAO sample 16
 	*/
 	Level ssao_level;
+	/** SSR level
+	* 1: no SSR
+	* 2: SSR
+	* 3: TODO
+	*/
+	Level ssr_level;
 	/** Shading
 	* 1: TODO: 
 	* 2: TODO: 
@@ -43,8 +49,8 @@ public:
 	Level shading;
 	/** SMAA level
 	* 1: no SMAA
-	* 2: has SMAA
-	* 3: TODO
+	* 2: search step 4
+	* 3: search step 32
 	*/
 	Level smaa_level;
 
@@ -52,6 +58,7 @@ public:
 		resolution = level3;
 		shadow_resolution = level3;
 		ssao_level = level1;
+		ssr_level = level1;
 		shading = level1;
 		smaa_level = level1;
 	}
@@ -78,7 +85,6 @@ private:
 
 	ScreenPass* resolvePass;
 	std::vector<DeferredRenderer*> dRdrList;
-	std::vector<FrameBuffer*> sFboList;
 	std::vector<SMAA*> smaaList;
 	FrameBuffer* targetFbo;
 	DeferredRenderer* dRenderer;
@@ -100,7 +106,7 @@ private:
 	*/
 	uint test_scene = 2;
 	float fps, duration;
-	Record record[2]; // All, SMAA+resolve
+	TimeRecord record[2]; // All, SMAA+resolve
 	float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
 };
 
@@ -108,6 +114,9 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
 	this->width = width;
 	this->height = height;
 	glfw = new GLFWENV(width, height, title, true);
+
+	frame_record.init();
+	sManager.init();
 	
 	screen = new nanogui::Screen();
 	screen->initialize(glfw->window, true);
@@ -116,16 +125,15 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
 	nanoguiWindow = gui->addWindow(Eigen::Vector2i(10, 10), "Demo");
 	gui->addGroup("Status");
 	gui->addVariable("FPS", fps, false);
-	gui->addVariable("Shadow", time_ratio[0], false);
-	gui->addVariable("Draw", time_ratio[1], false);
-	gui->addVariable("Shading", time_ratio[2], false);
-	gui->addVariable("AO", time_ratio[3], false);
-	gui->addVariable("Post", time_ratio[4], false);
+	gui->addVariable("Triangles", frame_record.triangles, false);
+	gui->addVariable("Draw Calls", frame_record.draw_calls, false);
+	gui->addVariable("Texture Samples", frame_record.texture_samples, false);
 	gui->addGroup("Config");
 	gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
 	gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "512", "1024", "2048" });
 	gui->addVariable("Shading", settings.shading, enabled)->setItems({ "1", "2", "3" });
 	gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "1", "2" });
+	gui->addVariable("SSR Level", settings.ssr_level, enabled)->setItems({ "Disable", "1", "2" });
 	gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "1", "2" });
 }
 
@@ -134,7 +142,7 @@ void RenderFrame::config(bool force_update = false) {
 		stHistory.resolution = settings.resolution;
 		resolution = values[0][settings.resolution];
 		dRenderer = dRdrList[settings.resolution];
-		screenFbo = sFboList[settings.resolution];
+		screenFbo = dRenderer->screenBuffer;
 		smaaPass = smaaList[settings.resolution];
 	}
 	if (settings.shadow_resolution != stHistory.shadow_resolution || force_update) {
@@ -147,13 +155,9 @@ void RenderFrame::config(bool force_update = false) {
 	if (settings.shading != stHistory.shading || force_update) {
 		stHistory.shading = settings.shading;
 		if (settings.shading == level1) {
-			//sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "EVAL_SPECULAR");
-			//sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "EVAL_SPECULAR");
 			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADING_MODEL", "1");
 		}
 		else if (settings.shading == level2) {
-			//sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "EVAL_SPECULAR");
-			//sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "EVAL_SPECULAR");
 			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADING_MODEL", "2");
 		}
 		else if (settings.shading == level3) {
@@ -179,6 +183,12 @@ void RenderFrame::config(bool force_update = false) {
 		}
 		sManager.getShader(SID_DEFERRED_SHADING)->reload();
 	}
+	if (settings.ssr_level != stHistory.ssr_level || force_update) {
+		stHistory.ssr_level = settings.ssr_level;
+		dRdrList[0]->ssr = (uint)settings.ssr_level;
+		dRdrList[1]->ssr = (uint)settings.ssr_level;
+		dRdrList[2]->ssr = (uint)settings.ssr_level;
+	}
 	if (settings.smaa_level != stHistory.smaa_level || force_update) {
 		stHistory.smaa_level = settings.smaa_level;
 		if (settings.smaa_level == level2) {
@@ -199,14 +209,7 @@ void RenderFrame::onLoad() {
 	dRdrList[0] = new DeferredRenderer(width * values[0][0], height * values[0][0]);
 	dRdrList[1] = new DeferredRenderer(width * values[0][1], height * values[0][1]);
 	dRdrList[2] = new DeferredRenderer(width, height);
-	sFboList.resize(3);
-	sFboList[0] = new FrameBuffer;
-	sFboList[0]->attachColorTarget(Texture::create(width * values[0][0], height * values[0][0], GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
-	sFboList[1] = new FrameBuffer;
-	sFboList[1]->attachColorTarget(Texture::create(width * values[0][1], height * values[0][1], GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
-	sFboList[2] = new FrameBuffer;
-	sFboList[2]->attachColorTarget(Texture::create(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
-
+	
 	//oPass = new OmnidirectionalPass(1024, 1024);
 	//oPass->setTransforms(glm::vec3(-3.0, 5.0, 0.0), glm::perspective(glm::radians(90.0f), 1.0f, 1.0f, 20.0f));
 	//oPass->setShader(sManager.getShader(SID_CUBEMAP_RENDER));
@@ -222,7 +225,6 @@ void RenderFrame::onLoad() {
 
 	{
 		scene = new Scene;
-		//scene->loadModel("resources/Arcade/Arcade.fbx");
 		if (test_scene == 1) {
 			/***************************Bistro*********************************/
 			scene->loadModel("resources/Bistro/BistroExterior.fbx");
@@ -253,19 +255,6 @@ void RenderFrame::onLoad() {
 			scene->dirLights[0]->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
 			scene->dirLights[0]->addGui(gui);
 		}
-
-		std::vector<std::string> skybox_path
-		{
-			"resources/textures/skybox/posx.jpg",
-			"resources/textures/skybox/negx.jpg",
-			"resources/textures/skybox/posy.jpg",
-			"resources/textures/skybox/negy.jpg",
-			"resources/textures/skybox/posz.jpg",
-			"resources/textures/skybox/negz.jpg"
-		};
-		Texture* skybox = Texture::createCubeMapFromFile(skybox_path, false);
-		scene->addEnvMap(skybox);
-		scene->setEnvMap(0);
 	}
 	screen->setVisible(true);
 	screen->performLayout();
@@ -279,6 +268,7 @@ void RenderFrame::onFrameRender() {
 	glCullFace(GL_BACK);
 	glFrontFace(GL_CCW);
 
+	frame_record.clear();
 	scene->update();
 	targetFbo->clear();
 
@@ -287,18 +277,12 @@ void RenderFrame::onFrameRender() {
 	if (duration >= 0.25f) {
 		fps = (float)(glfw->frame_count - glfw->record_frame) / duration;
 		glfw->record();
-		time_ratio[0] = scene->record[0].getTime() / duration;
-		time_ratio[1] = scene->record[1].getTime() / duration;
-		time_ratio[2] = dRenderer->record[0].getTime() / duration;
-		time_ratio[3] = dRenderer->record[1].getTime() / duration;
-		time_ratio[4] = record[1].getTime() / duration;
+		time_ratio[0] = record[0].getTime() / duration;
 	}
 
 	glViewport(0, 0, width * resolution, height * resolution);
-	screenFbo->clear();
-	dRenderer->renderScene(*scene, *screenFbo);
+	dRenderer->renderScene(*scene);
 
-	record[1].start();
 	if(settings.smaa_level != level1)
 		smaaPass->Draw(screenFbo->colorAttachs[0].texture);
 	glViewport(0, 0, width, height);
@@ -309,7 +293,9 @@ void RenderFrame::onFrameRender() {
 	else
 		resolvePass->shader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
 	resolvePass->render();
-	record[1].stop();
+	frame_record.get();
+	frame_record.triangles += 2;
+	frame_record.draw_calls += 1;
 }
 
 void RenderFrame::processInput() {
@@ -354,6 +340,7 @@ void RenderFrame::processInput() {
 void RenderFrame::run() {
 	while (!glfwWindowShouldClose(glfw->window))
 	{
+		record[0].stop();
 		record[0].start();
 		glfw->updateTime();
 		glfw->processInput();
@@ -366,7 +353,6 @@ void RenderFrame::run() {
 
 		glfwSwapBuffers(glfw->window);
 		glfwPollEvents();
-		record[0].stop();
 	}
 	glfwTerminate();
 }

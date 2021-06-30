@@ -129,6 +129,8 @@ public:
             glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, internalformat, GL_UNSIGNED_BYTE, data);
             tex->width = width; tex->height = height;
             tex->target = GL_TEXTURE_2D;
+
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, _max_anisotropy);
             if (genMipmap)
                 glGenerateMipmap(GL_TEXTURE_2D);
             if (genMipmap)

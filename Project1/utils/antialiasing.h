@@ -37,6 +37,8 @@ public:
 		edgeDetection(no_aa_image);
 		blendCalculation();
 		neighborBlending(no_aa_image);
+		frame_record.triangles += 6;
+		frame_record.draw_calls += 3;
 	}
 	void edgeDetection(Texture* no_aa_image) {
 		edgePass.shader->use();

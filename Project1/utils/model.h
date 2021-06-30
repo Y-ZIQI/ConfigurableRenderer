@@ -32,6 +32,7 @@ public:
     string directory;
     bool gammaCorrection;
 
+    uint triangles;
     glm::mat4 model_mat;
 
     // constructor, expects a filepath to a 3D model.
@@ -43,13 +44,27 @@ public:
     // draws the model, and thus all its meshes
     void Draw(Shader &shader, bool pre_cut_off = false, glm::mat4 model_mat = glm::mat4(1.0), glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
     {
-        for(uint i = 0; i < meshes.size(); i++)
-            meshes[i]->Draw(shader, pre_cut_off, model_mat, camera_pos, camera_front);
+        for (uint i = 0; i < meshes.size(); i++) {
+            if (meshes[i]->Draw(shader, pre_cut_off, model_mat, camera_pos, camera_front)) {
+                frame_record.triangles += meshes[i]->triangles;
+                frame_record.draw_calls += 1;
+            }
+        }
+    }
+    void DrawMesh(Shader &shader){
+        for (uint i = 0; i < meshes.size(); i++) {
+            meshes[i]->DrawMesh(shader);
+            frame_record.triangles += meshes[i]->triangles;
+            frame_record.draw_calls += 1;
+        }
     }
     void DrawOpaque(Shader& shader) {
         glDisable(GL_BLEND);
         for (uint i = 0; i < oIndex.size(); i++)
-            meshes[oIndex[i]]->Draw(shader);
+            if (meshes[oIndex[i]]->Draw(shader)) {
+                frame_record.triangles += meshes[oIndex[i]]->triangles;
+                frame_record.draw_calls += 1;
+            }
     }
     void DrawTransparent(Shader& shader) {
         glEnable(GL_BLEND);
@@ -57,14 +72,13 @@ public:
         glDepthMask(GL_FALSE);
         glDisable(GL_CULL_FACE);
         for (uint i = 0; i < tOrder.size(); i++)
-            meshes[tIndex[tOrder[i].index]]->Draw(shader);
+            if (meshes[tIndex[tOrder[i].index]]->Draw(shader)) {
+                frame_record.triangles += meshes[tIndex[tOrder[i].index]]->triangles;
+                frame_record.draw_calls += 1;
+            }
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
         glEnable(GL_CULL_FACE);
-    }
-    void DrawMesh(Shader &shader){
-        for(uint i = 0; i < meshes.size(); i++)
-            meshes[i]->DrawMesh(shader);
     }
     void OrderTransparent(glm::mat4 transform) {
         for (uint i = 0; i < tOrder.size(); i++) {

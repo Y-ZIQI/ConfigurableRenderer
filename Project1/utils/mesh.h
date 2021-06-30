@@ -42,6 +42,7 @@ public:
     };
 
     // Properties
+    uint triangles;
     uint alphaMode;
     bool has_aabb = false;
     AABB aabb, aabb_transform;
@@ -56,12 +57,12 @@ public:
         this->textures = textures;
 
         setupMesh();
-        //setupProperities();
+        setupProperities();
         setupAABB();
     }
 
     // render the mesh
-    void Draw(Shader &shader, bool pre_cut_off = false, glm::mat4 model_mat = glm::mat4(1.0), glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
+    bool Draw(Shader &shader, bool pre_cut_off = false, glm::mat4 model_mat = glm::mat4(1.0), glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
     {
         // Pre cut off
         if (pre_cut_off && has_aabb) {
@@ -74,7 +75,7 @@ public:
                 }
             }
             if (is_cut_off)
-                return;
+                return false;
         }
         // bind appropriate textures
         uint diffuseNr  = 1;
@@ -110,6 +111,7 @@ public:
         glBindVertexArray(0);
 
         glActiveTexture(GL_TEXTURE0);
+        return true;
     }
     void DrawMesh(Shader &shader){
         glBindVertexArray(VAO);
@@ -165,13 +167,14 @@ private:
         glBindVertexArray(0);
     }
     void setupProperities() {
-        alphaMode = 0;
+        triangles = indices.size() / 3;
+        /*alphaMode = 0;
         for (uint i = 0; i < textures.size(); i++)
         {
             if (textures[i]->type == "texture_diffuse" && textures[i]->format == GL_RGBA) {
                 alphaMode = 1;
             }
-        }
+        }*/
     }
     void setupAABB() {
         // Center defined by (min+max)/2

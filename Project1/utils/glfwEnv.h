@@ -135,5 +135,7 @@ private:
 
 		if (mouse_enable)
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &_max_anisotropy);
 	}
 };

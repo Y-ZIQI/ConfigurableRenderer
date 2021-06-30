@@ -1,3 +1,5 @@
+//++`shaders/shading/defines.glsl`
+
 out vec4 FragColor;
 
 in vec2 TexCoords;
@@ -28,11 +30,15 @@ void SMAAMovc(bvec4 cond, inout vec4 variable, vec4 value) {
 vec4 neighborhoodBlending(){
     vec4 a;
     a.x = texture(blendTex, offset.xy).a; // blend with Right
+    ATOMIC_COUNT_INCREMENT
     a.y = texture(blendTex, offset.zw).g; // blend with Bottom
+    ATOMIC_COUNT_INCREMENT
     a.wz = texture(blendTex, TexCoords).xz; // blend with Top / Left
+    ATOMIC_COUNT_INCREMENT
 
     if(dot(a, ones) < 1e-5){
         vec4 color = texture(screenTex, TexCoords);
+        ATOMIC_COUNT_INCREMENT
         return color;
     }else{
         bool h = max(a.x, a.z) > max(a.y, a.w); // max(horizontal) > max(vertical)
@@ -50,7 +56,9 @@ vec4 neighborhoodBlending(){
         // We exploit bilinear filtering to mix current pixel with the chosen
         // neighbor:
         vec4 color = blendingWeight.x * texture(screenTex, blendingCoord.xy);
+        ATOMIC_COUNT_INCREMENT
         color += blendingWeight.y * texture(screenTex, blendingCoord.zw);
+        ATOMIC_COUNT_INCREMENT
         
         return color;
     }

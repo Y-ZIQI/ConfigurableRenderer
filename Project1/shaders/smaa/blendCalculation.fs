@@ -1,3 +1,5 @@
+//++`shaders/shading/defines.glsl`
+
 #ifndef MAX_SEARCH_STEPS
 #define MAX_SEARCH_STEPS 32
 #endif
@@ -45,6 +47,7 @@ float SearchLength(vec2 e, float offset){
     bias *= 1.0 / SMAA_SEARCHTEX_PACKED_SIZE;
 
     // Lookup the search texture:
+    ATOMIC_COUNT_INCREMENT
     return texture(searchTex, fma(scale, e ,bias)).r;
 }
 
@@ -54,6 +57,7 @@ float SearchXLeft(vec2 texcoord, float end){
            e.g > 0.8281 && // Is there some edge not activated?
            e.r < 0.01) { // Or is there a crossing edge that breaks the line?
         e = texture(edgeTex_linear, texcoord).rg;
+        ATOMIC_COUNT_INCREMENT
         texcoord = fma(vec2(-2.0, 0.0), pixel_size.xy, texcoord);
     }
 
@@ -67,6 +71,7 @@ float SearchXRight(vec2 texcoord, float end){
            e.g > 0.8281 && // Is there some edge not activated?
            e.r < 0.01) { // Or is there a crossing edge that breaks the line?
         e = texture(edgeTex_linear, texcoord).rg;
+        ATOMIC_COUNT_INCREMENT
         texcoord = fma(vec2(2.0, 0.0), pixel_size.xy, texcoord);
     }
 
@@ -80,6 +85,7 @@ float SearchYUp(vec2 texcoord, float end){
            e.r > 0.8281 && // Is there some edge not activated?
            e.g < 0.01) { // Or is there a crossing edge that breaks the line?
         e = texture(edgeTex_linear, texcoord).rg;
+        ATOMIC_COUNT_INCREMENT
         texcoord = fma(vec2(0.0, 2.0), pixel_size.xy, texcoord);
     }
 
@@ -93,6 +99,7 @@ float SearchYDown(vec2 texcoord, float end){
            e.r > 0.8281 && // Is there some edge not activated?
            e.g < 0.01) { // Or is there a crossing edge that breaks the line?
         e = texture(edgeTex_linear, texcoord).rg;
+        ATOMIC_COUNT_INCREMENT
         texcoord = fma(vec2(0.0, -2.0), pixel_size.xy, texcoord);
     }
 
@@ -108,6 +115,7 @@ vec2 SMAAArea(vec2 dist, float e1, float e2, float offset) {
     // Move to proper place, according to the subpixel offset:
     texcoord.y = fma(SMAA_AREATEX_SUBTEX_SIZE, offset, texcoord.y);
 
+    ATOMIC_COUNT_INCREMENT
     return texture(areaTex, texcoord).rg;
 }
 
@@ -122,9 +130,13 @@ void SMAADetectHorizontalCornerPattern(inout vec2 weights, vec4 texcoord, vec2 d
 
     vec2 factor = vec2(1.0, 1.0);
     factor.x -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2(0,  -1)).r;
+    ATOMIC_COUNT_INCREMENT
     factor.x -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(1,  -1)).r;
+    ATOMIC_COUNT_INCREMENT
     factor.y -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2(0, 2)).r;
+    ATOMIC_COUNT_INCREMENT
     factor.y -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(1, 2)).r;
+    ATOMIC_COUNT_INCREMENT
 
     weights *= clamp(factor, 0.0, 1.0);
 }
@@ -137,9 +149,13 @@ void SMAADetectVerticalCornerPattern(inout vec2 weights, vec4 texcoord, vec2 d) 
 
     vec2 factor = vec2(1.0, 1.0);
     factor.x -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2( 1, 0)).g;
+    ATOMIC_COUNT_INCREMENT
     factor.x -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2( 1, -1)).g;
+    ATOMIC_COUNT_INCREMENT
     factor.y -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2(-2, 0)).g;
+    ATOMIC_COUNT_INCREMENT
     factor.y -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(-2, -1)).g;
+    ATOMIC_COUNT_INCREMENT
 
     weights *= clamp(factor, 0.0, 1.0);
 }
@@ -185,6 +201,7 @@ vec2 SMAASearchDiag1(vec2 texcoord, vec2 dir, out vec2 e) {
            coord.w > 0.9) {
         coord.xyz = fma(t, vec3(dir, 1.0), coord.xyz);
         e = texture(edgeTex_linear, coord.xy).rg;
+        ATOMIC_COUNT_INCREMENT
         coord.w = dot(e, vec2(0.5, 0.5));
     }
     return coord.zw;
@@ -201,6 +218,7 @@ vec2 SMAASearchDiag2(vec2 texcoord, vec2 dir, out vec2 e) {
         // @SearchDiag2Optimization
         // Fetch both edges at once using bilinear filtering:
         e = texture(edgeTex_linear, coord.xy).rg;
+        ATOMIC_COUNT_INCREMENT
         e = SMAADecodeDiagBilinearAccess(e);
 
         coord.w = dot(e, vec2(0.5, 0.5));
@@ -221,6 +239,7 @@ vec2 SMAAAreaDiag(vec2 dist, vec2 e, float offset) {
     // Move to proper place, according to the subpixel offset:
     texcoord.y += SMAA_AREATEX_SUBTEX_SIZE * offset;
 
+    ATOMIC_COUNT_INCREMENT
     return texture(areaTex, texcoord).rg;
 }
 
@@ -253,7 +272,9 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
         vec4 coords = fma(vec4(-d.x + 0.25, -d.x, d.y, d.y + 0.25), pixel_size.xyxy, texcoord.xyxy);
         vec4 c;
         c.xy = textureOffset(edgeTex_linear, coords.xy, ivec2(-1,  0)).rg;
+        ATOMIC_COUNT_INCREMENT
         c.zw = textureOffset(edgeTex_linear, coords.zw, ivec2( 1,  0)).rg;
+        ATOMIC_COUNT_INCREMENT
         c.yxwz = SMAADecodeDiagBilinearAccess(c.xyzw);
 
         // Merge crossing edges at each side into a single value:
@@ -268,6 +289,7 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
 
     // Search for the line ends:
     d.xz = SMAASearchDiag2(texcoord, vec2(-1.0, 1.0), end);
+    ATOMIC_COUNT_INCREMENT
     if (textureOffset(edgeTex_linear, texcoord, ivec2(1, 0)).r > 0.0) {
         d.yw = SMAASearchDiag2(texcoord, vec2(1.0, -1.0), end);
         d.y += float(end.y > 0.9);
@@ -279,8 +301,11 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
         vec4 coords = fma(vec4(-d.x, d.x, d.y, -d.y), pixel_size.xyxy, texcoord.xyxy);
         vec4 c;
         c.x  = textureOffset(edgeTex_linear, coords.xy, ivec2(-1,  0)).g;
+        ATOMIC_COUNT_INCREMENT
         c.y  = textureOffset(edgeTex_linear, coords.xy, ivec2( 0, 1)).r;
+        ATOMIC_COUNT_INCREMENT
         c.zw = textureOffset(edgeTex_linear, coords.zw, ivec2( 1,  0)).gr;
+        ATOMIC_COUNT_INCREMENT
         vec2 cc = fma(vec2(2.0, 2.0), c.xz, c.yw);
 
         // Remove the crossing edge if we didn't found the end of the line:
@@ -300,6 +325,7 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
 vec4 blendingWeightCalculation(){
     vec4 weights = vec4(0.0, 0.0, 0.0, 0.0);
     vec2 e = texture(edgeTex_point, TexCoords).rg;
+    ATOMIC_COUNT_INCREMENT
 
     if(e.g > 0.1){ // edge at top
         #if !defined(SMAA_DISABLE_DIAG_DETECTION)
@@ -318,6 +344,7 @@ vec4 blendingWeightCalculation(){
         d.x = coords.x;
 
         float e1 = texture(edgeTex_linear, coords.xy).r;
+        ATOMIC_COUNT_INCREMENT
 
         // distance to right
         coords.z = SearchXRight(offset[0].zw, offset[2].y);
@@ -330,6 +357,7 @@ vec4 blendingWeightCalculation(){
 
         // Fetch the right crossing edges:
         float e2 = textureOffset(edgeTex_linear, coords.zy, ivec2(1, 0)).r;
+        ATOMIC_COUNT_INCREMENT
 
         // Ok, we know how this pattern looks like, now it is time for getting
         // the actual area:
@@ -356,6 +384,7 @@ vec4 blendingWeightCalculation(){
         d.x = coords.y;
 
         float e1 = texture(edgeTex_linear, coords.xy).g;
+        ATOMIC_COUNT_INCREMENT
 
         // distance to bottom
         coords.z = SearchYDown(offset[1].zw, offset[2].w);
@@ -367,6 +396,7 @@ vec4 blendingWeightCalculation(){
         vec2 sqrt_d = sqrt(d);
 
         float e2 = textureOffset(edgeTex_linear, coords.xz, ivec2(0, -1)).g;
+        ATOMIC_COUNT_INCREMENT
 
         // Ok, we know how this pattern looks like, now it is time for getting
         // the actual area:

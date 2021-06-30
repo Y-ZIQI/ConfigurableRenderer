@@ -71,7 +71,7 @@ public:
             if (subs == "//++`") {
                 std::string ncode;
                 readFile(ncode, code.substr(pos + 5, line - pos - 6).c_str());
-                head += preProcess(ncode);
+                head += preProcess(ncode) + '\n';
                 head += ncode;
                 pos = line + 1;
             }
@@ -247,7 +247,8 @@ public:
     std::vector<Shader*> shaders;
     std::vector<Status> status;
 
-    ShaderManager() {
+    ShaderManager() {};
+    void init() {
         uint shader_amount = _shader_paths.size() / 3;
         shaders.resize(shader_amount);
         status.resize(shader_amount);
@@ -258,7 +259,7 @@ public:
             //shaders[i]->setDefineList(GSHADER, DefineList(_shader_defs[i * 3 + 2]));
             status[i] = Status::Loaded;
         }
-    };
+    }
     Shader* getShader(uint index) {
         if (status[index] == Status::Compiled) {
             return shaders[index];

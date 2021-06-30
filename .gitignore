@@ -17,4 +17,9 @@ ext_build
 
 */resources/*
 !*/resources/textures
+
+# Added files for SunTemple
+!*/resources/SunTemple/skybox
+!*/resources/SunTemple/SunTemple.json
+
 unused

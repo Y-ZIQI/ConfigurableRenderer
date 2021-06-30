@@ -158,6 +158,7 @@ bool gl_load_dds(TexProps &props, GLvoid *pBuffer, const char* path, bool genMip
         break;
     }
 
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, _max_anisotropy);
     if (genMipmap) {
         glGenerateMipmap(GL_TEXTURE_2D);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);

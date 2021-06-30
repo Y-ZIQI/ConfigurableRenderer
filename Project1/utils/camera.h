@@ -159,9 +159,12 @@ public:
     void addGui(nanogui::FormHelper* gui) {
         gui->addGroup("Camera");
         gui->addVariable("Zoom", Zoom)->setSpinnable(true);
-        gui->addVariable("nearZ", nearZ)->setSpinnable(true);
-        gui->addVariable("farZ", farZ)->setSpinnable(true);
+        //gui->addVariable("nearZ", nearZ)->setSpinnable(true);
+        //gui->addVariable("farZ", farZ)->setSpinnable(true);
         gui->addVariable("MovementSpeed", MovementSpeed)->setSpinnable(true);
+        gui->addVariable("Position.x", Position[0])->setSpinnable(true);
+        gui->addVariable("Position.y", Position[1])->setSpinnable(true);
+        gui->addVariable("Position.z", Position[2])->setSpinnable(true);
     }
 
 private:

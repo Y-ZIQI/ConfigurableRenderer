@@ -28,6 +28,12 @@
 typedef unsigned int uint;
 typedef unsigned char uchar;
 
+#define M_PI                3.1415926536f  // pi
+#define M_2PI               6.2831853072f  // 2pi
+#define M_1_PI              0.3183098862f // 1/pi
+
+GLfloat _max_anisotropy;
+
 #define MAX_TARGETS 8
 #define ALL_TARGETS -2
 const GLuint _color_attachments[MAX_TARGETS] = {
@@ -40,32 +46,30 @@ const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define VSHADER 0
 #define FSHADER 1
 #define GSHADER 2
-#define SID_FORWARD 0
-#define SID_DEFERRED_BASE 1
-#define SID_DEFERRED_SHADING 2
-#define SID_FORWARD_ENVMAP 3
-#define SID_DEFERRED_ENVMAP 4
-#define SID_UPSAMPLING 5
-#define SID_SHADOWMAP 6
-#define SID_CUBEMAP_RENDER 7
-#define SID_SSAO 8
-#define SID_SMAA_EDGEPASS 9
-#define SID_SMAA_BLENDPASS 10
-#define SID_SMAA_NEIGHBORPASS 11
+#define SID_DEFERRED_BASE 0
+#define SID_DEFERRED_SHADING 1
+#define SID_DEFERRED_ENVMAP 2
+#define SID_UPSAMPLING 3
+#define SID_SHADOWMAP 4
+#define SID_CUBEMAP_RENDER 5
+#define SID_SSAO 6
+#define SID_SMAA_EDGEPASS 7
+#define SID_SMAA_BLENDPASS 8
+#define SID_SMAA_NEIGHBORPASS 9
+#define SID_SSR 10
 const std::vector<const char*> _shader_paths
 {
-    /* 0*/"shaders/main/mainvs.vs", "shaders/main/mainfs.fs", nullptr,
-    /* 1*/"shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
-    /* 2*/"shaders/deferred/shadingPass.vs", "shaders/deferred/shadingPass.fs", nullptr,
-    /* 3*/"shaders/envmap/forward.vs", "shaders/envmap/forward.fs", nullptr,
-    /* 4*/"shaders/envmap/deferred.vs", "shaders/envmap/deferred.fs", nullptr,
-    /* 5*/"shaders/upsampling/main.vs", "shaders/upsampling/main.fs", nullptr,
-    /* 6*/"shaders/shadow/shadow.vs", "shaders/shadow/shadow.fs", nullptr,
-    /* 7*/"shaders/omnidirectional/main.vs", "shaders/omnidirectional/main.fs", "shaders/omnidirectional/main.gs",
-    /* 8*/"shaders/ssao/ssao.vs", "shaders/ssao/ssao.fs", nullptr,
-    /* 9*/"shaders/smaa/edgeDetection.vs", "shaders/smaa/edgeDetection.fs", nullptr,
-    /*10*/"shaders/smaa/blendCalculation.vs", "shaders/smaa/blendCalculation.fs", nullptr,
-    /*11*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr
+    /* 0*/"shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
+    /* 1*/"shaders/deferred/shadingPass.vs", "shaders/deferred/shadingPass.fs", nullptr,
+    /* 2*/"shaders/envmap/deferred.vs", "shaders/envmap/deferred.fs", nullptr,
+    /* 3*/"shaders/upsampling/main.vs", "shaders/upsampling/main.fs", nullptr,
+    /* 4*/"shaders/shadow/shadow.vs", "shaders/shadow/shadow.fs", nullptr,
+    /* 5*/"shaders/omnidirectional/main.vs", "shaders/omnidirectional/main.fs", "shaders/omnidirectional/main.gs",
+    /* 6*/"shaders/ssao/ssao.vs", "shaders/ssao/ssao.fs", nullptr,
+    /* 7*/"shaders/smaa/edgeDetection.vs", "shaders/smaa/edgeDetection.fs", nullptr,
+    /* 8*/"shaders/smaa/blendCalculation.vs", "shaders/smaa/blendCalculation.fs", nullptr,
+    /* 9*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr,
+    /*10*/"shaders/ssr/ssr.vs", "shaders/ssr/ssr.fs", nullptr
 };
 const std::vector<std::initializer_list<std::pair<const std::string, std::string>>> _shader_defs
 {
@@ -73,14 +77,13 @@ const std::vector<std::initializer_list<std::pair<const std::string, std::string
     /* 1*/{}, {}, {},
     /* 2*/{}, {}, {},
     /* 3*/{}, {}, {},
-    /* 4*/{}, {}, {},
+    /* 4*/{}, {{"SHADOW_SOFT_ESM", ""}}, {},
     /* 5*/{}, {}, {},
-    /* 6*/{}, {{"SHADOW_SOFT_ESM", ""}}, {},
+    /* 6*/{}, {{"SSAO_RANGE", "0.4"}, {"SSAO_THRESHOLD", "1.0"}, {"SAMPLE_NUM", "16"}, {"SAMPLE_BIAS", "0.05"}}, {},
     /* 7*/{}, {}, {},
-    /* 8*/{}, {{"SSAO_RANGE", "0.4"}, {"SSAO_THRESHOLD", "1.0"}, {"SAMPLE_NUM", "16"}, {"SAMPLE_BIAS", "0.05"}}, {},
+    /* 8*/{{"MAX_SEARCH_STEPS", "32"}}, {{"MAX_SEARCH_STEPS", "32"}}, {},
     /* 9*/{}, {}, {},
-    /*10*/{{"MAX_SEARCH_STEPS", "32"}}, {{"MAX_SEARCH_STEPS", "32"}}, {},
-    /*11*/{}, {}, {}
+    /*10*/{}, {}, {}
 };
 const std::string _glsl_version = "#version 430 core\n";
 
@@ -144,7 +147,7 @@ const float _envMapVertices[] = {
 uint _envmap_vao, _envmap_vbo;
 bool is_envmap_vao_initialized = false;
 
-struct Record {
+struct TimeRecord {
     float time = 0.0f, time_last = 0.0f, time_current = 0.0f;
     void start() {
         time_current = glfwGetTime();
@@ -163,3 +166,37 @@ struct Record {
         return rtime;
     }
 };
+
+GLuint _atomic_buf;
+bool is_atomic_buf_vao_initialized = false;
+struct Record {
+    uint triangles;
+    uint draw_calls;
+    uint texture_samples;
+    GLuint* data;
+    void clear() {
+        triangles = draw_calls = texture_samples = 0;
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf);
+        GLuint atomic_counter_data = 0;
+        glClearBufferSubData(GL_ATOMIC_COUNTER_BUFFER, GL_R32UI, 0, sizeof(GLuint), GL_RED_INTEGER, GL_UNSIGNED_INT, &atomic_counter_data);
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+    }
+    void init() {
+        if (!is_atomic_buf_vao_initialized) {
+            glGenBuffers(1, &_atomic_buf);
+            glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf);
+            glBufferData(GL_ATOMIC_COUNTER_BUFFER, 16 * sizeof(GLuint), NULL, GL_DYNAMIC_COPY);
+            glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, _atomic_buf);
+            is_atomic_buf_vao_initialized = true;
+        }
+        clear();
+    }
+    void get() {
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf);
+        data = (GLuint*)glMapBuffer(GL_ATOMIC_COUNTER_BUFFER, GL_READ_ONLY);
+        if (data != NULL) {
+            texture_samples = data[0];
+        }
+        glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
+    }
+}frame_record;

@@ -1,3 +1,5 @@
+//++`shaders/shading/defines.glsl`
+
 #ifndef SAMPLE_NUM
 #define SAMPLE_NUM 16
 #endif
@@ -24,11 +26,6 @@ uniform sampler2D normalTex;
 
 uniform vec3 samples[SAMPLE_NUM];
 //uniform sampler2D noiseTex;
-
-#define M_PI                3.14159265358979323846  // pi
-#define M_2PI               6.28318530717958647693  // 2pi
-#define M_1_PI              0.318309886183790671538 // 1/pi
-#define M_1_2PI             0.15915494309   // 1/2pi
 
 float Rand1(inout float p) {
     p = fract(p * .1031);
@@ -96,6 +93,7 @@ float ambientOcclusion(vec3 posW, vec3 normal, float range, float threshold, mat
         samplePos = TBN * randPos + posW;
         ssPos = transform * vec4(samplePos, 1.0);
         ndc = clamp((ssPos.xyz / ssPos.w + 1.0) / 2.0, 0.0, 1.0);
+        ATOMIC_COUNT_INCREMENT
         mindep = texture(positionTex, ndc.xy).w;
         ndc.z = LinearizeDepth(ndc.z, inv_nf);
         sum += step(ndc.z, mindep + SAMPLE_BIAS) + step(mindep + threshold, ndc.z);
@@ -104,10 +102,12 @@ float ambientOcclusion(vec3 posW, vec3 normal, float range, float threshold, mat
 }
 
 void main(){
+    ATOMIC_COUNT_INCREMENT
     vec3 normal = texture(normalTex, TexCoords).xyz;
     if(dot(normal, normal) == 0.0){
         AO = 0.0;
     }else{
+        ATOMIC_COUNT_INCREMENT
         vec3 posW = texture(positionTex, TexCoords).xyz;
         AO = ambientOcclusion(posW, normal, SSAO_RANGE, SSAO_THRESHOLD, camera_vp, camera_params.zw, positionTex);
     }

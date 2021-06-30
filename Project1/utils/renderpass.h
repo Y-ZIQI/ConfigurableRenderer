@@ -12,17 +12,14 @@ public:
 	void setShader(Shader* Shader) {
 		this->shader = Shader;
 	};
-	void reload() {
-		shader->reload();
-	}
 };
 
 class RasterScenePass : public RenderPass {
 public:
-	void renderScene(Scene& scene, uint blend_mode = 0, bool draw_envmap = true, bool defered = true) {
+	void renderScene(Scene& scene, uint blend_mode = 0, bool draw_envmap = true) {
 		shader->use();
 		glEnable(GL_DEPTH_TEST);
-		scene.Draw(*shader, blend_mode, draw_envmap, defered);
+		scene.Draw(*shader, blend_mode, draw_envmap);
 	}
 };
 
@@ -90,7 +87,7 @@ public:
 		cube->clear();
 		cube->prepare();
 		setBaseUniforms(scene);
-		scene.Draw(*shader, 0, false, false);
+		scene.Draw(*shader, 0, false);
 	}
 	void setBaseUniforms(Scene& scene) {
 		shader->setMat4("transforms[0]", transforms[0]);
@@ -102,43 +99,24 @@ public:
 	}
 };
 
-class ForwardRenderer {
-public:
-	RasterScenePass basePass;
-
-	ForwardRenderer() {
-		Shader* shader = sManager.getShader(SID_FORWARD);
-		basePass.setShader(shader);
-	}
-	void reload() {
-		basePass.reload();
-	}
-	void renderScene(Scene& scene, FrameBuffer& fbo) {
-		basePass.shader->use();
-		setShaderData(scene);
-		fbo.prepare();
-		basePass.renderScene(scene, 0, true, false);
-	}
-	void setShaderData(Scene& scene) {
-		scene.setShaderData(*basePass.shader);
-	}
-};
-
 class DeferredRenderer {
 public:
 	RasterScenePass basePass;
 	ScreenPass ssaoPass;
 	ScreenPass shadingPass;
+	ScreenPass ssrPass;
 	FrameBuffer* gBuffer;
 	FrameBuffer* aoBuffer;
+	FrameBuffer* shadingBuffer;
+	FrameBuffer* screenBuffer;
 	uint width, height;
 
 	std::default_random_engine generator;
 	std::vector<glm::vec3> ssaoKernel;
 
-	uint ssao = 0;
+	uint ssao = 0, ssr = 1;
 
-	Record record[2]; // Shading, AO
+	TimeRecord record[2]; // Shading, AO
 
 	DeferredRenderer(uint Width, uint Height) {
 		width = Width; height = Height;
@@ -156,10 +134,15 @@ public:
 		}
 		aoBuffer = new FrameBuffer;
 		aoBuffer->attachColorTarget(Texture::create(width, height, GL_R16F, GL_RED, GL_FLOAT), 0);
+		shadingBuffer = new FrameBuffer;
+		shadingBuffer->attachColorTarget(Texture::create(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE), 0);
+		screenBuffer = new FrameBuffer;
+		screenBuffer->attachColorTarget(Texture::create(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
 
 		basePass.setShader(sManager.getShader(SID_DEFERRED_BASE));
 		ssaoPass.setShader(sManager.getShader(SID_SSAO));
 		shadingPass.setShader(sManager.getShader(SID_DEFERRED_SHADING));
+		ssrPass.setShader(sManager.getShader(SID_SSR));
 
 		std::uniform_real_distribution<GLfloat> randomFloats(0.0, 1.0);
 		char tmp[64];
@@ -174,40 +157,50 @@ public:
 			ssaoKernel.push_back(sample);
 		}
 	}
-	void reload() {
-		basePass.reload();
-		shadingPass.reload();
-	}
 	void renderGeometry(Scene& scene) {
-		glViewport(0, 0, width, height);
 		basePass.shader->use();
 		gBuffer->clear();
 		gBuffer->prepare();
 		setBaseUniforms(scene);
-		basePass.renderScene(scene, 0, true, true);
+		basePass.renderScene(scene, 0, true);
 	}
 	void renderAO(Scene& scene) {
-		record[0].start();
 		ssaoPass.shader->use();
 		aoBuffer->clear();
 		aoBuffer->prepare();
 		setSSAOUniforms(scene, 16);
 		ssaoPass.render();
-		record[0].stop();
+		frame_record.triangles += 2;
+		frame_record.draw_calls += 1;
 	}
-	void renderScreen(Scene& scene, FrameBuffer& fbo) {
-		record[1].start();
+	void renderShading(Scene& scene, FrameBuffer* outBuffer) {
 		shadingPass.shader->use();
-		fbo.prepare();
+		outBuffer->prepare();
 		setShadingUniforms(scene);
 		shadingPass.render();
-		record[1].stop();
+		frame_record.triangles += 2;
+		frame_record.draw_calls += 1;
 	}
-	void renderScene(Scene& scene, FrameBuffer& fbo) {
+	void renderReflection(Scene& scene, FrameBuffer* outBuffer) {
+		ssrPass.shader->use();
+		outBuffer->prepare();
+		setSSRUniforms(scene);
+		ssrPass.render();
+		frame_record.triangles += 2;
+		frame_record.draw_calls += 1;
+	}
+	void renderScene(Scene& scene) {
+		glViewport(0, 0, width, height);
 		renderGeometry(scene);
-		if(ssao)
+		if (ssao)
 			renderAO(scene);
-		renderScreen(scene, fbo);
+		if (ssr) {
+			renderShading(scene, shadingBuffer);
+			renderReflection(scene, screenBuffer);
+		}
+		else {
+			renderShading(scene, screenBuffer);
+		}
 	}
 	void setBaseUniforms(Scene& scene) {
 		scene.setCameraUniforms(*basePass.shader);
@@ -233,56 +226,12 @@ public:
 		if(ssao)
 			shadingPass.shader->setTextureSource("aoTex", 4, aoBuffer->colorAttachs[0].texture->id);
 	}
-};
-
-class OmnidirectionalRenderer {
-public:
-	RasterScenePass basePass;
-	FrameBuffer* cube;
-	uint width, height;
-	glm::vec3 position;
-	glm::mat4 projMat;
-	std::vector<glm::mat4> transforms;
-
-	OmnidirectionalRenderer(uint Width, uint Height) {
-		width = Width; height = Height;
-		cube = new FrameBuffer;
-		cube->attachCubeTarget(Texture::createCubeMap(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE), 0);
-		cube->attachCubeDepthTarget(Texture::createCubeMap(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT));
-		bool is_success = cube->checkStatus();
-		if (!is_success) {
-			cout << "ERROR::FRAMEBUFFER:: Intermediate framebuffer is not complete!" << endl;
-			return;
-		}
-		transforms.resize(6);
-
-		Shader* baseShader = sManager.getShader(SID_CUBEMAP_RENDER);
-		basePass.setShader(baseShader);
-	}
-	void setTransforms(glm::vec3 pos, glm::mat4 proj) {
-		position = pos;
-		projMat = proj;
-		transforms[0] = proj * glm::lookAt(pos, pos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));	//+x
-		transforms[1] = proj * glm::lookAt(pos, pos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));//-x
-		transforms[2] = proj * glm::lookAt(pos, pos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));	//+y
-		transforms[3] = proj * glm::lookAt(pos, pos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));//-y
-		transforms[4] = proj * glm::lookAt(pos, pos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0));	//+z
-		transforms[5] = proj * glm::lookAt(pos, pos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0));//-z
-	}
-	void renderScene(Scene& scene, float resolution = 1.0f) {
-		glViewport(0, 0, width * resolution, height * resolution);
-		basePass.shader->use();
-		cube->clear();
-		cube->prepare();
-		setBaseUniforms(scene);
-		basePass.renderScene(scene, 0, false, false);
-	}
-	void setBaseUniforms(Scene& scene) {
-		basePass.shader->setMat4("transforms[0]", transforms[0]);
-		basePass.shader->setMat4("transforms[1]", transforms[1]);
-		basePass.shader->setMat4("transforms[2]", transforms[2]);
-		basePass.shader->setMat4("transforms[3]", transforms[3]);
-		basePass.shader->setMat4("transforms[4]", transforms[4]);
-		basePass.shader->setMat4("transforms[5]", transforms[5]);
+	void setSSRUniforms(Scene& scene) {
+		scene.setCameraUniforms(*ssrPass.shader);
+		ssrPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[0].texture->id);
+		ssrPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[1].texture->id);
+		ssrPass.shader->setTextureSource("albedoTex", 2, gBuffer->colorAttachs[2].texture->id);
+		ssrPass.shader->setTextureSource("specularTex", 3, gBuffer->colorAttachs[3].texture->id);
+		ssrPass.shader->setTextureSource("colorTex", 4, shadingBuffer->colorAttachs[0].texture->id);
 	}
 };

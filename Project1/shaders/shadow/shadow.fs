@@ -1,4 +1,4 @@
-#define SHADOW_SOFT_ESM
+//#define SHADOW_SOFT_ESM
 
 #ifdef SHADOW_SOFT_ESM
 out float depth;

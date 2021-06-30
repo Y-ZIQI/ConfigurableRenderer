@@ -8,7 +8,7 @@ OpenGL实现的一个渲染管线，仿照Nvidia的Falcor。并添加了一些�
 | Shadow Map | 阴影贴图分辨率 | 512, 1024, 2048                     |
 | SSAO       | 采样数         | 0, 4, 16                            |
 | Shading    | 着色模型       | Blinn-Phong, GGX-based PBR, PBR+IBL |
-| 反射       | 未实现         |                                     |
+| 反射       | SSR            | Off, On                             |
 | SMAA抗锯齿 | 查询步数       | 0, 4, 64                            |
 
 ## Demo
@@ -23,8 +23,14 @@ OpenGL实现的一个渲染管线，仿照Nvidia的Falcor。并添加了一些�
 
 ## Dependency
 
-glfw3
+- glfw3
+- assimp
+- nanogui
+- jsonxx
 
-assimp
+## Test Scenes
 
-nanogui
+- SunTemple: 
+  - 从nvidia官网上下载SunTemple模型数据包
+  - 将resources下的SunTemple文件夹与模型文件夹合并
+- Bistro:

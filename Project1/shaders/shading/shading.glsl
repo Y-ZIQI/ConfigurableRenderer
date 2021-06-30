@@ -17,7 +17,12 @@ struct DirectionalLight{
 struct PointLight{
     vec3 intensity;
     vec3 position;
+    vec3 direction;
     float ambient;
+
+    float range;
+    float opening_angle, cos_opening_angle;
+    float penumbra_angle;
 
     float constant;
     float linear;
@@ -27,10 +32,6 @@ struct PointLight{
     mat4 viewProj;
     sampler2D shadowMap;
 };
-
-#define M_PI                3.14159265358979323846  // pi
-#define M_2PI               6.28318530717958647693  // 2pi
-#define M_1_PI              0.318309886183790671538 // 1/pi
 
 #ifndef MAX_DIRECTIONAL_LIGHT
 #define MAX_DIRECTIONAL_LIGHT 2
@@ -47,9 +48,9 @@ uniform PointLight ptLights[MAX_POINT_LIGHT];
 /********************************************Config********************************************/
 // Shadow map related variables
 //#define SHADOW_HARD
-#define SHADOW_SOFT_ESM
+//#define SHADOW_SOFT_ESM
 #define SM_LOD 2
-//#define SHADOW_SOFT_PCF
+#define SHADOW_SOFT_PCF
 #define NUM_SAMPLES 10
 #define NUM_RINGS 2
 #define EPS 1e-5
@@ -64,44 +65,42 @@ uniform PointLight ptLights[MAX_POINT_LIGHT];
 #endif
 /***************************************Shadow Making******************************************/
 vec2 poissonDisk[NUM_SAMPLES];
-highp float rand_2to1(vec2 uv ) { 
-  // 0 - 1
+highp float rand_2to1(vec2 uv ) {
 	const highp float a = 12.9898, b = 78.233, c = 43758.5453;
 	highp float dt = dot( uv.xy, vec2( a,b ) ), sn = mod( dt, M_PI );
 	return fract(sin(sn) * c);
 }
 void poissonDiskSamples( const in vec2 randomSeed ) {
+    float ANGLE_STEP = M_2PI * float( NUM_RINGS ) / float( NUM_SAMPLES );
+    float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );
 
-  float ANGLE_STEP = M_2PI * float( NUM_RINGS ) / float( NUM_SAMPLES );
-  float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );
+    float angle = rand_2to1( randomSeed ) * M_2PI;
+    float radius = INV_NUM_SAMPLES;
+    float radiusStep = radius;
 
-  float angle = rand_2to1( randomSeed ) * M_2PI;
-  float radius = INV_NUM_SAMPLES;
-  float radiusStep = radius;
-
-  for( int i = 0; i < NUM_SAMPLES; i ++ ) {
-    poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( radius, 0.75 );
-    radius += radiusStep;
-    angle += ANGLE_STEP;
-  }
+    for( int i = 0; i < NUM_SAMPLES; i ++ ) {
+        poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( radius, 0.75 );
+        radius += radiusStep;
+        angle += ANGLE_STEP;
+    }
 }
 float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver,
                  float filterRadius, float bias) {
-  float sum = 0.0;
+    float sum = 0.0;
 
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    float depth =
-        texture2D(sm, uv + poissonDisk[i] * filterRadius).r;
-    if (zReceiver <= depth + bias)
-      sum += 1.0;
-  }
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    float depth =
-        texture2D(sm, uv + -poissonDisk[i].yx * filterRadius).r;
-    if (zReceiver <= depth + bias)
-      sum += 1.0;
-  }
-  return sum / (2.0 * float(NUM_SAMPLES));
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+        float depth = textureLod(sm, uv + poissonDisk[i] * filterRadius, 0).r;
+        ATOMIC_COUNT_INCREMENT
+        if (zReceiver <= depth + bias)
+            sum += 1.0;
+    }
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+        float depth = textureLod(sm, uv + -poissonDisk[i].yx * filterRadius, 0).r;
+        ATOMIC_COUNT_INCREMENT
+        if (zReceiver <= depth + bias)
+            sum += 1.0;
+    }
+    return sum / (2.0 * float(NUM_SAMPLES));
 }
 float PCF_dir_visible(int index, vec3 position, float bias) {
     vec4 fromLight = dirLights[index].viewProj * vec4(position, 1.0);
@@ -135,6 +134,7 @@ float ESM_dir_visible(int index, vec3 position, float bias){
     vec2 uv = ndc.xy;
     ndc.z -= bias;
     float mindep = textureLod(dirLights[index].shadowMap, uv, SM_LOD).r;
+    ATOMIC_COUNT_INCREMENT
     float sx = exp(-80.0 * ndc.z) * mindep;
     //return step(0.99, sx);
     return clamp(sx, 0.0, 1.0);
@@ -147,6 +147,7 @@ float ESM_pt_visible(int index, vec3 position, float bias){
     vec2 uv = ndc.xy;
     ndc.z -= bias;
     float mindep = textureLod(ptLights[index].shadowMap, uv, SM_LOD).r;
+    ATOMIC_COUNT_INCREMENT
     float sx = exp(-80.0 * ndc.z) * mindep;
     //return step(0.99, sx);
     return pow(clamp(sx, 0.0, 1.0), 2.0);
@@ -158,6 +159,7 @@ float HARD_dir_visible(int index, vec3 position, float bias){
         return 1.0;
     vec2 uv = ndc.xy;
     float mindep = texture(dirLights[index].shadowMap, uv).r;
+    ATOMIC_COUNT_INCREMENT
     return step(ndc.z, mindep + bias);
 }
 float HARD_pt_visible(int index, vec3 position, float bias){
@@ -167,6 +169,7 @@ float HARD_pt_visible(int index, vec3 position, float bias){
         return 1.0;
     vec2 uv = ndc.xy;
     float mindep = texture(ptLights[index].shadowMap, uv).r;
+    ATOMIC_COUNT_INCREMENT
     return step(ndc.z, mindep + bias);
 }
 
@@ -219,6 +222,15 @@ vec3 evalPtLight(int index, ShadingData sd){
     LightSample ls;
     ls.posW = ptLights[index].position;
     ls.L = normalize(ls.posW - sd.posW);
+    ls.dist = length(ls.posW - sd.posW);
+    float falloff = 1.0 / (ptLights[index].constant + ptLights[index].linear*ls.dist + ptLights[index].quadratic*ls.dist*ls.dist);
+    float cosTheta = -dot(ls.L, normalize(ptLights[index].direction));
+    if(ls.dist > ptLights[index].range || cosTheta < ptLights[index].cos_opening_angle)
+        return vec3(0.0);
+    else if(ptLights[index].penumbra_angle > 0.01){
+        float deltaAngle = ptLights[index].opening_angle - acos(cosTheta);
+        falloff *= clamp((deltaAngle - ptLights[index].penumbra_angle) / ptLights[index].penumbra_angle, 0.0, 1.0);
+    }
     ls.NdotL = dot(sd.N, ls.L);
     float visibility;
     if(ls.NdotL <= 0.0)
@@ -240,8 +252,6 @@ vec3 evalPtLight(int index, ShadingData sd){
     vec3 H = normalize(sd.V + ls.L);
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
-    ls.dist = length(ls.posW - sd.posW);
-    float falloff = 1.0 / (ptLights[index].constant + ptLights[index].linear*ls.dist + ptLights[index].quadratic*ls.dist*ls.dist);
     ls.color = ptLights[index].intensity * falloff;
     vec3 ambient = ptLights[index].ambient * ls.color * sd.diffuse * sd.ao;
     if(visibility < EPS)
@@ -273,9 +283,6 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     sd.specular = specColor.rgb;
     sd.linearRoughness = 0.0;
     sd.ggxAlpha = 0.0;
-    //sd.metallic = specColor.b;
-    //sd.linearRoughness = 1 - specColor.a;
-    //sd.ggxAlpha = max(0.0064, specColor.g * specColor.g);
     #endif
 
     vec3 color = vec3(0.0, 0.0, 0.0);    
@@ -289,33 +296,6 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     }
     return color;
 }
-
-vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec3 position){
-    ShadingData sd;
-    sd.posW = position.xyz;
-    sd.V = normalize(camera_pos - sd.posW);
-    sd.N = normal;
-    sd.NdotV = dot(sd.V, sd.N);
-    sd.ao = 1.0;
-
-    // Shading Model Metal Rough
-    float IoR = 1.5;
-    float f = (IoR - 1.0) / (IoR + 1.0);
-    vec3 F0 = vec3(f * f);
-    sd.diffuse = mix(baseColor.rgb, vec3(0), specColor.b);
-    sd.metallic = specColor.b;
-    sd.specular = mix(F0, baseColor.rgb, specColor.b);
-    sd.linearRoughness = specColor.g;
-    sd.ggxAlpha = max(0.0064, specColor.g * specColor.g);
-
-    vec3 color = vec3(0.0, 0.0, 0.0);    
-    int count = min(dirLtCount, MAX_DIRECTIONAL_LIGHT);
-    for (int i = 0; i < count; i++){
-        color += evalDirLight(i, sd);
-    }
-    count = min(ptLtCount, MAX_POINT_LIGHT);
-    for (int i = 0; i < count; i++){
-        color += evalPtLight(i, sd); 
-    }
-    return color;
-}
+//sd.metallic = specColor.b;
+//sd.linearRoughness = 1 - specColor.a;
+//sd.ggxAlpha = max(0.0064, specColor.g * specColor.g);
