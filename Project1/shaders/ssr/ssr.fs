@@ -90,15 +90,15 @@ void main(){
         vec3 view = normalize(position.xyz - camera_pos);
         vec3 refv = reflect(view, normal);
 
-        float roughness = specular.g;
+        float reflection = 1.0 - specular.g;
         float threshold = 0.5, max_ssr_ratio = 0.5;
-        if(roughness < threshold){
+        if(reflection > threshold){
             vec2 hitpos;
             int stps;
             bool inter = rayTrace(position.xyz, refv, hitpos, stps);
             if(inter){
                 ATOMIC_COUNT_INCREMENT
-                FragColor = vec4(texture(colorTex, hitpos).rgb * max_ssr_ratio * roughness + color * (1.0 - max_ssr_ratio * roughness), 1.0);
+                FragColor = vec4(texture(colorTex, hitpos).rgb * max_ssr_ratio * reflection + color * (1.0 - max_ssr_ratio * reflection), 1.0);
             }else{
                 FragColor = vec4(color, 1.0);
             }

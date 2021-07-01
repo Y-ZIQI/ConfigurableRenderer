@@ -83,13 +83,13 @@ private:
 	Scene* scene;
 	Camera* camera;
 
-	ScreenPass* resolvePass;
 	std::vector<DeferredRenderer*> dRdrList;
 	std::vector<SMAA*> smaaList;
-	FrameBuffer* targetFbo;
 	DeferredRenderer* dRenderer;
+	ScreenPass* resolvePass;
 	FrameBuffer* screenFbo;
 	SMAA* smaaPass;
+	FrameBuffer* targetFbo; // Respect for default FB
 
 	OmnidirectionalPass* oPass;
 	
@@ -104,7 +104,7 @@ private:
 	* 1: Bistro
 	* 2: SunTemple
 	*/
-	uint test_scene = 2;
+	uint test_scene = 1;
 	float fps, duration;
 	TimeRecord record[2]; // All, SMAA+resolve
 	float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
@@ -154,14 +154,11 @@ void RenderFrame::config(bool force_update = false) {
 	}
 	if (settings.shading != stHistory.shading || force_update) {
 		stHistory.shading = settings.shading;
-		if (settings.shading == level1) {
+		if (settings.shading == level1)
 			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADING_MODEL", "1");
-		}
-		else if (settings.shading == level2) {
+		else if (settings.shading == level2)
 			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADING_MODEL", "2");
-		}
-		else if (settings.shading == level3) {
-		}
+		else if (settings.shading == level3);
 		sManager.getShader(SID_DEFERRED_SHADING)->reload();
 	}
 	if (settings.ssao_level != stHistory.ssao_level || force_update) {
@@ -227,34 +224,20 @@ void RenderFrame::onLoad() {
 		scene = new Scene;
 		if (test_scene == 1) {
 			/***************************Bistro*********************************/
-			scene->loadModel("resources/Bistro/BistroExterior.fbx");
-			glm::mat4 modelmat = glm::mat4(1.0);
-			modelmat = glm::rotate(modelmat, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
-			modelmat = glm::scale(modelmat, glm::vec3(0.003, 0.003, 0.003));
-			scene->setModelMat(0, modelmat);
-			DirectionalLight* light1 = new DirectionalLight("light1", glm::vec3(3.0, 3.0, 3.0), glm::vec3(0.6, -0.7, -0.3), glm::vec3(-6.0, 7.0, 3.0), 0.03f);
-			light1->enableShadow(10.0f, 10.0f, 20.0f, sm_width_list);
-			PointLight* light2 = new PointLight("light2", glm::vec3(15.0, 15.0, 15.0), glm::vec3(-3.0, 5.0, 0.0), glm::vec3(0.3, -0.5, 0.0), 0.03f);
-			light2->enableShadow(90.0f, 0.5f, 20.0f, sm_width_list);
-			scene->addLight(light1);
-			scene->addLight(light2);
-			light1->addGui(gui);
-			light2->addGui(gui);
-
-			camera = new Camera(glm::vec3(-3.0f, 5.0f, 0.0f));
-			camera->setPerspective((float)width/(float)height, 0.1f, 100.0f);
-			camera->addGui(gui);
-			scene->setCamera(camera);
+			scene->loadScene("resources/Bistro/BistroExterior.json");
+			scene->dirLights[0]->enableShadow(40.0f, 40.0f, 100.0f, sm_width_list);
+			scene->dirLights[0]->addGui(gui);
+			scene->ptLights[0]->enableShadow(90.0f, 1.0f, 100.0f, sm_width_list);
 		}
 		else if (test_scene == 2) {
 			/***************************SunTemple*********************************/
 			scene->loadScene("resources/SunTemple/SunTemple.json");
-			camera = scene->camera;
-			camera->setPerspective((float)width / (float)height, 0.01f, 100.0f);
-			scene->camera->addGui(gui);
 			scene->dirLights[0]->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
 			scene->dirLights[0]->addGui(gui);
 		}
+		camera = scene->camera;
+		camera->setAspect((float)width / (float)height);
+		scene->camera->addGui(gui);
 	}
 	screen->setVisible(true);
 	screen->performLayout();

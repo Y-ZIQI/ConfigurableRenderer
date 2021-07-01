@@ -55,8 +55,8 @@ public:
         updateCameraVectors();
         updateViewProjMat();
     }
-    Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, float focal_length, float aspect_ratio, float nearz, float farz, float yaw = YAW, float pitch = PITCH)
-    : MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY) {
+    Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, float focal_length, float aspect_ratio, float nearz, float farz, float yaw = YAW, float pitch = PITCH, float speed = SPEED)
+    : MouseSensitivity(SENSITIVITY) {
         Position = position;
         WorldUp = up;
         Front = target - position;
@@ -66,6 +66,7 @@ public:
         Aspect = aspect_ratio;
         nearZ = nearz;
         farZ = farz;
+        MovementSpeed = speed;
         updateCameraVectors();
         updateViewProjMat();
     }
@@ -93,6 +94,10 @@ public:
     glm::mat4 GetViewProjMatrix()
     {
         return projMat * viewMat;
+    }
+    void setAspect(float aspect) {
+        Aspect = aspect;
+        updateViewProjMat();
     }
     void setPerspective(float aspect, float nearz, float farz){
         Aspect = aspect; nearZ = nearz; farZ = farz;

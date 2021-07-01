@@ -1,0 +1,116 @@
+{
+    "version": 2,
+    "camera_speed": 1.0,
+    "lighting_scale": 1.0,
+    "active_camera": "Camera0",
+    "models": [
+        {
+            "file": "BistroExterior.fbx",
+            "name": "BistroExterior",
+            "instances": [
+                {
+                    "name": "BistroExterior",
+                    "translation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scaling": [
+                        0.01,
+                        0.01,
+                        0.01
+                    ],
+                    "rotation": [
+                        -90.0,
+                        0.0,
+                        0.0
+                    ]
+                }
+            ]
+        }
+    ],
+    "environment_maps": [
+        {
+            "files": [
+                "skybox/posx.jpg",
+                "skybox/negx.jpg",
+                "skybox/posy.jpg",
+                "skybox/negy.jpg",
+                "skybox/posz.jpg",
+                "skybox/negz.jpg"
+            ]
+        }
+    ],
+    "lights": [
+        {
+            "name": "SunLight",
+            "type": "dir_light",
+            "intensity": [
+                3.0,
+                3.0,
+                3.0
+            ],
+            "direction": [
+                0.6,
+                -0.7,
+                -0.3
+            ],
+            "pos": [
+                -18.0,
+                21.0,
+                9.0
+            ],
+            "ambient": 0.03
+        },
+        {
+            "name": "light2",
+            "type": "point_light",
+            "intensity": [
+                10.0,
+                10.0,
+                10.0
+            ],
+            "pos": [
+                -10.0,
+                15.0,
+                0.0
+            ],
+            "direction": [
+                0.6,
+                -0.8,
+                0.0
+            ],
+            "opening_angle": 180.0,
+            "penumbra_angle": 0.0,
+            "ambient": 0.0,
+            "range": 50.0
+        }
+    ],
+    "cameras": [
+        {
+            "name": "Camera0",
+            "pos": [
+                -10.0,
+                15.0,
+                0.0
+            ],
+            "target": [
+                -10.0,
+                15.0,
+                -1.0
+            ],
+            "up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "focal_length": 21.0,
+            "depth_range": [
+                0.1,
+                500.0
+            ],
+            "aspect_ratio": 1.0,
+            "camera_speed": 5.0
+        }
+    ]
+}

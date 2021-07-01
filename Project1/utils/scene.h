@@ -194,8 +194,10 @@ public:
 				glm::mat4 modelmat = glm::mat4(1.0);
 				modelmat = glm::translate(modelmat, glm::vec3(translation[0].as_float(), translation[1].as_float(), translation[2].as_float()));
 				modelmat = glm::scale(modelmat, glm::vec3(scaling[0].as_float(), scaling[1].as_float(), scaling[2].as_float()));
-				//TODO: Rotate
-				//modelmat = glm::rotate(modelmat, rotation[0], glm::vec3(1.0, 0.0, 0.0));
+				//TODO: Fix Rotate
+				modelmat = glm::rotate(modelmat, glm::radians((float)rotation[0].as_float()), glm::vec3(1.0f, 0.0f, 0.0f));
+				modelmat = glm::rotate(modelmat, glm::radians((float)rotation[1].as_float()), glm::vec3(0.0f, 1.0f, 0.0f));
+				modelmat = glm::rotate(modelmat, glm::radians((float)rotation[2].as_float()), glm::vec3(0.0f, 0.0f, 1.0f));
 				setModelMat(mid++, modelmat);
 			}
 		}
@@ -253,11 +255,12 @@ public:
 			auto depth_range = cameras[i]["depth_range"].as_array();
 			float focal_length = cameras[i]["focal_length"].as_float();
 			float aspect_ratio = cameras[i]["aspect_ratio"].as_float();
+			float camera_speed = cameras[i]["camera_speed"].as_float();
 			Camera* nCamera = new Camera(
 				glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
 				glm::vec3(target[0].as_float(), target[1].as_float(), target[2].as_float()),
 				glm::vec3(up[0].as_float(), up[1].as_float(), up[2].as_float()),
-				focal_length, aspect_ratio, depth_range[0].as_float(), depth_range[1].as_float()
+				focal_length, aspect_ratio, depth_range[0].as_float(), depth_range[1].as_float(), camera_speed
 			);
 			addCamera(nCamera);
 		}

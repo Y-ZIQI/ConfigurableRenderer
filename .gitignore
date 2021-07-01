@@ -15,11 +15,23 @@ __MACOSX
 ext
 ext_build
 
+# Unused files, shaders, ...
+unused
+
+# Remove resources as default
 */resources/*
+
+# Added used textures
 !*/resources/textures
 
+# Added files for Bistro
+!*/resources/Bistro
+*/resources/Bistro/*
+!*/resources/Bistro/skybox
+!*/resources/Bistro/BistroExterior.json
+
 # Added files for SunTemple
+!*/resources/SunTemple
+*/resources/SunTemple/*
 !*/resources/SunTemple/skybox
 !*/resources/SunTemple/SunTemple.json
-
-unused

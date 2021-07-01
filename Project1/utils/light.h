@@ -46,7 +46,9 @@ public:
 
 	void addGui(nanogui::FormHelper* gui) {
 		gui->addGroup(name);
-		gui->addVariable("ambient", ambient)->setSpinnable(true);
+		auto tbox = gui->addVariable("ambient", ambient);
+		tbox->setSpinnable(true);
+		tbox->setValueIncrement(0.01);
 		gui->addVariable("Intensity.r", intensity[0])->setSpinnable(true);
 		gui->addVariable("Intensity.g", intensity[1])->setSpinnable(true);
 		gui->addVariable("Intensity.b", intensity[2])->setSpinnable(true);
