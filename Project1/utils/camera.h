@@ -55,7 +55,7 @@ public:
         updateCameraVectors();
         updateViewProjMat();
     }
-    Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, float focal_length, float aspect_ratio, float nearz, float farz, float yaw = YAW, float pitch = PITCH, float speed = SPEED)
+    Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up, float focal_length, float aspect_ratio, float nearz, float farz, float speed = SPEED, float yaw = YAW, float pitch = PITCH)
     : MouseSensitivity(SENSITIVITY) {
         Position = position;
         WorldUp = up;

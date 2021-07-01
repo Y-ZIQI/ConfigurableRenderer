@@ -12,6 +12,7 @@ struct DirectionalLight{
     bool has_shadow;
     mat4 viewProj;
     sampler2D shadowMap;
+    float resolution;
 };
 
 struct PointLight{
@@ -31,6 +32,7 @@ struct PointLight{
     bool has_shadow;
     mat4 viewProj;
     sampler2D shadowMap;
+    float resolution;
 };
 
 #ifndef MAX_DIRECTIONAL_LIGHT
@@ -49,13 +51,15 @@ uniform PointLight ptLights[MAX_POINT_LIGHT];
 // Shadow map related variables
 //#define SHADOW_HARD
 //#define SHADOW_SOFT_ESM
-#define SM_LOD 2
-#define SHADOW_SOFT_PCF
+//#define SHADOW_SOFT_PCF
+#define SM_ESM_LOD 2
+#define SM_PCF_FILTER 0.002
+
 #define NUM_SAMPLES 10
 #define NUM_RINGS 2
 #define EPS 1e-5
-#define MAX_BIAS 1e-3
-#define MIN_BIAS 1e-4
+#define MAX_BIAS 4.0
+#define MIN_BIAS 0.4
 
 #define EVAL_DIFFUSE
 #define EVAL_SPECULAR
@@ -109,7 +113,7 @@ float PCF_dir_visible(int index, vec3 position, float bias) {
         return 1.0;
     vec2 uv = ndc.xy;
     float zReceiver = ndc.z; // Assumed to be eye-space z in this code
-    float filterRadius = 0.002;
+    float filterRadius = SM_PCF_FILTER;
 
     poissonDiskSamples(uv);
     return PCF_Filter(dirLights[index].shadowMap, uv, zReceiver, filterRadius, bias);
@@ -121,7 +125,7 @@ float PCF_pt_visible(int index, vec3 position, float bias) {
         return 1.0;
     vec2 uv = ndc.xy;
     float zReceiver = ndc.z; // Assumed to be eye-space z in this code
-    float filterRadius = 0.002;
+    float filterRadius = SM_PCF_FILTER;
 
     poissonDiskSamples(uv);
     return PCF_Filter(ptLights[index].shadowMap, uv, zReceiver, filterRadius, bias);
@@ -132,8 +136,8 @@ float ESM_dir_visible(int index, vec3 position, float bias){
     if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
         return 1.0;
     vec2 uv = ndc.xy;
-    ndc.z -= bias;
-    float mindep = textureLod(dirLights[index].shadowMap, uv, SM_LOD).r;
+    //ndc.z -= bias;
+    float mindep = textureLod(dirLights[index].shadowMap, uv, SM_ESM_LOD).r;
     ATOMIC_COUNT_INCREMENT
     float sx = exp(-80.0 * ndc.z) * mindep;
     //return step(0.99, sx);
@@ -145,8 +149,8 @@ float ESM_pt_visible(int index, vec3 position, float bias){
     if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
         return 1.0;
     vec2 uv = ndc.xy;
-    ndc.z -= bias;
-    float mindep = textureLod(ptLights[index].shadowMap, uv, SM_LOD).r;
+    //ndc.z -= bias;
+    float mindep = textureLod(ptLights[index].shadowMap, uv, SM_ESM_LOD).r;
     ATOMIC_COUNT_INCREMENT
     float sx = exp(-80.0 * ndc.z) * mindep;
     //return step(0.99, sx);
@@ -195,7 +199,7 @@ vec3 evalDirLight(int index, ShadingData sd){
     if(ls.NdotL <= 0.0)
         visibility = 0.0;
     else if(dirLights[index].has_shadow){
-        float bias = max(MAX_BIAS * (1.0 - ls.NdotL), MIN_BIAS);
+        float bias = max(MAX_BIAS * (1.0 - ls.NdotL), MIN_BIAS) * dirLights[index].resolution;
         #ifdef SHADOW_SOFT_PCF
         visibility = PCF_dir_visible(index, sd.posW, bias);
         #elif defined(SHADOW_SOFT_ESM)
@@ -236,7 +240,7 @@ vec3 evalPtLight(int index, ShadingData sd){
     if(ls.NdotL <= 0.0)
         visibility = 0.0;
     else if(ptLights[index].has_shadow){
-        float bias = max(MAX_BIAS * (1.0 - ls.NdotL), MIN_BIAS);
+        float bias = max(MAX_BIAS * (1.0 - ls.NdotL), MIN_BIAS) * dirLights[index].resolution;
         #ifdef SHADOW_SOFT_PCF
         visibility = PCF_pt_visible(index, sd.posW, bias);
         #elif defined(SHADOW_SOFT_ESM)

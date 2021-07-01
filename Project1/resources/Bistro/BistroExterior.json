@@ -46,9 +46,9 @@
             "name": "SunLight",
             "type": "dir_light",
             "intensity": [
-                3.0,
-                3.0,
-                3.0
+                3.2,
+                2.8,
+                2.4
             ],
             "direction": [
                 0.6,

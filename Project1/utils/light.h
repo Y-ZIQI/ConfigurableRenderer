@@ -128,6 +128,8 @@ public:
 			shader.setMat4(tmp, viewProj);
 			sprintf(tmp, "dirLights[%d].shadowMap", index);
 			shader.setTextureSource(tmp, sm_index, shadowMap->smBuffer->colorAttachs[0].texture->id);
+			sprintf(tmp, "dirLights[%d].resolution", index);
+			shader.setFloat(tmp, 1.0f / (float)shadowMap->width);
 			sm_index++;
 		}
 	}
@@ -221,6 +223,8 @@ public:
 			shader.setMat4(tmp, viewProj);
 			sprintf(tmp, "ptLights[%d].shadowMap", index);
 			shader.setTextureSource(tmp, sm_index, shadowMap->smBuffer->colorAttachs[0].texture->id);
+			sprintf(tmp, "ptLights[%d].resolution", index);
+			shader.setFloat(tmp, 1.0f / (float)shadowMap->width);
 			sm_index++;
 		}
 	}

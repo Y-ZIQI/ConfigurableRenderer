@@ -31,6 +31,8 @@ OpenGL实现的一个渲染管线，仿照Nvidia的Falcor。并添加了一些�
 ## Test Scenes
 
 - SunTemple: 
-  - 从nvidia官网上下载SunTemple模型数据包
+  - 从nvidia官网上下载SunTemple模型数据包[下载地址](https://developer.nvidia.com/sun-temple)
   - 将resources下的SunTemple文件夹与模型文件夹合并
 - Bistro:
+  - 从nvidia官网上下载Bistro模型数据包[下载地址](https://developer.nvidia.com/bistro)
+  - 将resources下的Bistro文件夹与模型文件夹合并

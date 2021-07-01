@@ -13,7 +13,8 @@ enum Level : uint {
 };
 enum Mode : uint {
 	mode1 = 0,
-	mode2
+	mode2,
+	mode3
 };
 class Settings {
 public:
@@ -54,6 +55,10 @@ public:
 	*/
 	Level smaa_level;
 
+	bool update_shadow;
+	// 1: hard, 2: pcf, 3: esm
+	Mode shadow_type;
+
 	Settings() {
 		resolution = level3;
 		shadow_resolution = level3;
@@ -61,6 +66,9 @@ public:
 		ssr_level = level1;
 		shading = level1;
 		smaa_level = level1;
+
+		update_shadow = true;
+		shadow_type = mode2;
 	}
 };
 
@@ -104,7 +112,7 @@ private:
 	* 1: Bistro
 	* 2: SunTemple
 	*/
-	uint test_scene = 1;
+	uint test_scene = 2;
 	float fps, duration;
 	TimeRecord record[2]; // All, SMAA+resolve
 	float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
@@ -131,10 +139,13 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
 	gui->addGroup("Config");
 	gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
 	gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "512", "1024", "2048" });
-	gui->addVariable("Shading", settings.shading, enabled)->setItems({ "1", "2", "3" });
 	gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "1", "2" });
 	gui->addVariable("SSR Level", settings.ssr_level, enabled)->setItems({ "Disable", "1", "2" });
 	gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "1", "2" });
+	gui->addGroup("Render Setting");
+	gui->addVariable("Shading", settings.shading, enabled)->setItems({ "1", "2", "3" });
+	gui->addVariable("Update Shadow", settings.update_shadow, enabled);
+	gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "Hard", "PCF", "ESM" });
 }
 
 void RenderFrame::config(bool force_update = false) {
@@ -198,6 +209,29 @@ void RenderFrame::config(bool force_update = false) {
 		}
 		sManager.getShader(SID_SMAA_BLENDPASS)->reload();
 	}
+	if (settings.shadow_type != stHistory.shadow_type || force_update) {
+		stHistory.shadow_type = settings.shadow_type;
+		if (settings.shadow_type == mode1) {
+			sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_SOFT_PCF");
+			sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_SOFT_ESM");
+			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADOW_HARD");
+			sManager.getShader(SID_SHADOWMAP)->removeDef(FSHADER, "SHADOW_SOFT_ESM");
+		}
+		else if (settings.shadow_type == mode2) {
+			sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_HARD");
+			sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_SOFT_ESM");
+			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADOW_SOFT_PCF");
+			sManager.getShader(SID_SHADOWMAP)->removeDef(FSHADER, "SHADOW_SOFT_ESM");
+		}
+		else if (settings.shadow_type == mode3) {
+			sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_SOFT_PCF");
+			sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_HARD");
+			sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADOW_SOFT_ESM");
+			sManager.getShader(SID_SHADOWMAP)->addDef(FSHADER, "SHADOW_SOFT_ESM");
+		}
+		sManager.getShader(SID_DEFERRED_SHADING)->reload();
+		sManager.getShader(SID_SHADOWMAP)->reload();
+	}
 }
 
 void RenderFrame::onLoad() {
@@ -252,7 +286,7 @@ void RenderFrame::onFrameRender() {
 	glFrontFace(GL_CCW);
 
 	frame_record.clear();
-	scene->update();
+	scene->update(settings.update_shadow);
 	targetFbo->clear();
 
 	config();

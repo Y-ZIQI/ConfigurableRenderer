@@ -104,13 +104,14 @@ public:
 		frame_record.triangles += 12;
 		frame_record.draw_calls += 1;
 	}
-	void update() {
+	void update(bool gen_shadow = true) {
 		camera->update();
 		for (int i = 0; i < dirLights.size(); i++)
-			dirLights[i]->update(true, camera->Position, camera->Front);
+			dirLights[i]->update(gen_shadow, camera->Position, camera->Front);
 		for (int i = 0; i < ptLights.size(); i++)
 			ptLights[i]->update();
-		genShadow();
+		if(gen_shadow)
+			genShadow();
 	}
 	void genShadow(bool cull_front = false) {
 		if(cull_front)
