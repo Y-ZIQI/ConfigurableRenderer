@@ -32,7 +32,6 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
-        glBindTexture(GL_TEXTURE_2D, 0);
         return tex;
     }
     static Texture* createFromArray(
@@ -56,7 +55,6 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
-        glBindTexture(GL_TEXTURE_2D, 0);
         return tex;
     }
     static Texture* createCubeMap(
@@ -67,28 +65,20 @@ public:
         GLenum type,
         GLint filter = GL_NEAREST
     ) {
-        auto b = glGetError();
         Texture* tex = new Texture;
         glGenTextures(1, &tex->id);
         glBindTexture(GL_TEXTURE_CUBE_MAP, tex->id);
         tex->target = GL_TEXTURE_CUBE_MAP;
         tex->width = width; tex->height = height;
-        b = glGetError();
         for (GLuint i = 0; i < 6; ++i)
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internalFormat,
                 width, height, 0, format, type, NULL);
-        b = glGetError();
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, filter);
-        b = glGetError();
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, filter);
-        b = glGetError();
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        b = glGetError();
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        b = glGetError();
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-        b = glGetError();
-        glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
         return tex;
     }
     static Texture* createFromFile(
@@ -183,6 +173,36 @@ public:
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
+        return tex;
+    }
+    static Texture* createHDRMapFromFile(
+        std::string path,
+        bool filp_vertically_on_load = true
+    ) {
+        Texture* tex = new Texture;
+        glGenTextures(1, &tex->id);
+        glBindTexture(GL_TEXTURE_2D, tex->id);
+        tex->target = GL_TEXTURE_2D;
+
+        stbi_set_flip_vertically_on_load(filp_vertically_on_load);
+        int width, height, nrComponents;
+        float* data = stbi_loadf(path.c_str(), &width, &height, &nrComponents, 0);
+        tex->width = width; tex->height = height;
+        if (data)
+        {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data);
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            stbi_image_free(data);
+        }
+        else
+        {
+            std::cout << "Failed to load HDR image." << std::endl;
+        }
         return tex;
     }
     void use() {

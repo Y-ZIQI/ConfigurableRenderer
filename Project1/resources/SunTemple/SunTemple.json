@@ -39,6 +39,12 @@
                 "skybox/posz.jpg",
                 "skybox/negz.jpg"
             ]
+        },
+        {
+            "files": "SunTemple_Skybox.hdr"
+        },
+        {
+            "files": "SunTemple_Reflection.hdr"
         }
     ],
     "light_probes": [

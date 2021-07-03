@@ -20,9 +20,9 @@
 #define M_1_2PI             0.159154943091895335769 // 1/2pi
 #define M_1_4PI             0.079577471545947667884 // 1/4pi
 
-layout (binding = 0, offset = 0) uniform atomic_uint counter;
 #define ATOMIC_COUNT
 #ifdef ATOMIC_COUNT
+layout (binding = 0, offset = 0) uniform atomic_uint counter;
 #define ATOMIC_COUNT_INCREMENT atomicCounterIncrement(counter);
 #else
 #define ATOMIC_COUNT_INCREMENT

@@ -7,6 +7,7 @@
 #include "utils/antialiasing.h"
 #include "utils/camera.h"
 #include "utils/framebuffer.h"
+#include "utils/ibl.h"
 #include "utils/light.h"
 #include "utils/mesh.h"
 #include "utils/model.h"

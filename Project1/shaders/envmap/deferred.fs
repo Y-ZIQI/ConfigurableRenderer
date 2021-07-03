@@ -8,6 +8,6 @@ uniform samplerCube envmap;
 
 void main()
 {    
-    fAlbedo.rgb = texture(envmap, TexCoords).rgb;
+    fAlbedo = texture(envmap, TexCoords);
     ATOMIC_COUNT_INCREMENT
 }

@@ -62,6 +62,11 @@ vec3 evalDiffuseFrostbiteBrdf(ShadingData sd, LightSample ls)
     return (viewScatter * lightScatter * energyFactor * M_1_PI) * sd.diffuse.rgb;
 }
 
+vec3 evalSpecularIBL(ShadingData sd){
+    //return fresnelSchlick(vec3(1.0), max(vec3(1.0 - sd.linearRoughness), vec3(1.0)), max(sd.NdotV, 0.0));
+    return fresnelSchlick(sd.specular, max(vec3(1.0 - sd.linearRoughness), sd.specular), max(sd.NdotV, 0.0));
+}
+
 vec3 evalDiffuseBrdf(ShadingData sd, LightSample ls)
 {
 #if DiffuseBrdf == DiffuseBrdfLambert

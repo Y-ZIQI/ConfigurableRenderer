@@ -160,6 +160,7 @@
     <ClInclude Include="utils\defines.h" />
     <ClInclude Include="utils\framebuffer.h" />
     <ClInclude Include="utils\glfwEnv.h" />
+    <ClInclude Include="utils\ibl.h" />
     <ClInclude Include="utils\light.h" />
     <ClInclude Include="utils\mesh.h" />
     <ClInclude Include="utils\model.h" />

@@ -47,6 +47,16 @@ uniform int ptLtCount;
 uniform DirectionalLight dirLights[MAX_DIRECTIONAL_LIGHT];
 uniform PointLight ptLights[MAX_POINT_LIGHT];
 
+#define EVAL_IBL
+#ifndef MAX_IBL_LIGHT
+#define MAX_IBL_LIGHT 1
+#endif
+uniform int iblCount;
+struct IBL{
+    samplerCube irradianceMap;
+};
+uniform IBL ibls[MAX_IBL_LIGHT];
+
 /********************************************Config********************************************/
 // Shadow map related variables
 //#define SHADOW_HARD
@@ -263,6 +273,17 @@ vec3 evalPtLight(int index, ShadingData sd){
     return visibility * evalColor(sd, ls) + ambient;
 }
 
+vec3 evalIBL(int index, ShadingData sd){
+    LightSample ls;
+    ls.color = texture(ibls[index].irradianceMap, sd.N).rgb;
+    ATOMIC_COUNT_INCREMENT
+    vec3 kS = fresnelSchlick(sd.specular, max(vec3(1.0 - sd.linearRoughness), sd.specular), max(sd.NdotV, 0.0));
+    //vec3 kS = evalSpecularBrdf(sd, ls);
+    vec3 kD = 1.0 - kS;
+    vec3 diffuse = ls.color * sd.diffuse * kD * sd.ao * M_1_PI;
+    return diffuse;
+}
+
 vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, float ao){
     ShadingData sd;
     sd.posW = position.xyz;
@@ -298,6 +319,12 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     for (int i = 0; i < count; i++){
         color += evalPtLight(i, sd); 
     }
+    #ifdef EVAL_IBL
+    count = min(iblCount, MAX_IBL_LIGHT);
+    for (int i = 0; i < count; i++){
+        color += evalIBL(i, sd); 
+    }
+    #endif
     return color;
 }
 //sd.metallic = specColor.b;

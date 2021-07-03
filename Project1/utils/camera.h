@@ -7,8 +7,8 @@ enum Camera_Movement {
     BACKWARD,
     LEFT,
     RIGHT,
-	RAISE,
-	DROP
+    RAISE,
+    DROP
 };
 
 // Default camera values
@@ -120,10 +120,10 @@ public:
             Position -= Right * velocity;
         if (direction == RIGHT)
             Position += Right * velocity;
-		if (direction == RAISE)
-			Position += WorldUp * velocity;
-		if (direction == DROP)
-			Position -= WorldUp * velocity;
+        if (direction == RAISE)
+            Position += WorldUp * velocity;
+        if (direction == DROP)
+            Position -= WorldUp * velocity;
         updateViewProjMat();
     }
 

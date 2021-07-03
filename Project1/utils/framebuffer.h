@@ -21,11 +21,15 @@ public:
     RenderBuffer depthRB;
     RenderBuffer depthStencil;
 
-    uint attachs = 1;
+    uint attachs;
 
     FrameBuffer(bool isDefaultFrameBuffer = false) {
-        if (!isDefaultFrameBuffer)
+        if (!isDefaultFrameBuffer) {
             glGenFramebuffers(1, &id);
+            attachs = 0;
+        }
+        else
+            attachs = 1;
         colorAttachs.resize(MAX_TARGETS);
     };
     void attachColorTarget(Texture* tex, uint index) {
