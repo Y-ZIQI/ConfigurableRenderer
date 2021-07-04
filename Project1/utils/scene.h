@@ -21,7 +21,7 @@ public:
     uint envIdx;
     bool envMap_enabled = false;
 
-    vector<IBL*> ibls;
+    vector<IBL*> light_probes;
 
     jsonxx::json jscene;
 
@@ -53,6 +53,7 @@ public:
         envMaps.push_back(envMap); 
     };
     void setEnvMap(uint idx) { envIdx = idx; };
+    void addLightProbe(IBL* nLight) { light_probes.push_back(nLight); };
     void Draw(Shader& shader, uint blend_mode = 0, bool draw_envmap = true) {
         if (blend_mode == 0) {
             for (uint i = 0; i < models.size(); i++) {
@@ -157,9 +158,9 @@ public:
         for (uint i = 0; i < ptLights.size(); i++)
             ptLights[i]->setUniforms(shader, i, sm_index);
 
-        shader.setInt("iblCount", ibls.size());
-        for (uint i = 0; i < ibls.size(); i++)
-            ibls[i]->setUniforms(shader, i, sm_index);
+        shader.setInt("iblCount", light_probes.size());
+        for (uint i = 0; i < light_probes.size(); i++)
+            light_probes[i]->setUniforms(shader, i, sm_index);
     }
     void setCameraUniforms(Shader& shader, bool remove_trans = false) {
         float inv_n = 1.0f / camera->nearZ, inv_f = 1.0f / camera->farZ;
@@ -228,6 +229,16 @@ public:
         }
         setEnvMap(0);
 
+        auto light_probes = jscene["light_probes"].as_array();
+        for (uint i = 0; i < light_probes.size(); i++) {
+            auto file = directory + light_probes[i]["file"].as_string();
+            auto intensity = light_probes[i]["intensity"].as_array();
+            auto pos = light_probes[i]["pos"].as_array();
+            addLightProbe(new IBL(
+                file, glm::vec3(intensity[0], intensity[1], intensity[2]), glm::vec3(pos[0], pos[1], pos[2])
+            ));
+        }
+
         auto lights = jscene["lights"].as_array();
         for (uint i = 0; i < lights.size(); i++) {
             std::string name = lights[i]["name"].as_string();
@@ -242,7 +253,8 @@ public:
                     glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
                     glm::vec3(direction[0].as_float(), direction[1].as_float(), direction[2].as_float()),
                     glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
-                    ambient));
+                    ambient
+                ));
             }
             else if (type == "point_light") {
                 float range = lights[i]["range"].as_float();
@@ -251,7 +263,8 @@ public:
                     glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
                     glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
                     glm::vec3(direction[0].as_float(), direction[1].as_float(), direction[2].as_float()),
-                    ambient, range));
+                    ambient, range
+                ));
             }
         }
 

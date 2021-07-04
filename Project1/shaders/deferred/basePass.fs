@@ -57,4 +57,5 @@ void main()
     }else{
         fNormal = vec4(normalize(TBN[2]), alpha);
     }
+    ATOMIC_COUNT_CALCULATE
 }

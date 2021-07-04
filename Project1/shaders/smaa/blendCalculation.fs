@@ -413,4 +413,5 @@ vec4 blendingWeightCalculation(){
 void main()
 {
 	FragColor = blendingWeightCalculation();
+    ATOMIC_COUNT_CALCULATE
 }

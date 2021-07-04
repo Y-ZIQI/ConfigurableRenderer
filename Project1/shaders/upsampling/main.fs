@@ -8,6 +8,6 @@ uniform sampler2D screenTex;
 
 void main()
 {
-    ATOMIC_COUNT_INCREMENT
+    ATOMIC_COUNTER_I_INCREMENT(0)
     FragColor = texture(screenTex, TexCoords).rgba;
 }

@@ -37,4 +37,5 @@ void main()
     irradiance = M_PI * irradiance * (1.0 / float(nrSamples));
 
     FragColor = vec4(irradiance, 1.0);
+    ATOMIC_COUNT_CALCULATE
 }

@@ -62,20 +62,37 @@ Texture* filterCubeMap(
 
 class IBL {
 public:
+    std::string name;
+    glm::vec3 intensity;
+    glm::vec3 position;
+    float range;
+
     Texture* tex2D;
     Texture* texCube;
     Texture* texCubeFiltered;
     FrameBuffer* targetFbo;
 
-    IBL(std::string path) {
-        tex2D = Texture::createHDRMapFromFile(path, true);
+    IBL(std::string Path, glm::vec3 Intensity = glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3 Position = glm::vec3(0.0f, 0.0f, 0.0f), float Range = 10.0f) {
+        name = Path;
+        intensity = Intensity;
+        position = Position;
+        range = Range;
+        
+        tex2D = Texture::createHDRMapFromFile(Path, true);
         targetFbo = new FrameBuffer;
         texCube = createCubeMapFromTex2D(tex2D, targetFbo, 512);
         texCubeFiltered = filterCubeMap(texCube, targetFbo, 32);
     }
     void setUniforms(Shader& shader, uint index, uint tex_index) {
         char tmp[64];
+        sprintf(tmp, "ibls[%d].intensity", index);
+        shader.setVec3(tmp, intensity);
+        sprintf(tmp, "ibls[%d].position", index);
+        shader.setVec3(tmp, position);
+        sprintf(tmp, "ibls[%d].range", index);
+        shader.setFloat(tmp, range);
         sprintf(tmp, "ibls[%d].irradianceMap", index);
         shader.setTextureSource(tmp, tex_index, texCubeFiltered->id, texCubeFiltered->target);
+        //shader.setTextureSource(tmp, tex_index, texCube->id, texCube->target);
     }
 };

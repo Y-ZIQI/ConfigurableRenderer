@@ -111,4 +111,5 @@ void main(){
         vec3 posW = texture(positionTex, TexCoords).xyz;
         AO = ambientOcclusion(posW, normal, SSAO_RANGE, SSAO_THRESHOLD, camera_vp, camera_params.zw, positionTex);
     }
+    ATOMIC_COUNT_CALCULATE
 }

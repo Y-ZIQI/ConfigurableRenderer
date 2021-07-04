@@ -19,5 +19,5 @@ void main()
 {    
     vec2 uv = SampleSphericalMap(normalize(TexCoords));
     fAlbedo = texture(envmap, uv);
-    ATOMIC_COUNT_INCREMENT
+    ATOMIC_COUNTER_I_INCREMENT(0)
 }

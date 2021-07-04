@@ -62,6 +62,7 @@ void main()
             FragColor = vec4(0.0, 1.0, 0.0, 1.0);
         #endif
     }
+    ATOMIC_COUNT_CALCULATE
 }
 //FragColor = vec4(vec3(1.0 - ao), 1.0);
 //FragColor = vec4(normal, 1.0);

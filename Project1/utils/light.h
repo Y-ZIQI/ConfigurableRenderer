@@ -162,9 +162,10 @@ public:
         range = Range;
         opening_angle = Opening_angle * M_PI / 180.0f;
         penumbra_angle = Penumbra_angle * M_PI / 180.0f;
-        constant = 1.0f;
-        linear = 5.0f / Range;
-        quadratic = 80.0f / (Range * Range);
+        //constant = 1.0f;
+        constant = 0.01f;
+        linear = 4.0f / Range;
+        quadratic = 70.0f / (Range * Range);
     }
     void update() {
         if (shadow_enabled) {

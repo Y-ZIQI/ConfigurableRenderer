@@ -9,6 +9,6 @@ uniform sampler2D texture_diffuse1;
 
 void main()
 {
-    ATOMIC_COUNT_INCREMENT
+    ATOMIC_COUNTER_I_INCREMENT(0)
     FragColor = texture(texture_diffuse1, TexCoords);
 }

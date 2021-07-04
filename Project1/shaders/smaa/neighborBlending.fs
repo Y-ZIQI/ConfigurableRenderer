@@ -68,4 +68,5 @@ void main()
 {
 	FragColor = neighborhoodBlending();
 	//FragColor = texture(blendTex, TexCoords);
+    ATOMIC_COUNT_CALCULATE
 }

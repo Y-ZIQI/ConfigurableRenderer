@@ -106,6 +106,7 @@ void main(){
             FragColor = vec4(color, 1.0);
         }
     }
+    ATOMIC_COUNT_CALCULATE
 }
 /*intersect = true;
 d2 = curruv.z - dep;

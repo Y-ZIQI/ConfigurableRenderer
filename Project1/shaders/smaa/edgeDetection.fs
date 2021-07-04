@@ -56,4 +56,5 @@ vec2 edgeDetection(){
 void main()
 {
 	FragColor = edgeDetection();
+	ATOMIC_COUNT_CALCULATE
 }

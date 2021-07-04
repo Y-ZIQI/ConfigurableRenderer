@@ -21,11 +21,28 @@
 #define M_1_4PI             0.079577471545947667884 // 1/4pi
 
 #define ATOMIC_COUNT
+
 #ifdef ATOMIC_COUNT
-layout (binding = 0, offset = 0) uniform atomic_uint counter;
-#define ATOMIC_COUNT_INCREMENT atomicCounterIncrement(counter);
+layout (binding = 0, offset = 0) uniform atomic_uint counter[8];
+uint tCount = 0;
+//#define ATOMIC_COUNT_INCREMENT atomicCounterIncrement(counter[0]);
+#define ATOMIC_COUNT_INCREMENT tCount++;
+#define ATOMIC_COUNTER_I_INCREMENT(i) atomicCounterIncrement(counter[i]);
+#define ATOMIC_COUNT_CALCULATE atomic_calculate();
+void atomic_calculate(){
+    if((tCount & 0x00000001) != 0) atomicCounterIncrement(counter[0]);
+    if((tCount & 0x00000002) != 0) atomicCounterIncrement(counter[1]);
+    if((tCount & 0x00000004) != 0) atomicCounterIncrement(counter[2]);
+    if((tCount & 0x00000008) != 0) atomicCounterIncrement(counter[3]);
+    if((tCount & 0x00000010) != 0) atomicCounterIncrement(counter[4]);
+    if((tCount & 0x00000020) != 0) atomicCounterIncrement(counter[5]);
+    if((tCount & 0x00000040) != 0) atomicCounterIncrement(counter[6]);
+    if((tCount & 0x00000080) != 0) atomicCounterIncrement(counter[7]);
+}
 #else
 #define ATOMIC_COUNT_INCREMENT
+#define ATOMIC_COUNTER_I_INCREMENT(i)
+#define ATOMIC_COUNT_CALCULATE
 #endif
 
 #endif

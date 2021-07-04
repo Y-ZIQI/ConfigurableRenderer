@@ -43,8 +43,8 @@ public:
     */
     Level ssr_level;
     /** Shading
-    * 1: TODO: 
-    * 2: TODO: 
+    * 1: PBR
+    * 2: PBR + IBL
     * 3: TODO: 
     */
     Level shading;
@@ -145,7 +145,7 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
     gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "1", "2" });
     gui->addGroup("Render Setting");
     gui->addVariable("Recording", settings.recording, enabled);
-    gui->addVariable("Shading", settings.shading, enabled)->setItems({ "1", "2", "3" });
+    gui->addVariable("Shading", settings.shading, enabled)->setItems({ "PBR", "PBR+IBL", "3" });
     gui->addVariable("Update Shadow", settings.update_shadow, enabled);
     gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "Hard", "PCF", "ESM" });
 }
@@ -168,9 +168,9 @@ void RenderFrame::config(bool force_update = false) {
     if (settings.shading != stHistory.shading || force_update) {
         stHistory.shading = settings.shading;
         if (settings.shading == level1)
-            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADING_MODEL", "1");
+            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "EVAL_IBL");
         else if (settings.shading == level2)
-            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADING_MODEL", "2");
+            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "EVAL_IBL");
         else if (settings.shading == level3);
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
     }
@@ -258,9 +258,6 @@ void RenderFrame::onLoad() {
 
     {
         scene = new Scene;
-
-        scene->ibls.push_back(new IBL("resources/SunTemple/SunTemple_Reflection.hdr"));
-
         if (test_scene == 1) {
             /***************************Bistro*********************************/
             scene->loadScene("resources/Bistro/BistroExterior.json");
