@@ -54,26 +54,19 @@ public:
     };
     void setEnvMap(uint idx) { envIdx = idx; };
     void addLightProbe(IBL* nLight) { light_probes.push_back(nLight); };
-    void Draw(Shader& shader, uint blend_mode = 0, bool draw_envmap = true) {
+    void Draw(Shader& shader, uint blend_mode = 0) {
+        glEnable(GL_DEPTH_TEST);
         if (blend_mode == 0) {
             for (uint i = 0; i < models.size(); i++) {
                 setModelUniforms(shader, i);
                 //models[i]->Draw(shader, false);
                 models[i]->Draw(shader, true, modelMats[i], camera->Position, camera->Front);
             }
-            if (draw_envmap && envMap_enabled && envIdx >= 0)
-                DrawEnvMap(*sManager.getShader(
-                    envMaps[envIdx]->target == GL_TEXTURE_CUBE_MAP ? SID_DEFERRED_ENVMAP : SID_DEFERRED_ENVMAP2D
-                ));
         }else{
             for (uint i = 0; i < models.size(); i++) {
                 setModelUniforms(shader, i);
                 models[i]->DrawOpaque(shader);
             }
-            if (draw_envmap && envMap_enabled && envIdx >= 0)
-                DrawEnvMap(*sManager.getShader(
-                    envMaps[envIdx]->target == GL_TEXTURE_CUBE_MAP ? SID_DEFERRED_ENVMAP : SID_DEFERRED_ENVMAP2D
-                ));
             glm::mat4 viewProj = camera->GetViewProjMatrix();
             shader.use();
             for (uint i = 0; i < models.size(); i++) {
@@ -83,6 +76,7 @@ public:
         }
     }
     void DrawMesh(Shader& shader) {
+        glEnable(GL_DEPTH_TEST);
         for (uint i = 0; i < models.size(); i++) {
             setModelUniforms(shader, i, false);
             models[i]->DrawMesh(shader);
@@ -90,11 +84,8 @@ public:
     }
     void DrawEnvMap(Shader& shader) {
         checkEnvmapVAO();
-        shader.use();
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
-        setCameraUniforms(shader, true);
-        shader.setTextureSource("envmap", 0, envMaps[envIdx]->id, envMaps[envIdx]->target);
         glBindVertexArray(_envmap_vao);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);

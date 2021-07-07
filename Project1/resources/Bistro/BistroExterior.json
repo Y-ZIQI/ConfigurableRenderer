@@ -31,6 +31,9 @@
     ],
     "environment_maps": [
         {
+            "files": "san_giuseppe_bridge_4k.hdr"
+        },
+        {
             "files": [
                 "skybox/posx.jpg",
                 "skybox/negx.jpg",
@@ -38,6 +41,23 @@
                 "skybox/negy.jpg",
                 "skybox/posz.jpg",
                 "skybox/negz.jpg"
+            ]
+        }
+    ],
+    "light_probes": [
+        {
+            "file": "san_giuseppe_bridge_4k.hdr",
+            "diff_samples" : 8000,
+            "spec_samples" : 4000,
+            "intensity": [
+                0.05,
+                0.05,
+                0.05
+            ],
+            "pos": [
+                0.0,
+                0.0,
+                0.0
             ]
         }
     ],

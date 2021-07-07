@@ -1,12 +1,13 @@
 //++`shaders/shading/defines.glsl`
 
-out vec4 FragColor;
+layout (location = 0) out vec4 outColor;
 
 in vec3 TexCoords;
 
 uniform samplerCube envmap;
 
 #define SAMPLE_DELTA 0.025
+#define INF 100.0
 
 void main()
 {       
@@ -18,7 +19,6 @@ void main()
     vec3 right = cross(up, normal);
     up         = cross(normal, right);
 
-    float sampleDelta = 0.025;
     int nrSamples = 0; 
     for(float phi = 0.0; phi < 2.0 * M_PI; phi += SAMPLE_DELTA)
     {
@@ -30,12 +30,13 @@ void main()
             vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * normal; 
 
             ATOMIC_COUNT_INCREMENT
-            irradiance += texture(envmap, sampleVec).rgb * cos(theta) * sin(theta);
+            vec3 color = clamp(texture(envmap, sampleVec).rgb, -INF, INF);
+            irradiance += color * cos(theta) * sin(theta);
             nrSamples++;
         }
     }
     irradiance = M_PI * irradiance * (1.0 / float(nrSamples));
 
-    FragColor = vec4(irradiance, 1.0);
+    outColor = vec4(irradiance, 1.0);
     ATOMIC_COUNT_CALCULATE
 }

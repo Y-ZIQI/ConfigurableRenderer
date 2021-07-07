@@ -1,6 +1,6 @@
 //++`shaders/shading/defines.glsl`
 
-layout (location = 2) out vec4 fAlbedo;
+layout (location = 0) out vec4 fAlbedo;
 
 in vec3 TexCoords;
 

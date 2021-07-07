@@ -14,6 +14,7 @@ struct ShadingData{
     vec3 V;                      ///< Direction to the eye at shading hit
     vec3 N;                      ///< Shading normal at shading hit
     float NdotV;                  // Unclamped, can be negative.
+    vec3 baseColor;                ///< Diffuse albedo.
     vec3 diffuse;                ///< Diffuse albedo.
     vec3 specular;               ///< Specular albedo.
     float linearRoughness;        ///< This is the original roughness, before re-mapping.

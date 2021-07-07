@@ -315,8 +315,6 @@ void RenderFrame::onFrameRender() {
 
     frame_record.triangles += 2;
     frame_record.draw_calls += 1;
-    if (settings.recording)
-        frame_record.get();
 }
 
 void RenderFrame::processInput() {
@@ -372,6 +370,10 @@ void RenderFrame::run() {
         screen->drawWidgets();
         gui->refresh();
 
+        if (settings.recording) {
+            frame_record.copy();
+            frame_record.get();
+        }
         glfwSwapBuffers(glfw->window);
         glfwPollEvents();
     }

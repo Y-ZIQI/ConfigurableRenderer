@@ -7,10 +7,10 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform sampler2D positionTex;
-uniform sampler2D normalTex;
 uniform sampler2D albedoTex;
 uniform sampler2D specularTex;
+uniform sampler2D positionTex;
+uniform sampler2D normalTex;
 
 #ifdef SSAO
 uniform sampler2D aoTex;

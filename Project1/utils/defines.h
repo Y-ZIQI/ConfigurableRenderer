@@ -218,10 +218,10 @@ struct Record {
     uint draw_calls;
     uint texture_samples;
     uint samples[8];
-    GLuint* data;
+    GLuint *data;
     uint id = 0;
     void clear(bool clear_all = true) {
-        triangles = draw_calls = texture_samples = 0;
+        triangles = draw_calls = 0;
         if (clear_all) {
             glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf[0]);
             glClearBufferSubData(GL_ATOMIC_COUNTER_BUFFER, GL_R32UI, 0, 8 * sizeof(GLuint), GL_RED_INTEGER, GL_UNSIGNED_INT, _atomic_counter_data);
@@ -233,17 +233,20 @@ struct Record {
             glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf[0]);
             glBufferData(GL_ATOMIC_COUNTER_BUFFER, 8 * sizeof(GLuint), NULL, GL_DYNAMIC_COPY);
             glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, _atomic_buf[0]);
-            glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf[1]);
-            glBufferData(GL_ATOMIC_COUNTER_BUFFER, 8 * sizeof(GLuint), NULL, GL_DYNAMIC_COPY);
-            glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 1, _atomic_buf[1]);
+            glBindBuffer(GL_COPY_WRITE_BUFFER, _atomic_buf[1]);
+            glBufferStorage(GL_COPY_WRITE_BUFFER, 8 * sizeof(GLuint), NULL, GL_MAP_READ_BIT | GL_CLIENT_STORAGE_BIT);
             is_atomic_buf_vao_initialized = true;
         }
         id = 0;
         clear();
     }
+    void copy() {
+        glCopyNamedBufferSubData(_atomic_buf[0], _atomic_buf[1], 0, 0, 8 * sizeof(GLuint));
+    }
     void get() {
-        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf[1]);
-        data = (GLuint*)glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, 8 * sizeof(GLuint), GL_MAP_READ_BIT);
+        //glGetNamedBufferSubData(_atomic_buf[1], 0, 8 * sizeof(GLuint), data);
+        glBindBuffer(GL_COPY_WRITE_BUFFER, _atomic_buf[1]);
+        data = (GLuint*)glMapBufferRange(GL_COPY_WRITE_BUFFER, 0, 8 * sizeof(GLuint), GL_MAP_READ_BIT);
         if (data != NULL) {
             samples[0] = data[0];
             samples[1] = data[1];
@@ -255,7 +258,7 @@ struct Record {
             samples[7] = data[7];
             texture_samples = samples[7] * 128 + samples[6] * 64 + samples[5] * 32 + samples[4] * 16 + samples[3] * 8 + samples[2] * 4 + samples[1] * 2 + samples[0];
         }
-        glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
-        glCopyNamedBufferSubData(_atomic_buf[0], _atomic_buf[1], 0, 0, 8 * sizeof(GLuint));
+        glUnmapBuffer(GL_COPY_WRITE_BUFFER);
+        //glCopyNamedBufferSubData(_atomic_buf[0], _atomic_buf[1], 0, 0, 8 * sizeof(GLuint));
     }
 }frame_record;

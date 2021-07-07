@@ -91,17 +91,20 @@ public:
         unbind();
         return a == GL_FRAMEBUFFER_COMPLETE;
     }
-    void prepare() {
+    void prepare(int flag = ALL_TARGETS) {
         use();
         if (id != 0) {
-            switch (attachs) {
-            case 0:
-                glDrawBuffer(GL_NONE); break;
-            case 1:
-                glDrawBuffer(_color_attachments[0]); break;
-            default:
-                glDrawBuffers(attachs, _color_attachments);
-            }
+            if(flag == ALL_TARGETS)
+                switch (attachs) {
+                case 0:
+                    glDrawBuffer(GL_NONE); break;
+                case 1:
+                    glDrawBuffer(_color_attachments[0]); break;
+                default:
+                    glDrawBuffers(attachs, _color_attachments);
+                }
+            else
+                glDrawBuffer(_color_attachments[flag]);
         }
     }
     /**

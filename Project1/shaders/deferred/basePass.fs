@@ -10,10 +10,10 @@
 
 #define USE_SHADOWMAP true
 
-layout (location = 0) out vec4 fPosition;
-layout (location = 1) out vec4 fNormal;
-layout (location = 2) out vec4 fAlbedo;
-layout (location = 3) out vec4 fSpecular;
+layout (location = 0) out vec4 fAlbedo;
+layout (location = 1) out vec4 fSpecular;
+layout (location = 2) out vec4 fPosition;
+layout (location = 3) out vec4 fNormal;
 
 in mat3 TBN;
 in vec2 TexCoords;

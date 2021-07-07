@@ -229,7 +229,7 @@ vec3 evalDirLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = dirLights[index].intensity;
-    vec3 ambient = dirLights[index].ambient * ls.color * sd.diffuse * sd.ao;
+    vec3 ambient = dirLights[index].ambient * ls.color * sd.baseColor * sd.ao;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
@@ -270,19 +270,19 @@ vec3 evalPtLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = ptLights[index].intensity * falloff;
-    vec3 ambient = ptLights[index].ambient * ls.color * sd.diffuse * sd.ao;
+    vec3 ambient = ptLights[index].ambient * ls.color * sd.baseColor * sd.ao;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
 }
 
-vec3 evalIBL(int index, ShadingData sd, vec3 baseColor){
+vec3 evalIBL(int index, ShadingData sd){
     LightSample ls;
     ls.color = texture(ibls[index].irradianceMap, sd.N).rgb * ibls[index].intensity;
     ATOMIC_COUNT_INCREMENT
     vec3 kS = fresnelSchlick(sd.specular, max(vec3(1.0 - sd.linearRoughness), sd.specular), max(sd.NdotV, 0.0));
     vec3 kD = 1.0 - kS;
-    vec3 diffuse = ls.color * baseColor * kD * sd.ao;
+    vec3 diffuse = ls.color * sd.baseColor * kD * sd.ao;
     return diffuse;
 }
 
@@ -294,16 +294,17 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     sd.NdotV = dot(sd.V, sd.N);
     sd.lineardep = position.w;
     sd.ao = 1.0 - ao;
+    sd.baseColor = baseColor;
 
     #if SHADING_MODEL == 1
     // Shading Model Metal Rough
     float IoR = 1.5;
     float f = (IoR - 1.0) / (IoR + 1.0);
     vec3 F0 = vec3(f * f);
-    sd.diffuse = mix(baseColor.rgb, vec3(0), specColor.b);
     sd.metallic = specColor.b;
-    sd.specular = mix(F0, baseColor.rgb, specColor.b);
     sd.linearRoughness = specColor.g;
+    sd.diffuse = mix(baseColor.rgb, vec3(0), specColor.b);
+    sd.specular = mix(F0, baseColor.rgb, specColor.b);
     sd.ggxAlpha = max(0.0064, sd.linearRoughness * sd.linearRoughness);
     #elif SHADING_MODEL == 2
     sd.diffuse = baseColor.rgb;
@@ -324,7 +325,7 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     #ifdef EVAL_IBL
     count = min(iblCount, MAX_IBL_LIGHT);
     for (int i = 0; i < count; i++){
-        color += evalIBL(i, sd, baseColor); 
+        color += evalIBL(i, sd); 
     }
     #endif
     return color;

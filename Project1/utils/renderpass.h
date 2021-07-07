@@ -14,15 +14,6 @@ public:
     };
 };
 
-class RasterScenePass : public RenderPass {
-public:
-    void renderScene(Scene& scene, uint blend_mode = 0, bool draw_envmap = true) {
-        shader->use();
-        glEnable(GL_DEPTH_TEST);
-        scene.Draw(*shader, blend_mode, draw_envmap);
-    }
-};
-
 class ScreenPass : public RenderPass {
 public:
     ScreenPass() {
@@ -75,7 +66,7 @@ public:
         cube->clear();
         cube->prepare();
         setBaseUniforms(scene);
-        scene.Draw(*shader, 0, false);
+        scene.Draw(*shader, 0);
     }
     void setBaseUniforms(Scene& scene) {
         shader->setMat4("transforms[0]", transforms[0]);
@@ -89,7 +80,6 @@ public:
 
 class DeferredRenderer {
 public:
-    RasterScenePass basePass;
     ScreenPass ssaoPass;
     ScreenPass shadingPass;
     ScreenPass ssrPass;
@@ -109,10 +99,10 @@ public:
     DeferredRenderer(uint Width, uint Height) {
         width = Width; height = Height;
         gBuffer = new FrameBuffer;
-        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT), 0);
-        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA16F, GL_RGBA, GL_FLOAT), 1);
-        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE), 2);
-        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE), 3);
+        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE), 0);
+        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE), 1);
+        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT), 2);
+        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA16F, GL_RGBA, GL_FLOAT), 3);
         //gBuffer->attachDepthTarget(Texture::create(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT));
         gBuffer->addDepthStencil(width, height);
         bool is_success = gBuffer->checkStatus();
@@ -127,7 +117,6 @@ public:
         screenBuffer = new FrameBuffer;
         screenBuffer->attachColorTarget(Texture::create(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
 
-        basePass.setShader(sManager.getShader(SID_DEFERRED_BASE));
         ssaoPass.setShader(sManager.getShader(SID_SSAO));
         shadingPass.setShader(sManager.getShader(SID_DEFERRED_SHADING));
         ssrPass.setShader(sManager.getShader(SID_SSR));
@@ -146,11 +135,25 @@ public:
         }
     }
     void renderGeometry(Scene& scene) {
-        basePass.shader->use();
+        Shader* gShader = sManager.getShader(SID_DEFERRED_BASE);
+        gShader->use();
         gBuffer->clear();
         gBuffer->prepare();
-        setBaseUniforms(scene);
-        basePass.renderScene(scene, 0, true);
+        scene.setCameraUniforms(*gShader);
+        scene.Draw(*gShader, 0);
+    }
+    void renderEnvmap(Scene& scene) {
+        if (!scene.envMap_enabled || scene.envIdx < 0)
+            return;
+        Texture* envmap = scene.envMaps[scene.envIdx];
+        bool is_cube = envmap->target == GL_TEXTURE_CUBE_MAP;
+        Shader* eShader = sManager.getShader(is_cube ? SID_DEFERRED_ENVMAP : SID_DEFERRED_ENVMAP2D);
+        eShader->use();
+        gBuffer->prepare(0);
+        scene.setCameraUniforms(*eShader, true);
+        eShader->setTextureSource("envmap", 0, envmap->id, envmap->target);
+        scene.DrawEnvMap(*eShader);
+        gBuffer->prepare();
     }
     void renderAO(Scene& scene) {
         ssaoPass.shader->use();
@@ -180,6 +183,7 @@ public:
     void renderScene(Scene& scene) {
         glViewport(0, 0, width, height);
         renderGeometry(scene);
+        renderEnvmap(scene);
         if (ssao)
             renderAO(scene);
         if (ssr) {
@@ -190,13 +194,10 @@ public:
             renderShading(scene, screenBuffer);
         }
     }
-    void setBaseUniforms(Scene& scene) {
-        scene.setCameraUniforms(*basePass.shader);
-    }
     void setSSAOUniforms(Scene& scene, int sample_num) {
         scene.setCameraUniforms(*ssaoPass.shader);
-        ssaoPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[0].texture->id);
-        ssaoPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[1].texture->id);
+        ssaoPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[2].texture->id);
+        ssaoPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[3].texture->id);
         
         char tmp[64];
         for (int i = 0; i < sample_num; i++) {
@@ -207,19 +208,19 @@ public:
     void setShadingUniforms(Scene& scene) {
         scene.setLightUniforms(*shadingPass.shader);
         scene.setCameraUniforms(*shadingPass.shader);
-        shadingPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[0].texture->id);
-        shadingPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[1].texture->id);
-        shadingPass.shader->setTextureSource("albedoTex", 2, gBuffer->colorAttachs[2].texture->id);
-        shadingPass.shader->setTextureSource("specularTex", 3, gBuffer->colorAttachs[3].texture->id);
+        shadingPass.shader->setTextureSource("albedoTex", 2, gBuffer->colorAttachs[0].texture->id);
+        shadingPass.shader->setTextureSource("specularTex", 3, gBuffer->colorAttachs[1].texture->id);
+        shadingPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[2].texture->id);
+        shadingPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[3].texture->id);
         if(ssao)
             shadingPass.shader->setTextureSource("aoTex", 4, aoBuffer->colorAttachs[0].texture->id);
     }
     void setSSRUniforms(Scene& scene) {
         scene.setCameraUniforms(*ssrPass.shader);
-        ssrPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[0].texture->id);
-        ssrPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[1].texture->id);
-        ssrPass.shader->setTextureSource("albedoTex", 2, gBuffer->colorAttachs[2].texture->id);
-        ssrPass.shader->setTextureSource("specularTex", 3, gBuffer->colorAttachs[3].texture->id);
+        ssrPass.shader->setTextureSource("albedoTex", 0, gBuffer->colorAttachs[0].texture->id);
+        ssrPass.shader->setTextureSource("specularTex", 1, gBuffer->colorAttachs[1].texture->id);
+        ssrPass.shader->setTextureSource("positionTex", 2, gBuffer->colorAttachs[2].texture->id);
+        ssrPass.shader->setTextureSource("normalTex", 3, gBuffer->colorAttachs[3].texture->id);
         ssrPass.shader->setTextureSource("colorTex", 4, shadingBuffer->colorAttachs[0].texture->id);
     }
 };

@@ -8,10 +8,10 @@ uniform vec3 camera_pos;
 uniform vec4 camera_params;
 uniform mat4 camera_vp;
 
-uniform sampler2D positionTex;
-uniform sampler2D normalTex;
 uniform sampler2D albedoTex;
 uniform sampler2D specularTex;
+uniform sampler2D positionTex;
+uniform sampler2D normalTex;
 uniform sampler2D colorTex;
 
 #define INIT_STEP 1.0
