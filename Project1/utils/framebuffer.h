@@ -45,7 +45,6 @@ public:
         if (index >= attachs) attachs = index + 1;
         colorAttachs[index].texture = tex;
         use();
-        glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_LAYERS, 6);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, tex->id, 0);
         unbind();
     }
@@ -84,6 +83,11 @@ public:
     }
     void unbind() {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+    void setParami(GLenum pname, GLint param) {
+        use();
+        glFramebufferParameteri(GL_FRAMEBUFFER, pname, param);
+        unbind();
     }
     bool checkStatus() {
         use();

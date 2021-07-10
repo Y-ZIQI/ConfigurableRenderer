@@ -16,9 +16,9 @@
                         0.0
                     ],
                     "scaling": [
-                        0.01,
-                        0.01,
-                        0.01
+                        1.0,
+                        1.0,
+                        1.0
                     ],
                     "rotation": [
                         0.0,
@@ -39,12 +39,6 @@
                 "skybox/posz.jpg",
                 "skybox/negz.jpg"
             ]
-        },
-        {
-            "files": "SunTemple_Skybox.hdr"
-        },
-        {
-            "files": "SunTemple_Reflection.hdr"
         }
     ],
     "light_probes": [
@@ -53,13 +47,13 @@
             "diff_samples" : 8000,
             "spec_samples" : 4000,
             "intensity": [
-                0.05,
-                0.05,
-                0.05
+                0.15,
+                0.15,
+                0.15
             ],
             "pos": [
                 0.0,
-                0.0,
+                10.0,
                 0.0
             ]
         }

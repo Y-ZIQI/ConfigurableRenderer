@@ -23,6 +23,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <random>
 
 typedef unsigned int uint;
@@ -59,6 +60,7 @@ const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define SID_SMAA_NEIGHBORPASS       10
 #define SID_SSR                     11
 #define SID_IBL_CONVOLUTION         12
+#define SID_IBL_PREFILTER           13
 const std::vector<const char*> _shader_paths
 {
     /* 0*/"shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
@@ -73,7 +75,8 @@ const std::vector<const char*> _shader_paths
     /* 9*/"shaders/smaa/blendCalculation.vs", "shaders/smaa/blendCalculation.fs", nullptr,
     /*10*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr,
     /*11*/"shaders/ssr/ssr.vs", "shaders/ssr/ssr.fs", nullptr,
-    /*12*/"shaders/ibl/convolution.vs", "shaders/ibl/convolution.fs", nullptr
+    /*12*/"shaders/ibl/convolution.vs", "shaders/ibl/convolution.fs", nullptr,
+    /*13*/"shaders/ibl/prefilter.vs", "shaders/ibl/prefilter.fs", nullptr
 };
 //TODO: add default defines
 const std::vector<std::initializer_list<std::pair<const std::string, std::string>>> _shader_defs
@@ -91,6 +94,16 @@ const std::vector<std::initializer_list<std::pair<const std::string, std::string
     /*10*/{}, {}, {}
 };
 const std::string _glsl_version = "#version 430 core\n";
+
+#define TID_BRDFLUT                 0
+#define TID_SMAA_SEARCHTEX          1
+#define TID_SMAA_AREATEX            2
+const std::vector<const char*> _texture_paths
+{
+    /* 0*/"resources/textures/ibl_brdf_lut.png",
+    /* 1*/"resources/textures/SearchTex.dds",
+    /* 2*/"resources/textures/AreaTexDX10.dds"
+};
 
 const float quadVertices[] = {
     // positions   // texCoords
@@ -262,3 +275,10 @@ struct Record {
         //glCopyNamedBufferSubData(_atomic_buf[0], _atomic_buf[1], 0, 0, 8 * sizeof(GLuint));
     }
 }frame_record;
+
+#define CHECKERROR _checkError(__FILE__, __LINE__);
+void _checkError(std::string file, uint line) {
+    auto a = glGetError();
+    if (a)
+        std::cout << "Error " << a << " in " << file << ", line " << line << std::endl;
+}

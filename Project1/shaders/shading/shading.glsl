@@ -52,11 +52,13 @@ uniform PointLight ptLights[MAX_POINT_LIGHT];
 #define MAX_IBL_LIGHT 1
 #endif
 uniform int iblCount;
+uniform sampler2D brdfLUT;
 struct IBL{
     vec3 intensity;
     vec3 position;
     float range;
-    samplerCube irradianceMap;
+    float miplevel;
+    samplerCube prefilterMap;
 };
 uniform IBL ibls[MAX_IBL_LIGHT];
 
@@ -121,9 +123,11 @@ float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver,
 }
 float PCF_dir_visible(int index, vec3 position, float bias) {
     vec4 fromLight = dirLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
-    if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
+    vec3 ndc = fromLight.xyz / fromLight.w;
+    vec3 abs_ndc = abs(ndc);
+    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
         return 1.0;
+    ndc = ndc * 0.5 + 0.5;
     vec2 uv = ndc.xy;
     float zReceiver = ndc.z; // Assumed to be eye-space z in this code
     float filterRadius = SM_PCF_FILTER;
@@ -133,9 +137,11 @@ float PCF_dir_visible(int index, vec3 position, float bias) {
 }
 float PCF_pt_visible(int index, vec3 position, float bias) {
     vec4 fromLight = ptLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
-    if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
+    vec3 ndc = fromLight.xyz / fromLight.w;
+    vec3 abs_ndc = abs(ndc);
+    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
         return 1.0;
+    ndc = ndc * 0.5 + 0.5;
     vec2 uv = ndc.xy;
     float zReceiver = ndc.z; // Assumed to be eye-space z in this code
     float filterRadius = SM_PCF_FILTER;
@@ -145,9 +151,11 @@ float PCF_pt_visible(int index, vec3 position, float bias) {
 }
 float ESM_dir_visible(int index, vec3 position, float bias){
     vec4 fromLight = dirLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
-    if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
+    vec3 ndc = fromLight.xyz / fromLight.w;
+    vec3 abs_ndc = abs(ndc);
+    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
         return 1.0;
+    ndc = ndc * 0.5 + 0.5;
     vec2 uv = ndc.xy;
     //ndc.z -= bias;
     float mindep = textureLod(dirLights[index].shadowMap, uv, SM_ESM_LOD).r;
@@ -158,9 +166,11 @@ float ESM_dir_visible(int index, vec3 position, float bias){
 }
 float ESM_pt_visible(int index, vec3 position, float bias){
     vec4 fromLight = ptLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
-    if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
+    vec3 ndc = fromLight.xyz / fromLight.w;
+    vec3 abs_ndc = abs(ndc);
+    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
         return 1.0;
+    ndc = ndc * 0.5 + 0.5;
     vec2 uv = ndc.xy;
     //ndc.z -= bias;
     float mindep = textureLod(ptLights[index].shadowMap, uv, SM_ESM_LOD).r;
@@ -171,9 +181,11 @@ float ESM_pt_visible(int index, vec3 position, float bias){
 }
 float HARD_dir_visible(int index, vec3 position, float bias){
     vec4 fromLight = dirLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
-    if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
+    vec3 ndc = fromLight.xyz / fromLight.w;
+    vec3 abs_ndc = abs(ndc);
+    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
         return 1.0;
+    ndc = ndc * 0.5 + 0.5;
     vec2 uv = ndc.xy;
     float mindep = texture(dirLights[index].shadowMap, uv).r;
     ATOMIC_COUNT_INCREMENT
@@ -181,9 +193,11 @@ float HARD_dir_visible(int index, vec3 position, float bias){
 }
 float HARD_pt_visible(int index, vec3 position, float bias){
     vec4 fromLight = ptLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = (fromLight.xyz / fromLight.w + 1.0) / 2.0;
-    if(ndc.x <= 0.0 || ndc.x >= 1.0 || ndc.y <= 0.0 || ndc.y >= 1.0)
+    vec3 ndc = fromLight.xyz / fromLight.w;
+    vec3 abs_ndc = abs(ndc);
+    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
         return 1.0;
+    ndc = ndc * 0.5 + 0.5;
     vec2 uv = ndc.xy;
     float mindep = texture(ptLights[index].shadowMap, uv).r;
     ATOMIC_COUNT_INCREMENT
@@ -229,7 +243,7 @@ vec3 evalDirLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = dirLights[index].intensity;
-    vec3 ambient = dirLights[index].ambient * ls.color * sd.baseColor * sd.ao;
+    vec3 ambient = dirLights[index].ambient * ls.color * sd.baseColor * sd.kD * sd.ao;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
@@ -270,20 +284,36 @@ vec3 evalPtLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = ptLights[index].intensity * falloff;
-    vec3 ambient = ptLights[index].ambient * ls.color * sd.baseColor * sd.ao;
+    vec3 ambient = ptLights[index].ambient * ls.color * sd.baseColor * sd.kD * sd.ao;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
 }
 
+vec3 fixDirection(vec3 L, vec3 R, float range2){
+    float RdotL = dot(L, R), L2 = dot(L, L);
+    float a = sqrt(RdotL * RdotL + range2 - L2) - RdotL;
+    return normalize(L + a * R);
+}
+
 vec3 evalIBL(int index, ShadingData sd){
-    LightSample ls;
-    ls.color = texture(ibls[index].irradianceMap, sd.N).rgb * ibls[index].intensity;
+    vec3 L = sd.posW - ibls[index].position;
+    float r2 = ibls[index].range * ibls[index].range;
+    float dist2 = dot(L, L);
+    if(dist2 >= r2)
+        return vec3(0.0);
+    vec3 intensity = ibls[index].intensity * (1.0 - dist2 / r2);
+    vec3 fixN = fixDirection(L, sd.N, r2);
     ATOMIC_COUNT_INCREMENT
-    vec3 kS = fresnelSchlick(sd.specular, max(vec3(1.0 - sd.linearRoughness), sd.specular), max(sd.NdotV, 0.0));
-    vec3 kD = 1.0 - kS;
-    vec3 diffuse = ls.color * sd.baseColor * kD * sd.ao;
-    return diffuse;
+    vec3 irradiance = textureLod(ibls[index].prefilterMap, fixN, ibls[index].miplevel).rgb;
+    vec3 diffuse = irradiance * sd.baseColor * sd.kD;
+
+    vec3 fixR = fixDirection(L, sd.R, r2);
+    ATOMIC_COUNT_INCREMENT
+    vec3 prefilteredColor = textureLod(ibls[index].prefilterMap, fixR, sd.linearRoughness * ibls[index].miplevel).rgb; 
+    vec2 envBRDF = texture(brdfLUT, vec2(sd.NdotV, sd.linearRoughness)).rg;
+    vec3 specular = prefilteredColor * (sd.kS * envBRDF.x + envBRDF.y);
+    return (diffuse + specular) * intensity * sd.ao;
 }
 
 vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, float ao){
@@ -291,11 +321,13 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     sd.posW = position.xyz;
     sd.V = normalize(camera_pos - sd.posW);
     sd.N = normal;
+    sd.R = reflect(-sd.V, sd.N);
     sd.NdotV = dot(sd.V, sd.N);
     sd.lineardep = position.w;
     sd.ao = 1.0 - ao;
     sd.baseColor = baseColor;
 
+    //specColor.gb = vec2(0.2, 0.5);
     #if SHADING_MODEL == 1
     // Shading Model Metal Rough
     float IoR = 1.5;
@@ -312,6 +344,9 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
     sd.linearRoughness = 0.0;
     sd.ggxAlpha = 0.0;
     #endif
+    sd.kS = fresnelSchlick(sd.specular, max(vec3(1.0 - sd.linearRoughness), sd.specular), max(sd.NdotV, 0.0));
+    sd.kD = 1.0 - sd.kS;
+    //sd.kD *= 1.0 - sd.metallic;
 
     vec3 color = vec3(0.0, 0.0, 0.0);    
     int count = min(dirLtCount, MAX_DIRECTIONAL_LIGHT);

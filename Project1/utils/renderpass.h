@@ -42,6 +42,7 @@ public:
         cube = new FrameBuffer;
         cube->attachCubeTarget(Texture::createCubeMap(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE), 0);
         cube->attachCubeDepthTarget(Texture::createCubeMap(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT));
+        cube->setParami(GL_FRAMEBUFFER_DEFAULT_LAYERS, 6);
         bool is_success = cube->checkStatus();
         if (!is_success) {
             cout << "ERROR::FRAMEBUFFER:: Intermediate framebuffer is not complete!" << endl;
@@ -92,7 +93,7 @@ public:
     std::default_random_engine generator;
     std::vector<glm::vec3> ssaoKernel;
 
-    uint ssao = 0, ssr = 1;
+    uint ssao = 0, ssr = 0, ibl = 0;
 
     TimeRecord record[2]; // Shading, AO
 
@@ -206,12 +207,12 @@ public:
         }
     }
     void setShadingUniforms(Scene& scene) {
-        scene.setLightUniforms(*shadingPass.shader);
+        scene.setLightUniforms(*shadingPass.shader, ibl != 0);
         scene.setCameraUniforms(*shadingPass.shader);
-        shadingPass.shader->setTextureSource("albedoTex", 2, gBuffer->colorAttachs[0].texture->id);
-        shadingPass.shader->setTextureSource("specularTex", 3, gBuffer->colorAttachs[1].texture->id);
-        shadingPass.shader->setTextureSource("positionTex", 0, gBuffer->colorAttachs[2].texture->id);
-        shadingPass.shader->setTextureSource("normalTex", 1, gBuffer->colorAttachs[3].texture->id);
+        shadingPass.shader->setTextureSource("albedoTex", 0, gBuffer->colorAttachs[0].texture->id);
+        shadingPass.shader->setTextureSource("specularTex", 1, gBuffer->colorAttachs[1].texture->id);
+        shadingPass.shader->setTextureSource("positionTex", 2, gBuffer->colorAttachs[2].texture->id);
+        shadingPass.shader->setTextureSource("normalTex", 3, gBuffer->colorAttachs[3].texture->id);
         if(ssao)
             shadingPass.shader->setTextureSource("aoTex", 4, aoBuffer->colorAttachs[0].texture->id);
     }

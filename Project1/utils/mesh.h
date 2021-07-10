@@ -15,16 +15,54 @@
 using namespace std;
 
 struct Vertex {
-    // position
     glm::vec3 Position;
-    // normal
     glm::vec3 Normal;
-    // texCoords
     glm::vec2 TexCoords;
-    // tangent
     glm::vec3 Tangent;
-    // bitangent
     glm::vec3 Bitangent;
+};
+
+struct Material {
+    string name;
+    bool texBased = true;
+    Texture* baseColorMap = nullptr;
+    Texture* specularMap = nullptr;
+    Texture* normalMap = nullptr;
+    //Texture* heightMap;
+    //Texture* emissiveMap;
+
+    glm::vec4 baseColor;
+    glm::vec4 specular;
+    //glm::vec4 emissive;
+
+    void loadTexture(aiMaterial* mat, aiTextureType type, const std::string& directory = "", bool genMipmap = true, bool gammaCorrection = false, bool vfilp = true) {
+        int tCount = mat->GetTextureCount(type);
+        if (tCount <= 0) return;
+        aiString str;
+        mat->GetTexture(type, 0, &str);
+        Texture * ntex = Texture::createFromFile(str.C_Str(), directory, genMipmap, gammaCorrection, vfilp);
+        ntex->path = str.C_Str();
+        switch (type) {
+        case aiTextureType_DIFFUSE:
+            baseColorMap = ntex; break;
+        case aiTextureType_SPECULAR:
+            specularMap = ntex; break;
+        case aiTextureType_NORMALS:
+            normalMap = ntex; break;
+        //case aiTextureType_AMBIENT:
+        //    heightMap = ntex; break;
+        }
+    }
+    void loadMaterialTextures(aiMaterial* mat, const std::string& directory = "", bool vfilp = true) {
+        aiString str;
+        mat->Get(AI_MATKEY_NAME, str);
+        name = str.C_Str();
+        loadTexture(mat, aiTextureType_DIFFUSE, directory, true, true, vfilp);
+        loadTexture(mat, aiTextureType_SPECULAR, directory, true, false, vfilp);
+        loadTexture(mat, aiTextureType_NORMALS, directory, true, false, vfilp);
+        baseColor = glm::vec4(1.0);
+        specular = glm::vec4(0.5);
+    }
 };
 
 class Mesh {
@@ -33,6 +71,7 @@ public:
     vector<Vertex>       vertices;
     vector<uint>        indices;
     vector<Texture*>      textures;
+    Material* material;
     uint VAO;
 
     struct AABB {
@@ -48,13 +87,16 @@ public:
     AABB aabb, aabb_transform;
 
     glm::mat4 model_mat;
+    glm::mat3 n_model_mat;
+    glm::mat4 transform;
+    glm::mat3 n_transform;
 
     // constructor
-    Mesh(vector<Vertex> vertices, vector<uint> indices, vector<Texture*> textures)
+    Mesh(vector<Vertex> vertices, vector<uint> indices, Material* material)
     {
         this->vertices = vertices;
         this->indices = indices;
-        this->textures = textures;
+        this->material = material;
 
         setupMesh();
         setupProperities();
@@ -62,7 +104,7 @@ public:
     }
 
     // render the mesh
-    bool Draw(Shader &shader, bool pre_cut_off = false, glm::mat4 model_mat = glm::mat4(1.0), glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
+    bool Draw(Shader &shader, bool pre_cut_off = false, glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
     {
         // Pre cut off
         if (pre_cut_off && has_aabb) {
@@ -77,54 +119,42 @@ public:
             if (is_cut_off)
                 return false;
         }
-        // bind appropriate textures
-        uint diffuseNr  = 1;
-        uint specularNr = 1;
-        uint normalNr   = 1;
-        uint heightNr   = 1;
-        for(uint i = 0; i < textures.size(); i++)
-        {
-            glActiveTexture(GL_TEXTURE0 + i); // active proper texture unit before binding
-            // retrieve texture number (the N in diffuse_textureN)
-            string number;
-            string name = textures[i]->type;
-            if(name == "texture_diffuse")
-                number = std::to_string(diffuseNr++);
-            else if(name == "texture_specular")
-                number = std::to_string(specularNr++); // transfer uint to stream
-            else if(name == "texture_normal")
-                number = std::to_string(normalNr++); // transfer uint to stream
-             else if(name == "texture_height")
-                number = std::to_string(heightNr++); // transfer uint to stream
-
-            // now set the sampler to the correct texture unit
-            glUniform1i(glGetUniformLocation(shader.ID, (name + number).c_str()), i);
-            // and finally bind the texture
-            glBindTexture(GL_TEXTURE_2D, textures[i]->id);
+        shader.setMat4("model", model_mat);
+        shader.setMat3("normal_model", n_model_mat);
+        shader.setBool("has_normalmap", material->normalMap != nullptr);
+        shader.setBool("tex_based", material->texBased);
+        if (material->texBased) {
+            if (material->baseColorMap)
+                shader.setTextureSource("baseColorMap", 0, material->baseColorMap->id);
+            if (material->specularMap)
+                shader.setTextureSource("specularMap", 1, material->specularMap->id);
         }
-
-        glUniform1i(glGetUniformLocation(shader.ID, "has_normalmap"), (int)(normalNr > 1));
-        
+        else {
+            shader.setVec4("const_color", material->baseColor);
+            shader.setVec4("const_specular", material->specular);
+        }
+        if (material->normalMap)
+            shader.setTextureSource("normalMap", 2, material->normalMap->id);
         // draw mesh
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
-
-        glActiveTexture(GL_TEXTURE0);
         return true;
     }
     void DrawMesh(Shader &shader){
+        shader.setMat4("model", model_mat);
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
     }
-    void setModelMat(glm::mat4 new_mat) {
-        model_mat = new_mat;
-        aabb_transform.minB = glm::vec3(new_mat * glm::vec4(aabb.minB, 1.0));
-        aabb_transform.maxB = glm::vec3(new_mat * glm::vec4(aabb.maxB, 1.0));
-        aabb_transform.center = glm::vec3(new_mat * glm::vec4(aabb.center, 1.0));
+    void setModelMat(glm::mat4 new_mat, glm::mat3 new_n_mat) {
+        model_mat = transform * new_mat;
+        n_model_mat = n_transform * new_n_mat;
+        aabb_transform.minB = glm::vec3(model_mat * glm::vec4(aabb.minB, 1.0));
+        aabb_transform.maxB = glm::vec3(model_mat * glm::vec4(aabb.maxB, 1.0));
+        aabb_transform.center = glm::vec3(model_mat * glm::vec4(aabb.center, 1.0));
         for (uint i = 0; i < 8; i++)
-            aabb_transform.points[i] = glm::vec3(new_mat * glm::vec4(aabb.points[i], 1.0));
+            aabb_transform.points[i] = glm::vec3(model_mat * glm::vec4(aabb.points[i], 1.0));
     }
 
 private:
@@ -168,8 +198,8 @@ private:
     }
     void setupProperities() {
         triangles = indices.size() / 3;
-        /*alphaMode = 0;
-        for (uint i = 0; i < textures.size(); i++)
+        alphaMode = 0;
+        /*for (uint i = 0; i < textures.size(); i++)
         {
             if (textures[i]->type == "texture_diffuse" && textures[i]->format == GL_RGBA) {
                 alphaMode = 1;

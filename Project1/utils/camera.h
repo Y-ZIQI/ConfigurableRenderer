@@ -44,6 +44,8 @@ public:
     float nearZ, farZ;
     glm::mat4 viewMat, projMat;
 
+    nanogui::ref<nanogui::Window> cameraWindow;
+
     // constructor with vectors
     Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH)
     : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM), Aspect(ASPECT), nearZ(NEARZ), farZ(FARZ)
@@ -161,15 +163,25 @@ public:
         updateViewProjMat();
     }
 
-    void addGui(nanogui::FormHelper* gui) {
+    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
+        gui->addButton("Camera", [this]() { cameraWindow->setVisible(!cameraWindow->visible()); })->setIcon(ENTYPO_ICON_CAMERA);
+        cameraWindow = gui->addWindow(Eigen::Vector2i(500, 0), "Camera");
+        cameraWindow->setWidth(250);
+        cameraWindow->setVisible(false);
         gui->addGroup("Camera");
         gui->addVariable("Zoom", Zoom)->setSpinnable(true);
-        //gui->addVariable("nearZ", nearZ)->setSpinnable(true);
-        //gui->addVariable("farZ", farZ)->setSpinnable(true);
+        gui->addVariable("nearZ", nearZ)->setSpinnable(true);
+        gui->addVariable("farZ", farZ)->setSpinnable(true);
         gui->addVariable("MovementSpeed", MovementSpeed)->setSpinnable(true);
         gui->addVariable("Position.x", Position[0])->setSpinnable(true);
         gui->addVariable("Position.y", Position[1])->setSpinnable(true);
         gui->addVariable("Position.z", Position[2])->setSpinnable(true);
+        gui->addVariable("Front.x", Front[0])->setSpinnable(true);
+        gui->addVariable("Front.y", Front[1])->setSpinnable(true);
+        gui->addVariable("Front.z", Front[2])->setSpinnable(true);
+        gui->addGroup("Close");
+        gui->addButton("Close", [this]() { cameraWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
+        gui->setWindow(sceneWindow);
     }
 
 private:

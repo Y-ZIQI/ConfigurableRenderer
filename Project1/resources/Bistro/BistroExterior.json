@@ -16,12 +16,12 @@
                         0.0
                     ],
                     "scaling": [
-                        0.01,
-                        0.01,
-                        0.01
+                        1.0,
+                        1.0,
+                        1.0
                     ],
                     "rotation": [
-                        -90.0,
+                        0.0,
                         0.0,
                         0.0
                     ]
@@ -30,9 +30,6 @@
         }
     ],
     "environment_maps": [
-        {
-            "files": "san_giuseppe_bridge_4k.hdr"
-        },
         {
             "files": [
                 "skybox/posx.jpg",
@@ -50,9 +47,9 @@
             "diff_samples" : 8000,
             "spec_samples" : 4000,
             "intensity": [
-                0.05,
-                0.05,
-                0.05
+                0.15,
+                0.15,
+                0.15
             ],
             "pos": [
                 0.0,
@@ -92,8 +89,8 @@
             ],
             "pos": [
                 -10.0,
-                15.0,
-                0.0
+                25.0,
+                -3.0
             ],
             "direction": [
                 0.6,

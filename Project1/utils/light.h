@@ -44,20 +44,33 @@ public:
     Shader* smShader;
     glm::mat4 viewProj, viewMat, projMat;
 
-    void addGui(nanogui::FormHelper* gui) {
-        gui->addGroup(name);
+    nanogui::ref<nanogui::Window> lightWindow;
+
+    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
+        gui->addButton(name, [this]() { lightWindow->setVisible(!lightWindow->visible()); })\
+            ->setIcon(type == LType::Directional ? ENTYPO_ICON_LIGHT_UP : ENTYPO_ICON_LIGHT_BULB);
+        lightWindow = gui->addWindow(Eigen::Vector2i(500, 0), name);
+        lightWindow->setWidth(250);
+        lightWindow->setVisible(false);
+        gui->addGroup("ambient");
         auto tbox = gui->addVariable("ambient", ambient);
         tbox->setSpinnable(true);
         tbox->setValueIncrement(0.01);
+        gui->addGroup("Intensity");
         gui->addVariable("Intensity.r", intensity[0])->setSpinnable(true);
         gui->addVariable("Intensity.g", intensity[1])->setSpinnable(true);
         gui->addVariable("Intensity.b", intensity[2])->setSpinnable(true);
+        gui->addGroup("Position");
         gui->addVariable("Position.x", position[0])->setSpinnable(true);
         gui->addVariable("Position.y", position[1])->setSpinnable(true);
         gui->addVariable("Position.z", position[2])->setSpinnable(true);
+        gui->addGroup("Direction");
         gui->addVariable("Direction.x", direction[0])->setSpinnable(true);
         gui->addVariable("Direction.y", direction[1])->setSpinnable(true);
-        gui->addVariable("Direction.z", direction[2])->setSpinnable(true);;
+        gui->addVariable("Direction.z", direction[2])->setSpinnable(true);
+        gui->addGroup("Close");
+        gui->addButton("Close", [this]() { lightWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
+        gui->setWindow(sceneWindow);
     }
 };
 
@@ -127,10 +140,9 @@ public:
             sprintf(tmp, "dirLights[%d].viewProj", index);
             shader.setMat4(tmp, viewProj);
             sprintf(tmp, "dirLights[%d].shadowMap", index);
-            shader.setTextureSource(tmp, sm_index, shadowMap->smBuffer->colorAttachs[0].texture->id);
+            shader.setTextureSource(tmp, sm_index++, shadowMap->smBuffer->colorAttachs[0].texture->id);
             sprintf(tmp, "dirLights[%d].resolution", index);
             shader.setFloat(tmp, 1.0f / (float)shadowMap->width);
-            sm_index++;
         }
     }
 };
@@ -223,10 +235,9 @@ public:
             sprintf(tmp, "ptLights[%d].viewProj", index);
             shader.setMat4(tmp, viewProj);
             sprintf(tmp, "ptLights[%d].shadowMap", index);
-            shader.setTextureSource(tmp, sm_index, shadowMap->smBuffer->colorAttachs[0].texture->id);
+            shader.setTextureSource(tmp, sm_index++, shadowMap->smBuffer->colorAttachs[0].texture->id);
             sprintf(tmp, "ptLights[%d].resolution", index);
             shader.setFloat(tmp, 1.0f / (float)shadowMap->width);
-            sm_index++;
         }
     }
 };

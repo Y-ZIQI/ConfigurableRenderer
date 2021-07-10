@@ -13,10 +13,13 @@ struct ShadingData{
     vec3 posW;                   ///< Shading hit position in world space
     vec3 V;                      ///< Direction to the eye at shading hit
     vec3 N;                      ///< Shading normal at shading hit
+    vec3 R;
     float NdotV;                  // Unclamped, can be negative.
     vec3 baseColor;                ///< Diffuse albedo.
     vec3 diffuse;                ///< Diffuse albedo.
     vec3 specular;               ///< Specular albedo.
+    vec3 kS;
+    vec3 kD;
     float linearRoughness;        ///< This is the original roughness, before re-mapping.
     float ggxAlpha;               ///< DEPRECATED: This is the re-mapped roughness value, which should be used for GGX computations. It equals `roughness^2`
     float metallic;               ///< Metallic parameter, blends between dielectric and conducting BSDFs.

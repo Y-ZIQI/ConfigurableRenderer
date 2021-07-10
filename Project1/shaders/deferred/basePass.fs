@@ -24,9 +24,13 @@ uniform vec4 camera_params;
 
 uniform bool has_normalmap;
 
-uniform sampler2D texture_diffuse1;
-uniform sampler2D texture_specular1;
-uniform sampler2D texture_normal1;
+uniform bool tex_based;
+uniform vec4 const_color;
+uniform vec4 const_specular;
+
+uniform sampler2D baseColorMap;
+uniform sampler2D specularMap;
+uniform sampler2D normalMap;
 
 float LinearizeDepth(float depth)
 {
@@ -36,23 +40,25 @@ float LinearizeDepth(float depth)
 
 void main()
 {
-    fAlbedo = sampleTexture(texture_diffuse1, TexCoords);
-    ATOMIC_COUNT_INCREMENT
+    if(tex_based){
+        ATOMIC_COUNT_INCREMENT
+        fAlbedo = sampleTexture(baseColorMap, TexCoords);
+        ATOMIC_COUNT_INCREMENT
+        fSpecular = vec4(sampleTexture(specularMap, TexCoords).rgb, fAlbedo.a);
+    }else{
+        fAlbedo = const_color;
+        fSpecular = const_specular;
+    }
     float alpha = fAlbedo.a;
     if(evalAlphaTest(alpha, 0.5, vec3(0.0))){
         discard;
     }
     fPosition = vec4(WorldPos.xyz, LinearizeDepth(gl_FragCoord.z));
-    ATOMIC_COUNT_INCREMENT
-    fSpecular = vec4(sampleTexture(texture_specular1, TexCoords).rgb, alpha);
-    ATOMIC_COUNT_INCREMENT
     if(has_normalmap && USE_SHADOWMAP){
-        vec3 normal = vec3(sampleTexture(texture_normal1, TexCoords).rg, 0.0);
         ATOMIC_COUNT_INCREMENT
-
+        vec3 normal = vec3(sampleTexture(normalMap, TexCoords).rg, 0.0);
         normal.z = sqrt(1.0 - clamp(dot(normal, normal), 0.0, 1.0));
         normal.xy = normal.xy * 2.0 - 1.0;
-
         fNormal = vec4(normalize(TBN * normal), alpha);
     }else{
         fNormal = vec4(normalize(TBN[2]), alpha);

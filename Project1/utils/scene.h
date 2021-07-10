@@ -9,19 +9,19 @@ using namespace std;
 
 class Scene {
 public:
+    string name;
     Camera* camera;
     vector<Camera*> cameras;
     vector<Model*> models;
     vector<PointLight*> ptLights;
     vector<DirectionalLight*> dirLights;
-    vector<glm::mat4> modelMats;
-    vector<glm::mat3> normalModelMats;
+    vector<IBL*> light_probes;
 
     vector<Texture*> envMaps;
     uint envIdx;
     bool envMap_enabled = false;
 
-    vector<IBL*> light_probes;
+    nanogui::ref<nanogui::Window> sceneWindow;
 
     jsonxx::json jscene;
 
@@ -32,21 +32,11 @@ public:
     void setCamera(Camera* newCamera) { camera = newCamera; };
     void addLight(PointLight* nLight) { ptLights.push_back(nLight); };
     void addLight(DirectionalLight* nLight) { dirLights.push_back(nLight); };
-    void addModel(Model* nModel) {
-        models.push_back(nModel);
-        modelMats.push_back(glm::mat4(1.0));
-        normalModelMats.push_back(glm::mat4(1.0));
-    };
-    void loadModel(string const& path, bool gamma = false) {
-        Model* m = new Model(path, gamma);
-        addModel(m);
-    }
+    void addModel(Model* nModel) { models.push_back(nModel); };
+    void loadModel(string const& path, const string name, bool gamma = false) { addModel(new Model(path, name, gamma)); };
     void setModelMat(uint idx, glm::mat4 &nMat) {
-        if (idx >= modelMats.size() || idx >= normalModelMats.size())
-            return;
-        modelMats[idx] = nMat;
-        normalModelMats[idx] = glm::transpose(glm::inverse(glm::mat3(nMat)));
-        models[idx]->setModelMat(nMat);
+        if (idx < models.size())
+            models[idx]->setModelMat(nMat);
     }
     void addEnvMap(Texture* envMap) {
         if (!envMap_enabled) envMap_enabled = true;
@@ -58,19 +48,17 @@ public:
         glEnable(GL_DEPTH_TEST);
         if (blend_mode == 0) {
             for (uint i = 0; i < models.size(); i++) {
-                setModelUniforms(shader, i);
                 //models[i]->Draw(shader, false);
-                models[i]->Draw(shader, true, modelMats[i], camera->Position, camera->Front);
+                models[i]->Draw(shader, true, camera->Position, camera->Front);
             }
         }else{
             for (uint i = 0; i < models.size(); i++) {
-                setModelUniforms(shader, i);
                 models[i]->DrawOpaque(shader);
             }
             glm::mat4 viewProj = camera->GetViewProjMatrix();
             shader.use();
             for (uint i = 0; i < models.size(); i++) {
-                models[i]->OrderTransparent(viewProj * modelMats[i]);
+                models[i]->OrderTransparent(viewProj);
                 models[i]->DrawTransparent(shader);
             }
         }
@@ -78,7 +66,6 @@ public:
     void DrawMesh(Shader& shader) {
         glEnable(GL_DEPTH_TEST);
         for (uint i = 0; i < models.size(); i++) {
-            setModelUniforms(shader, i, false);
             models[i]->DrawMesh(shader);
         }
     }
@@ -135,23 +122,21 @@ public:
         if (cull_front)
             glCullFace(GL_BACK);
     }
-    void setModelUniforms(Shader& shader, uint model_index, bool normal_model = true) {
-        if (normal_model)
-            shader.setMat3("normal_model", normalModelMats[model_index]);
-        shader.setMat4("model", modelMats[model_index]);
-    }
-    void setLightUniforms(Shader& shader) {
+    void setLightUniforms(Shader& shader, bool eval_ibl = true) {
         shader.setInt("dirLtCount", dirLights.size());
         shader.setInt("ptLtCount", ptLights.size());
-        uint sm_index = 5;
+        uint t_index = 5;
         for (uint i = 0; i < dirLights.size(); i++)
-            dirLights[i]->setUniforms(shader, i, sm_index);
+            dirLights[i]->setUniforms(shader, i, t_index);
         for (uint i = 0; i < ptLights.size(); i++)
-            ptLights[i]->setUniforms(shader, i, sm_index);
+            ptLights[i]->setUniforms(shader, i, t_index);
 
-        shader.setInt("iblCount", light_probes.size());
-        for (uint i = 0; i < light_probes.size(); i++)
-            light_probes[i]->setUniforms(shader, i, sm_index);
+        if (eval_ibl) {
+            shader.setInt("iblCount", light_probes.size());
+            shader.setTextureSource("brdfLUT", t_index++, tManager.getTex(TID_BRDFLUT)->id, tManager.getTex(TID_BRDFLUT)->target);
+            for (uint i = 0; i < light_probes.size(); i++)
+                light_probes[i]->setUniforms(shader, i, t_index);
+        }
     }
     void setCameraUniforms(Shader& shader, bool remove_trans = false) {
         float inv_n = 1.0f / camera->nearZ, inv_f = 1.0f / camera->farZ;
@@ -163,7 +148,7 @@ public:
         shader.setVec4("camera_params", glm::vec4(camera->Zoom, camera->Aspect, inv_n + inv_f, inv_n - inv_f));
         shader.setMat4("camera_vp", projectionMat * viewMat);
     }
-    void loadScene(string const& path) {
+    void loadScene(string const& path, const string name = "scene") {
         try{
             std::ifstream ifs(path);
             ifs >> jscene;
@@ -172,16 +157,18 @@ public:
             std::cout << "ERROR::SCENE::FILE_NOT_SUCCESFULLY_READ" << std::endl;
             return;
         }
+        this->name = name;
         clearScene();
         std::string directory = path.substr(0, path.find_last_of('/')) + '/';
         uint mid = 0;
         auto models = jscene["models"].as_array();
         for (uint i = 0; i < models.size(); i++) {
             std::string mpath = models[i]["file"].as_string();
+            std::string mname = models[i]["name"].as_string();
             mpath = directory + mpath;
             auto instances = models[i]["instances"].as_array();
             for (uint j = 0; j < instances.size(); j++) {
-                loadModel(mpath);
+                loadModel(mpath, mname);
                 auto translation = instances[j]["translation"].as_array();
                 auto scaling = instances[j]["scaling"].as_array();
                 auto rotation = instances[j]["rotation"].as_array();
@@ -282,4 +269,23 @@ public:
     void clearScene() {
         //TODO: clear loaded data
     };
+
+    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> mainWindow) {
+        gui->addButton(name, [this]() { sceneWindow->setVisible(!sceneWindow->visible()); })->setIcon(ENTYPO_ICON_MENU);
+        sceneWindow = gui->addWindow(Eigen::Vector2i(250, 0), name);
+        sceneWindow->setVisible(false);
+        gui->addGroup("Models");
+        for (uint i = 0; i < models.size(); i++)
+            models[i]->addGui(gui, sceneWindow);
+        gui->addGroup("Lights");
+        for (uint i = 0; i < dirLights.size(); i++)
+            dirLights[i]->addGui(gui, sceneWindow);
+        for (uint i = 0; i < ptLights.size(); i++)
+            ptLights[i]->addGui(gui, sceneWindow);
+        gui->addGroup("Camera");
+        camera->addGui(gui, sceneWindow);
+        gui->addGroup("Close");
+        gui->addButton("Close", [this]() { sceneWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
+        gui->setWindow(mainWindow);
+    }
 };

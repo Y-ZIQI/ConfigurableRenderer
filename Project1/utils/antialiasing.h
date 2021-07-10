@@ -2,9 +2,6 @@
 #include "shader.h"
 #include "renderpass.h"
 
-#include "tex/SearchTex.h"
-#include "tex/AreaTex.h"
-
 class SMAA {
 public:
     ScreenPass edgePass;
@@ -30,8 +27,8 @@ public:
         blendPass.setShader(sManager.getShader(SID_SMAA_BLENDPASS));
         neighborPass.setShader(sManager.getShader(SID_SMAA_NEIGHBORPASS));
 
-        areaTex = Texture::createFromArray(AREATEX_WIDTH, AREATEX_HEIGHT, GL_RG, GL_RG, GL_UNSIGNED_BYTE, areaTexBytes, GL_LINEAR);
-        searchTex = Texture::createFromArray(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, GL_R8, GL_RED, GL_UNSIGNED_BYTE, searchTexBytes, GL_NEAREST);
+        areaTex = tManager.getTex(TID_SMAA_AREATEX);
+        searchTex = tManager.getTex(TID_SMAA_SEARCHTEX);
     }
     void Draw(Texture* no_aa_image) {
         edgeDetection(no_aa_image);

@@ -7,7 +7,7 @@ in vec3 TexCoords;
 uniform samplerCube envmap;
 
 #define SAMPLE_DELTA 0.025
-#define INF 100.0
+#define INF 1000.0
 
 void main()
 {       
@@ -30,7 +30,7 @@ void main()
             vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * normal; 
 
             ATOMIC_COUNT_INCREMENT
-            vec3 color = clamp(texture(envmap, sampleVec).rgb, -INF, INF);
+            vec3 color = clamp(texture(envmap, sampleVec).rgb, 0.0, INF);
             irradiance += color * cos(theta) * sin(theta);
             nrSamples++;
         }

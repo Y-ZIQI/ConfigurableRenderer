@@ -3,6 +3,9 @@
 #include "defines.h"
 #include "DDSReader.h"
 
+#include "tex/SearchTex.h"
+#include "tex/AreaTex.h"
+
 class Texture {
 public:
     uint id;
@@ -89,7 +92,7 @@ public:
         bool filp_vertically_on_load = true
     ) {
         std::string p = std::string(path);
-        std::string filename = directory + '/' + p;
+        std::string filename = directory == "" ? p : directory + '/' + p;
 
         std::string extname = p.substr(p.rfind('.', p.size()) + 1);
         if (extname == "dds") {
@@ -216,7 +219,30 @@ public:
     }
     void genMipmap() {
         use();
-        glGenerateMipmap(GL_TEXTURE_2D);
-        unbind();
+        glGenerateMipmap(target);
     }
 };
+
+class TextureManager {
+public:
+    std::vector<Texture*> textures;
+
+    TextureManager() {}
+    void init() {
+        uint tex_amount = _texture_paths.size();
+        textures.resize(tex_amount);
+        /*for (uint i = 0; i < tex_amount; i++) {
+            textures[i] = Texture::createFromFile(_texture_paths[i], "", false, false, true);
+        }*/
+        textures[TID_BRDFLUT] = Texture::createFromFile(_texture_paths[TID_BRDFLUT], "", false, false, true);
+        textures[TID_SMAA_SEARCHTEX] = Texture::createFromArray(AREATEX_WIDTH, AREATEX_HEIGHT, GL_RG, GL_RG, GL_UNSIGNED_BYTE, areaTexBytes, GL_LINEAR);
+        textures[TID_SMAA_AREATEX] = Texture::createFromArray(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, GL_R8, GL_RED, GL_UNSIGNED_BYTE, searchTexBytes, GL_NEAREST);
+        //textures[TID_SMAA_SEARCHTEX] = Texture::createFromFile(_texture_paths[TID_SMAA_SEARCHTEX], "", false, false, true);
+        //textures[TID_SMAA_AREATEX] = Texture::createFromFile(_texture_paths[TID_SMAA_AREATEX], "", false, false, true);
+    }
+    Texture* getTex(uint index) {
+        return textures[index];
+    }
+};
+// All preloaded textures are accessible with TextureManager
+TextureManager tManager;
