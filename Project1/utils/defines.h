@@ -35,6 +35,8 @@ typedef unsigned char uchar;
 
 GLfloat _max_anisotropy;
 
+#define GBUFFER_TARGETS 5
+
 #define MAX_TARGETS 8
 #define ALL_TARGETS -2
 const GLuint _color_attachments[MAX_TARGETS] = {

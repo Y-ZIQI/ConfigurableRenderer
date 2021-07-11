@@ -298,7 +298,7 @@ vec3 fixDirection(vec3 L, vec3 R, float range2){
 
 vec3 evalIBL(int index, ShadingData sd){
     vec3 L = sd.posW - ibls[index].position;
-    float r2 = ibls[index].range * ibls[index].range;
+    float r2 = ibls[index].range * ibls[index].range * 9.0;
     float dist2 = dot(L, L);
     if(dist2 >= r2)
         return vec3(0.0);
@@ -316,7 +316,7 @@ vec3 evalIBL(int index, ShadingData sd){
     return (diffuse + specular) * intensity * sd.ao;
 }
 
-vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, float ao){
+vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, vec4 position, float ao){
     ShadingData sd;
     sd.posW = position.xyz;
     sd.V = normalize(camera_pos - sd.posW);
@@ -363,6 +363,7 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 normal, vec4 position, flo
         color += evalIBL(i, sd); 
     }
     #endif
+    color += emissColor;
     return color;
 }
 //sd.metallic = specColor.b;

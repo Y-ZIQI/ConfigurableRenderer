@@ -11,6 +11,7 @@ uniform sampler2D albedoTex;
 uniform sampler2D specularTex;
 uniform sampler2D positionTex;
 uniform sampler2D normalTex;
+uniform sampler2D emissiveTex;
 
 #ifdef SSAO
 uniform sampler2D aoTex;
@@ -26,9 +27,11 @@ void main()
     }else{
         vec4 diffuse = texture(albedoTex, TexCoords);
         ATOMIC_COUNT_INCREMENT
-        vec3 specular = texture(specularTex, TexCoords).rgb;
+        vec4 specular = texture(specularTex, TexCoords);
         ATOMIC_COUNT_INCREMENT
         vec4 position = texture(positionTex, TexCoords);
+        ATOMIC_COUNT_INCREMENT
+        vec4 emissive = texture(emissiveTex, TexCoords);
         ATOMIC_COUNT_INCREMENT
         #ifdef SSAO
         //float ao = texture(aoTex, TexCoords).r;
@@ -45,7 +48,7 @@ void main()
         #endif
 
         /* `evalShading` is in shading/shading.glsl */
-        vec3 color = evalShading(diffuse.rgb, specular, normal, position, ao);
+        vec3 color = evalShading(diffuse.rgb, specular.rgb, emissive.rgb, normal, position, ao);
 
         const float gamma = 2.2;
         const float exposure = 1.0;

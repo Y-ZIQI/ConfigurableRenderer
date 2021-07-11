@@ -47,8 +47,10 @@ public:
     nanogui::ref<nanogui::Window> lightWindow;
 
     void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
-        gui->addButton(name, [this]() { lightWindow->setVisible(!lightWindow->visible()); })\
-            ->setIcon(type == LType::Directional ? ENTYPO_ICON_LIGHT_UP : ENTYPO_ICON_LIGHT_BULB);
+        gui->addButton(name, [this]() {
+            lightWindow->setFocused(!lightWindow->visible());
+            lightWindow->setVisible(!lightWindow->visible()); 
+        })->setIcon(type == LType::Directional ? ENTYPO_ICON_LIGHT_UP : ENTYPO_ICON_LIGHT_BULB);
         lightWindow = gui->addWindow(Eigen::Vector2i(500, 0), name);
         lightWindow->setWidth(250);
         lightWindow->setVisible(false);

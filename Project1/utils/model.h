@@ -218,7 +218,10 @@ private:
 
 public:
     void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
-        gui->addButton(name, [this]() { modelWindow->setVisible(!modelWindow->visible()); });
+        gui->addButton(name, [this]() {
+            modelWindow->setFocused(!modelWindow->visible());
+            modelWindow->setVisible(!modelWindow->visible()); 
+        });
         modelWindow = gui->addWindow(Eigen::Vector2i(500, 0), name);
         modelWindow->setWidth(250);
         modelWindow->setVisible(false);
@@ -232,10 +235,22 @@ public:
         nanogui::Widget* wd = new nanogui::Widget(vscroll);
         wd->setLayout(new nanogui::GroupLayout());
         nanogui::Button* btn;
+        nanogui::CheckBox* cb;
         matWindows.resize(materials.size());
         for (uint i = 0; i < materials.size(); i++) {
             matWindows[i] = gui->addWindow(Eigen::Vector2i(750, 0), materials[i]->name);
-            gui->addVariable("Tex based", materials[i]->texBased);
+            gui->addWidget("", new nanogui::CheckBox(matWindows[i], "BaseColor tex", [this, i](bool state) {
+                materials[i]->use_tex = state ? (materials[i]->use_tex | BASECOLOR_BIT) : (materials[i]->use_tex & ~BASECOLOR_BIT);
+            }));
+            gui->addWidget("", new nanogui::CheckBox(matWindows[i], "Specular tex", [this, i](bool state) {
+                materials[i]->use_tex = state ? (materials[i]->use_tex | SPECULAR_BIT) : (materials[i]->use_tex & ~SPECULAR_BIT);
+            }));
+            gui->addWidget("", new nanogui::CheckBox(matWindows[i], "Normal tex", [this, i](bool state) {
+                materials[i]->use_tex = state ? (materials[i]->use_tex | NORMAL_BIT) : (materials[i]->use_tex & ~NORMAL_BIT);
+            }));
+            gui->addWidget("", new nanogui::CheckBox(matWindows[i], "Emissive tex", [this, i](bool state) {
+                materials[i]->use_tex = state ? (materials[i]->use_tex | EMISSIVE_BIT) : (materials[i]->use_tex & ~EMISSIVE_BIT);
+            }));
             gui->addVariable("BaseColor.r", materials[i]->baseColor[0])->setSpinnable(true);
             gui->addVariable("BaseColor.g", materials[i]->baseColor[1])->setSpinnable(true);
             gui->addVariable("BaseColor.b", materials[i]->baseColor[2])->setSpinnable(true);
@@ -247,7 +262,7 @@ public:
             btn->setCallback([this, i]() {matWindows[i]->setVisible(!matWindows[i]->visible()); });
             gui->setWindow(modelWindow);
         }
-        matBtn->popup()->setFixedSize(Eigen::Vector2i(245, 500));
+        matBtn->popup()->setFixedHeight(500);
         gui->addWidget("", matBtn);
         gui->addGroup("Close");
         gui->addButton("Close", [this]() { modelWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);

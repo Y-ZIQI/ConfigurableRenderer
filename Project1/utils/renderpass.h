@@ -104,6 +104,7 @@ public:
         gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE), 1);
         gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT), 2);
         gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA16F, GL_RGBA, GL_FLOAT), 3);
+        gBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE), 4);
         //gBuffer->attachDepthTarget(Texture::create(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT));
         gBuffer->addDepthStencil(width, height);
         bool is_success = gBuffer->checkStatus();
@@ -213,8 +214,9 @@ public:
         shadingPass.shader->setTextureSource("specularTex", 1, gBuffer->colorAttachs[1].texture->id);
         shadingPass.shader->setTextureSource("positionTex", 2, gBuffer->colorAttachs[2].texture->id);
         shadingPass.shader->setTextureSource("normalTex", 3, gBuffer->colorAttachs[3].texture->id);
+        shadingPass.shader->setTextureSource("emissiveTex", 4, gBuffer->colorAttachs[4].texture->id);
         if(ssao)
-            shadingPass.shader->setTextureSource("aoTex", 4, aoBuffer->colorAttachs[0].texture->id);
+            shadingPass.shader->setTextureSource("aoTex", 5, aoBuffer->colorAttachs[0].texture->id);
     }
     void setSSRUniforms(Scene& scene) {
         scene.setCameraUniforms(*ssrPass.shader);

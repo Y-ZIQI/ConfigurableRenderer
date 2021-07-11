@@ -12,6 +12,11 @@
 
 #define DOTVEC3(a,b) ((a[0]*b[0])+(a[1]*b[1])+(a[2]*b[2]))
 
+#define BASECOLOR_BIT   0x1
+#define SPECULAR_BIT    0x2
+#define NORMAL_BIT      0x4
+#define EMISSIVE_BIT    0x8
+
 using namespace std;
 
 struct Vertex {
@@ -25,15 +30,16 @@ struct Vertex {
 struct Material {
     string name;
     bool texBased = true;
+    int has_tex, use_tex;
     Texture* baseColorMap = nullptr;
     Texture* specularMap = nullptr;
     Texture* normalMap = nullptr;
+    Texture* emissiveMap = nullptr;
     //Texture* heightMap;
-    //Texture* emissiveMap;
 
     glm::vec4 baseColor;
     glm::vec4 specular;
-    //glm::vec4 emissive;
+    glm::vec4 emissive;
 
     void loadTexture(aiMaterial* mat, aiTextureType type, const std::string& directory = "", bool genMipmap = true, bool gammaCorrection = false, bool vfilp = true) {
         int tCount = mat->GetTextureCount(type);
@@ -49,6 +55,8 @@ struct Material {
             specularMap = ntex; break;
         case aiTextureType_NORMALS:
             normalMap = ntex; break;
+        case aiTextureType_EMISSIVE:
+            emissiveMap = ntex; break;
         //case aiTextureType_AMBIENT:
         //    heightMap = ntex; break;
         }
@@ -60,8 +68,16 @@ struct Material {
         loadTexture(mat, aiTextureType_DIFFUSE, directory, true, true, vfilp);
         loadTexture(mat, aiTextureType_SPECULAR, directory, true, false, vfilp);
         loadTexture(mat, aiTextureType_NORMALS, directory, true, false, vfilp);
+        loadTexture(mat, aiTextureType_EMISSIVE, directory, true, false, vfilp);
         baseColor = glm::vec4(1.0);
         specular = glm::vec4(0.5);
+        emissive = glm::vec4(0.0);
+        use_tex = ~0x0;
+        has_tex = 0x0;
+        if (baseColorMap) has_tex |= BASECOLOR_BIT;
+        if (specularMap) has_tex |= SPECULAR_BIT;
+        if (normalMap) has_tex |= NORMAL_BIT;
+        if (emissiveMap) has_tex |= EMISSIVE_BIT;
     }
 };
 
@@ -121,20 +137,22 @@ public:
         }
         shader.setMat4("model", model_mat);
         shader.setMat3("normal_model", n_model_mat);
-        shader.setBool("has_normalmap", material->normalMap != nullptr);
-        shader.setBool("tex_based", material->texBased);
-        if (material->texBased) {
-            if (material->baseColorMap)
-                shader.setTextureSource("baseColorMap", 0, material->baseColorMap->id);
-            if (material->specularMap)
-                shader.setTextureSource("specularMap", 1, material->specularMap->id);
-        }
-        else {
+        int has_tex = material->has_tex & material->use_tex;
+        shader.setInt("has_tex", has_tex);
+        if(has_tex & BASECOLOR_BIT)
+            shader.setTextureSource("baseColorMap", 0, material->baseColorMap->id);
+        else
             shader.setVec4("const_color", material->baseColor);
+        if (has_tex & SPECULAR_BIT)
+            shader.setTextureSource("specularMap", 1, material->specularMap->id);
+        else
             shader.setVec4("const_specular", material->specular);
-        }
-        if (material->normalMap)
+        if (has_tex & NORMAL_BIT)
             shader.setTextureSource("normalMap", 2, material->normalMap->id);
+        if (has_tex & EMISSIVE_BIT)
+            shader.setTextureSource("emissiveMap", 1, material->emissiveMap->id);
+        else
+            shader.setVec4("const_emissive", material->emissive);
         // draw mesh
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);

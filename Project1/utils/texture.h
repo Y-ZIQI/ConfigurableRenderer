@@ -235,8 +235,8 @@ public:
             textures[i] = Texture::createFromFile(_texture_paths[i], "", false, false, true);
         }*/
         textures[TID_BRDFLUT] = Texture::createFromFile(_texture_paths[TID_BRDFLUT], "", false, false, true);
-        textures[TID_SMAA_SEARCHTEX] = Texture::createFromArray(AREATEX_WIDTH, AREATEX_HEIGHT, GL_RG, GL_RG, GL_UNSIGNED_BYTE, areaTexBytes, GL_LINEAR);
-        textures[TID_SMAA_AREATEX] = Texture::createFromArray(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, GL_R8, GL_RED, GL_UNSIGNED_BYTE, searchTexBytes, GL_NEAREST);
+        textures[TID_SMAA_SEARCHTEX] = Texture::createFromArray(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, GL_R8, GL_RED, GL_UNSIGNED_BYTE, searchTexBytes, GL_NEAREST);
+        textures[TID_SMAA_AREATEX] = Texture::createFromArray(AREATEX_WIDTH, AREATEX_HEIGHT, GL_RG, GL_RG, GL_UNSIGNED_BYTE, areaTexBytes, GL_LINEAR);
         //textures[TID_SMAA_SEARCHTEX] = Texture::createFromFile(_texture_paths[TID_SMAA_SEARCHTEX], "", false, false, true);
         //textures[TID_SMAA_AREATEX] = Texture::createFromFile(_texture_paths[TID_SMAA_AREATEX], "", false, false, true);
     }

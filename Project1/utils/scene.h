@@ -125,7 +125,7 @@ public:
     void setLightUniforms(Shader& shader, bool eval_ibl = true) {
         shader.setInt("dirLtCount", dirLights.size());
         shader.setInt("ptLtCount", ptLights.size());
-        uint t_index = 5;
+        uint t_index = GBUFFER_TARGETS + 1;
         for (uint i = 0; i < dirLights.size(); i++)
             dirLights[i]->setUniforms(shader, i, t_index);
         for (uint i = 0; i < ptLights.size(); i++)
@@ -271,7 +271,10 @@ public:
     };
 
     void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> mainWindow) {
-        gui->addButton(name, [this]() { sceneWindow->setVisible(!sceneWindow->visible()); })->setIcon(ENTYPO_ICON_MENU);
+        gui->addButton(name, [this]() {
+            sceneWindow->setFocused(!sceneWindow->visible());
+            sceneWindow->setVisible(!sceneWindow->visible());
+        })->setIcon(ENTYPO_ICON_MENU);
         sceneWindow = gui->addWindow(Eigen::Vector2i(250, 0), name);
         sceneWindow->setVisible(false);
         gui->addGroup("Models");

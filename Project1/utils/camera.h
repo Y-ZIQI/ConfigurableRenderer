@@ -164,7 +164,10 @@ public:
     }
 
     void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
-        gui->addButton("Camera", [this]() { cameraWindow->setVisible(!cameraWindow->visible()); })->setIcon(ENTYPO_ICON_CAMERA);
+        gui->addButton("Camera", [this]() {
+            cameraWindow->setFocused(!cameraWindow->visible());
+            cameraWindow->setVisible(!cameraWindow->visible()); 
+        })->setIcon(ENTYPO_ICON_CAMERA);
         cameraWindow = gui->addWindow(Eigen::Vector2i(500, 0), "Camera");
         cameraWindow->setWidth(250);
         cameraWindow->setVisible(false);

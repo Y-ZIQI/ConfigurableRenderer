@@ -89,14 +89,14 @@ float evalSmithGGX(float NdotL, float NdotV, float ggxAlpha)
     // `NdotV *` and `NdotL *` are inversed. It's not a mistake.
     float ggxv = NdotL * sqrt((-NdotV * a2 + NdotV) * NdotV + a2);
     float ggxl = NdotV * sqrt((-NdotL * a2 + NdotL) * NdotL + a2);
-    return 0.5 / (ggxv + ggxl);
+    return 0.5 / (ggxv + ggxl + 0.001);
 #else //if SmithGGX == SmithGGXUE4
     //float ggxv = NdotV * (2.0 - a2) + a2;
     //float ggxl = NdotL * (2.0 - a2) + a2;
     //return 4.0 / ggxl * ggxv;
     float ggxv = NdotL * ((1.0 - ggxAlpha) * NdotV + ggxAlpha);
     float ggxl = NdotV * ((1.0 - ggxAlpha) * NdotL + ggxAlpha);
-    return 0.5 / (ggxl + ggxv);
+    return 0.5 / (ggxl + ggxv + 0.001);
 #endif
 }
 
