@@ -9,9 +9,17 @@ class Model
 {
 public:
     string name;
+    string directory;
     // model data 
+    uint VAO, VBO, EBO;
+    uint n_vertices, n_indices;
+    vector<Vertex> vertices;
+    vector<uint> indices;
     vector<Material*> materials;
-    vector<Mesh*>    meshes;
+    vector<Mesh*> meshes;
+
+    glm::mat4 model_mat;
+    glm::mat3 n_model_mat;
 
     struct Node {
         string name;
@@ -30,56 +38,64 @@ public:
     };
     vector<T_Ptr>    tOrder;
 
-    string directory;
-    bool gammaCorrection;
-
-    uint triangles;
-    glm::mat4 model_mat;
-    glm::mat3 n_model_mat;
-
     nanogui::ref<nanogui::Window> modelWindow;
     vector<nanogui::ref<nanogui::Window>> matWindows;
 
-    Model(string const &path, const string name, bool gamma = false) : gammaCorrection(gamma)
+    Model(string const &path, const string name)
     {
         this->name = name;
         loadModel(path);
+        setupModel();
     }
 
     void Draw(Shader &shader, bool pre_cut_off = false, glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
     {
+        glBindVertexArray(VAO);
         for (uint i = 0; i < meshes.size(); i++) {
             if (meshes[i]->Draw(shader, pre_cut_off, camera_pos, camera_front)) {
-                frame_record.triangles += meshes[i]->triangles;
+                frame_record.triangles += meshes[i]->n_triangles;
                 frame_record.draw_calls += 1;
             }
         }
+        glBindVertexArray(0);
     }
     void DrawMesh(Shader &shader){
+        glBindVertexArray(VAO);
         for (uint i = 0; i < meshes.size(); i++) {
             meshes[i]->DrawMesh(shader);
-            frame_record.triangles += meshes[i]->triangles;
+            frame_record.triangles += meshes[i]->n_triangles;
             frame_record.draw_calls += 1;
         }
+        glBindVertexArray(0);
+        /*shader.setMat4("model", meshes[0]->model_mat);
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, n_indices, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+        frame_record.triangles += n_indices / 3;
+        frame_record.draw_calls += 1;*/
     }
     void DrawOpaque(Shader& shader) {
         glDisable(GL_BLEND);
+        glBindVertexArray(VAO);
         for (uint i = 0; i < oIndex.size(); i++)
             if (meshes[oIndex[i]]->Draw(shader)) {
-                frame_record.triangles += meshes[oIndex[i]]->triangles;
+                frame_record.triangles += meshes[oIndex[i]]->n_triangles;
                 frame_record.draw_calls += 1;
             }
+        glBindVertexArray(0);
     }
     void DrawTransparent(Shader& shader) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask(GL_FALSE);
         glDisable(GL_CULL_FACE);
+        glBindVertexArray(VAO);
         for (uint i = 0; i < tOrder.size(); i++)
             if (meshes[tIndex[tOrder[i].index]]->Draw(shader)) {
-                frame_record.triangles += meshes[tIndex[tOrder[i].index]]->triangles;
+                frame_record.triangles += meshes[tIndex[tOrder[i].index]]->n_triangles;
                 frame_record.draw_calls += 1;
             }
+        glBindVertexArray(0);
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
         glEnable(GL_CULL_FACE);
@@ -96,20 +112,17 @@ public:
         for (uint i = 0; i < meshes.size(); i++)
             meshes[i]->setModelMat(model_mat, n_model_mat);
     }
-
     
 private:
     // loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
     void loadModel(string const &path)
     {
         Assimp::Importer importer;
-        const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
-        if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
-        {
+        const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices);
+        if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode){
             cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << endl;
             return;
         }
-        // retrieve the directory path of the filepath
         directory = path.substr(0, path.find_last_of('/'));
 
         // Add Materials
@@ -121,13 +134,69 @@ private:
         }
         // Add Meshes
         meshes.resize(scene->mNumMeshes);
+        n_vertices = n_indices = 0;
+        vertices.resize(0);
+        indices.resize(0);
         for (uint i = 0; i < scene->mNumMeshes; i++) {
             aiMesh* mesh = scene->mMeshes[i];
-            meshes[i] = processMesh(mesh, scene);
+            uint vertices_i = mesh->mNumVertices, indices_i = 0;
+            glm::vec3 minB{ mesh->mVertices[0].x, mesh->mVertices[0].y, mesh->mVertices[0].z };
+            glm::vec3 maxB{ mesh->mVertices[0].x, mesh->mVertices[0].y, mesh->mVertices[0].z };
+            for (uint i = 0; i < vertices_i; i++){
+                Vertex vertex;
+                vertex.Position = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+                if (mesh->HasNormals())
+                    vertex.Normal = glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
+                if (mesh->mTextureCoords[0]){
+                    vertex.TexCoords = glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
+                    vertex.Tangent = glm::vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
+                    vertex.Bitangent = glm::vec3(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z);
+                }else
+                    vertex.TexCoords = glm::vec2(0.0f, 0.0f);
+                minB = glm::min(minB, vertex.Position);
+                maxB = glm::max(maxB, vertex.Position);
+                vertices.push_back(vertex);
+            }
+            for (uint i = 0; i < mesh->mNumFaces; i++){
+                aiFace face = mesh->mFaces[i];
+                for (uint j = 0; j < face.mNumIndices; j++)
+                    indices.push_back(face.mIndices[j] + n_vertices);
+                indices_i += face.mNumIndices;
+            }
+            meshes[i] = new Mesh(n_vertices, n_indices, vertices_i, indices_i, materials[mesh->mMaterialIndex]);
+            meshes[i]->setAABB(minB, maxB);
+            n_vertices += vertices_i;
+            n_indices += indices_i;
         }
         // process ASSIMP's root node recursively
         graph.resize(1);
         processNode(scene->mRootNode, scene, 0, 0, glm::mat4(1.0f));
+    }
+
+    void setupModel() {
+        glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+        glGenBuffers(1, &EBO);
+
+        glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, n_vertices * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, n_indices * sizeof(uint), &indices[0], GL_STATIC_DRAW);
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent));
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Bitangent));
+
+        glBindVertexArray(0);
     }
 
     glm::mat4 aiCast(const aiMatrix4x4& aiMat)
@@ -160,60 +229,6 @@ private:
             graph.push_back(n);
             processNode(node->mChildren[i], scene, graph.size() - 1, nid, nTrans);
         }
-    }
-
-    Mesh* processMesh(aiMesh *mesh, const aiScene *scene)
-    {
-        vector<Vertex> vertices;
-        vector<uint> indices;
-        for(uint i = 0; i < mesh->mNumVertices; i++)
-        {
-            Vertex vertex;
-            glm::vec3 vector;
-            // positions
-            vector.x = mesh->mVertices[i].x;
-            vector.y = mesh->mVertices[i].y;
-            vector.z = mesh->mVertices[i].z;
-            vertex.Position = vector;
-            // normals
-            if (mesh->HasNormals())
-            {
-                vector.x = mesh->mNormals[i].x;
-                vector.y = mesh->mNormals[i].y;
-                vector.z = mesh->mNormals[i].z;
-                vertex.Normal = vector;
-            }
-            // texture coordinates
-            if(mesh->mTextureCoords[0])
-            {
-                glm::vec2 vec;
-                vec.x = mesh->mTextureCoords[0][i].x; 
-                vec.y = mesh->mTextureCoords[0][i].y;
-                vertex.TexCoords = vec;
-                // tangent
-                vector.x = mesh->mTangents[i].x;
-                vector.y = mesh->mTangents[i].y;
-                vector.z = mesh->mTangents[i].z;
-                vertex.Tangent = vector;
-                // bitangent
-                vector.x = mesh->mBitangents[i].x;
-                vector.y = mesh->mBitangents[i].y;
-                vector.z = mesh->mBitangents[i].z;
-                vertex.Bitangent = vector;
-            }
-            else
-                vertex.TexCoords = glm::vec2(0.0f, 0.0f);
-            vertices.push_back(vertex);
-        }
-        for(uint i = 0; i < mesh->mNumFaces; i++)
-        {
-            aiFace face = mesh->mFaces[i];
-            for(uint j = 0; j < face.mNumIndices; j++)
-                indices.push_back(face.mIndices[j]);        
-        }
-        // process materials 
-        Material* material = materials[mesh->mMaterialIndex];
-        return new Mesh(vertices, indices, material);
     }
 
 public:

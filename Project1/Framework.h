@@ -6,6 +6,9 @@ const float values[][3] = {
     {0.25f, 0.5f, 1.0f}
 };
 const std::vector<uint> sm_width_list{ 512, 1024, 2048 };
+const char* shadow_type_name[4] = {
+    "SHADOW_SOFT_EVSM", "SHADOW_SOFT_PCSS", "SHADOW_SOFT_ESM", "SHADOW_HARD"
+};
 enum Level : uint {
     level1 = 0,
     level2,
@@ -14,7 +17,8 @@ enum Level : uint {
 enum Mode : uint {
     mode1 = 0,
     mode2,
-    mode3
+    mode3,
+    mode4
 };
 class Settings {
 public:
@@ -55,9 +59,10 @@ public:
     */
     Level smaa_level;
 
-    bool update_shadow;
     bool recording = true;
-    // 1: hard, 2: pcf, 3: esm
+    // 1: Not update, 2: As need, 3: Every frame
+    Mode update_shadow;
+    // 1: evsm, 2: pcss, 3: esm, 4: hard
     Mode shadow_type;
 
     Settings() {
@@ -68,7 +73,7 @@ public:
         shading = level1;
         smaa_level = level1;
 
-        update_shadow = true;
+        update_shadow = mode2;
         shadow_type = mode2;
     }
 };
@@ -80,6 +85,7 @@ public:
     void onFrameRender();
     void processInput();
     void config(bool force_update = false);
+    void initResources();
     void update();
     void run();
 
@@ -106,7 +112,6 @@ private:
     nanogui::Screen* screen = nullptr;
     nanogui::FormHelper* gui;
     nanogui::ref<nanogui::Window> mainWindow, hideWindow;
-    //nanogui::ref<nanogui::Window> sceneWindow;
     uint win_id = 0;
 
     bool enabled = true;
@@ -116,7 +121,7 @@ private:
     * 1: Bistro
     * 2: SunTemple
     */
-    uint test_scene = 2;
+    uint test_scene = 1;
     float fps, duration;
     TimeRecord record[2]; // All, SMAA+resolve
     float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
@@ -143,7 +148,7 @@ void RenderFrame::onLoad() {
         dRdrList[1] = new DeferredRenderer(width * values[0][1], height * values[0][1]);
         dRdrList[2] = new DeferredRenderer(width, height);
 
-        //oPass = new OmnidirectionalPass(1024, 1024);
+        oPass = new OmnidirectionalPass(512, 512);
         //oPass->setTransforms(glm::vec3(-3.0, 5.0, 0.0), glm::perspective(glm::radians(90.0f), 1.0f, 1.0f, 20.0f));
         //oPass->setShader(sManager.getShader(SID_CUBEMAP_RENDER));
 
@@ -162,7 +167,7 @@ void RenderFrame::onLoad() {
             /***************************Bistro*********************************/
             scene->loadScene("resources/Bistro/BistroExterior.json", "Bistro");
             scene->dirLights[0]->enableShadow(80.0f, 80.0f, 200.0f, sm_width_list);
-            scene->ptLights[0]->enableShadow(90.0f, 1.0f, 200.0f, sm_width_list);
+            //scene->ptLights[0]->enableShadow(90.0f, 1.0f, 200.0f, sm_width_list);
         }
         else if (test_scene == 2) {
             /***************************SunTemple*********************************/
@@ -171,6 +176,8 @@ void RenderFrame::onLoad() {
         }
         camera = scene->camera;
         camera->setAspect((float)width / (float)height);
+
+        initResources();
     }
     {
         gui = new nanogui::FormHelper(screen);
@@ -194,14 +201,27 @@ void RenderFrame::onLoad() {
         gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "1", "2" });
         gui->addGroup("Render Setting");
         gui->addVariable("Recording", settings.recording, enabled);
-        gui->addVariable("Update Shadow", settings.update_shadow, enabled);
-        gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "Hard", "PCF", "ESM" });
+        gui->addVariable("Update Shadow", settings.update_shadow, enabled)->setItems({ "Not update", "As need", "Every frame" });
+        gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "EVSM", "PCSS", "ESM", "Hard"});
         gui->addGroup("Scenes");
         scene->addGui(gui, mainWindow);
         screen->setVisible(true);
         screen->performLayout();
     }
     config(true);
+}
+
+void RenderFrame::initResources() {
+    for (uint i = 0; i < scene->light_probes.size(); i++) {
+        if (!scene->light_probes[i]->processed) {
+            oPass->setTarget(scene->light_probes[i]->texCube, scene->light_probes[i]->depthCube);
+            oPass->setTransforms(scene->light_probes[i]->position, glm::perspective(glm::radians(90.0f), 1.0f, scene->light_probes[i]->nearz, scene->light_probes[i]->farz));
+            oPass->blitEnvmap(scene->envMaps[0]);
+            oPass->renderScene(*scene);
+            scene->light_probes[i]->filter(5);
+            scene->light_probes[i]->processed = true;
+        }
+    }
 }
 
 void RenderFrame::onFrameRender() {
@@ -272,20 +292,21 @@ void RenderFrame::config(bool force_update) {
     }
     if (settings.ssao_level != stHistory.ssao_level || force_update) {
         stHistory.ssao_level = settings.ssao_level;
-        dRdrList[0]->ssao = (uint)settings.ssao_level;
-        dRdrList[1]->ssao = (uint)settings.ssao_level;
-        dRdrList[2]->ssao = (uint)settings.ssao_level;
-        if (settings.ssao_level == level1)
+        if (settings.ssao_level == level1) {
             sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SSAO");
+            sManager.getShader(SID_DEFERRED_PREPROCESS)->removeDef(FSHADER, "SSAO");
+        }
         else if (settings.ssao_level == level2) {
             sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
-            sManager.getShader(SID_SSAO)->addDef(FSHADER, "SAMPLE_NUM", "4");
-            sManager.getShader(SID_SSAO)->reload();
+            sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SSAO");
+            sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SAMPLE_NUM", "4");
+            sManager.getShader(SID_DEFERRED_PREPROCESS)->reload();
         }
         else if (settings.ssao_level == level3) {
             sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
-            sManager.getShader(SID_SSAO)->addDef(FSHADER, "SAMPLE_NUM", "16");
-            sManager.getShader(SID_SSAO)->reload();
+            sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SSAO");
+            sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SAMPLE_NUM", "16");
+            sManager.getShader(SID_DEFERRED_PREPROCESS)->reload();
         }
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
     }
@@ -309,23 +330,15 @@ void RenderFrame::config(bool force_update) {
     }
     if (settings.shadow_type != stHistory.shadow_type || force_update) {
         stHistory.shadow_type = settings.shadow_type;
-        if (settings.shadow_type == mode1) {
-            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_SOFT_PCF");
-            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_SOFT_ESM");
-            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADOW_HARD");
-            sManager.getShader(SID_SHADOWMAP)->removeDef(FSHADER, "SHADOW_SOFT_ESM");
-        }
-        else if (settings.shadow_type == mode2) {
-            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_HARD");
-            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_SOFT_ESM");
-            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADOW_SOFT_PCF");
-            sManager.getShader(SID_SHADOWMAP)->removeDef(FSHADER, "SHADOW_SOFT_ESM");
-        }
-        else if (settings.shadow_type == mode3) {
-            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_SOFT_PCF");
-            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SHADOW_HARD");
-            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SHADOW_SOFT_ESM");
-            sManager.getShader(SID_SHADOWMAP)->addDef(FSHADER, "SHADOW_SOFT_ESM");
+        for (uint i = mode1; i <= mode4; i++) {
+            if (i == settings.shadow_type) {
+                sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, shadow_type_name[i]);
+                sManager.getShader(SID_SHADOWMAP)->addDef(FSHADER, shadow_type_name[i]);
+            }
+            else {
+                sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, shadow_type_name[i]);
+                sManager.getShader(SID_SHADOWMAP)->removeDef(FSHADER, shadow_type_name[i]);
+            }
         }
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
         sManager.getShader(SID_SHADOWMAP)->reload();

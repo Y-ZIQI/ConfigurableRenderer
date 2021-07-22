@@ -413,5 +413,6 @@ vec4 blendingWeightCalculation(){
 void main()
 {
 	FragColor = blendingWeightCalculation();
+    //FragColor = texture(edgeTex_point, TexCoords);
     ATOMIC_COUNT_CALCULATE
 }

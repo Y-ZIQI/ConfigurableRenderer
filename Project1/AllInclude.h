@@ -12,5 +12,7 @@
 #include "utils/mesh.h"
 #include "utils/model.h"
 #include "utils/renderpass.h"
+#include "utils/sample.h"
 #include "utils/scene.h"
 #include "utils/shader.h"
+#include "utils/texture.h"

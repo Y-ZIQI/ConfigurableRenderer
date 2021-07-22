@@ -33,7 +33,7 @@ public:
     void addLight(PointLight* nLight) { ptLights.push_back(nLight); };
     void addLight(DirectionalLight* nLight) { dirLights.push_back(nLight); };
     void addModel(Model* nModel) { models.push_back(nModel); };
-    void loadModel(string const& path, const string name, bool gamma = false) { addModel(new Model(path, name, gamma)); };
+    void loadModel(string const& path, const string name) { addModel(new Model(path, name)); };
     void setModelMat(uint idx, glm::mat4 &nMat) {
         if (idx < models.size())
             models[idx]->setModelMat(nMat);
@@ -44,12 +44,14 @@ public:
     };
     void setEnvMap(uint idx) { envIdx = idx; };
     void addLightProbe(IBL* nLight) { light_probes.push_back(nLight); };
-    void Draw(Shader& shader, uint blend_mode = 0) {
+    void Draw(Shader& shader, uint pre_cut = 0) {
         glEnable(GL_DEPTH_TEST);
-        if (blend_mode == 0) {
+        if (true) {
             for (uint i = 0; i < models.size(); i++) {
-                //models[i]->Draw(shader, false);
-                models[i]->Draw(shader, true, camera->Position, camera->Front);
+                if(pre_cut == 0)
+                    models[i]->Draw(shader, true, camera->Position, camera->Front);
+                else
+                    models[i]->Draw(shader, false);
             }
         }else{
             for (uint i = 0; i < models.size(); i++) {
@@ -80,62 +82,52 @@ public:
         frame_record.triangles += 12;
         frame_record.draw_calls += 1;
     }
-    void update(bool gen_shadow = true) {
+    void update(uint gen_shadow = 1) {
         camera->update();
+
+        const bool cull_front = false;
+        if(cull_front) glCullFace(GL_FRONT);
         for (int i = 0; i < dirLights.size(); i++)
-            dirLights[i]->update(gen_shadow, camera->Position, camera->Front);
-        for (int i = 0; i < ptLights.size(); i++)
-            ptLights[i]->update();
-        if(gen_shadow)
-            genShadow();
-    }
-    void genShadow(bool cull_front = false) {
-        if(cull_front)
-            glCullFace(GL_FRONT);
-        ShadowMap* sm_ptr;
-        for (int i = 0; i < dirLights.size(); i++) {
-            if (dirLights[i]->shadow_enabled) {
-                sm_ptr = dirLights[i]->shadowMap;
-                glEnable(GL_DEPTH_TEST);
-                glViewport(0, 0, sm_ptr->width, sm_ptr->height);
-                sm_ptr->smBuffer->clear();
-                sm_ptr->smBuffer->prepare();
-                dirLights[i]->smShader->use();
-                dirLights[i]->smShader->setMat4("viewProj", dirLights[i]->viewProj);
+            if (dirLights[i]->update(gen_shadow, camera->Position, camera->Front)) {
                 DrawMesh(*dirLights[i]->smShader);
-                sm_ptr->smBuffer->colorAttachs[0].texture->genMipmap();
+                //dirLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->genMipmap();
             }
-        }
-        for (int i = 0; i < ptLights.size(); i++) {
-            if (ptLights[i]->shadow_enabled) {
-                sm_ptr = ptLights[i]->shadowMap;
-                glEnable(GL_DEPTH_TEST);
-                glViewport(0, 0, sm_ptr->width, sm_ptr->height);
-                sm_ptr->smBuffer->clear();
-                sm_ptr->smBuffer->prepare();
-                ptLights[i]->smShader->use();
-                ptLights[i]->smShader->setMat4("viewProj", ptLights[i]->viewProj);
+        for (int i = 0; i < ptLights.size(); i++)
+            if (ptLights[i]->update(gen_shadow)) {
                 DrawMesh(*ptLights[i]->smShader);
-                sm_ptr->smBuffer->colorAttachs[0].texture->genMipmap();
+                //ptLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->genMipmap();
             }
-        }
-        if (cull_front)
-            glCullFace(GL_BACK);
+        if (cull_front) glCullFace(GL_BACK);
     }
     void setLightUniforms(Shader& shader, bool eval_ibl = true) {
         shader.setInt("dirLtCount", dirLights.size());
         shader.setInt("ptLtCount", ptLights.size());
-        uint t_index = GBUFFER_TARGETS + 1;
+        uint t_index = GBUFFER_TARGETS;
         for (uint i = 0; i < dirLights.size(); i++)
             dirLights[i]->setUniforms(shader, i, t_index);
         for (uint i = 0; i < ptLights.size(); i++)
             ptLights[i]->setUniforms(shader, i, t_index);
 
         if (eval_ibl) {
-            shader.setInt("iblCount", light_probes.size());
+            /* All samplerCube must be initialized, or some errors occured */
+            shader.setTextureSource("ibls[0].prefilterMap", t_index, 0, GL_TEXTURE_CUBE_MAP);
+            shader.setInt("ibls[1].prefilterMap", t_index);
+            shader.setInt("ibls[2].prefilterMap", t_index);
+            shader.setInt("ibls[3].prefilterMap", t_index);
+            shader.setInt("ibls[4].prefilterMap", t_index);
+            shader.setInt("ibls[5].prefilterMap", t_index);
+            shader.setInt("ibls[6].prefilterMap", t_index);
+            shader.setInt("ibls[7].prefilterMap", t_index);
+            /***************************************************************/
+            uint lp_count = 0;
             shader.setTextureSource("brdfLUT", t_index++, tManager.getTex(TID_BRDFLUT)->id, tManager.getTex(TID_BRDFLUT)->target);
-            for (uint i = 0; i < light_probes.size(); i++)
-                light_probes[i]->setUniforms(shader, i, t_index);
+            for (uint i = 0; i < light_probes.size(); i++) {
+                if (light_probes[i]->processed) {
+                    lp_count++;
+                    light_probes[i]->setUniforms(shader, i, t_index);
+                }
+            }
+            shader.setInt("iblCount", lp_count);
         }
     }
     void setCameraUniforms(Shader& shader, bool remove_trans = false) {
@@ -209,11 +201,18 @@ public:
 
         auto light_probes = jscene["light_probes"].as_array();
         for (uint i = 0; i < light_probes.size(); i++) {
-            auto file = directory + light_probes[i]["file"].as_string();
+            auto name = light_probes[i]["name"].as_string();
+            auto file = light_probes[i]["file"].as_string();
+            if (file != "") file = directory + file;
             auto intensity = light_probes[i]["intensity"].as_array();
             auto pos = light_probes[i]["pos"].as_array();
+            auto range = light_probes[i]["range"].as_float();
+            auto depth_range = light_probes[i]["depth_range"].as_array();
             addLightProbe(new IBL(
-                file, glm::vec3(intensity[0], intensity[1], intensity[2]), glm::vec3(pos[0], pos[1], pos[2])
+                name, file, 
+                glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
+                glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
+                range, depth_range[0].as_float(), depth_range[1].as_float()
             ));
         }
 

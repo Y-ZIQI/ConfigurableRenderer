@@ -13,6 +13,7 @@ struct DirectionalLight{
     mat4 viewProj;
     sampler2D shadowMap;
     float resolution;
+    float light_size;
 };
 
 struct PointLight{
@@ -33,6 +34,7 @@ struct PointLight{
     mat4 viewProj;
     sampler2D shadowMap;
     float resolution;
+    float light_size;
 };
 
 #ifndef MAX_DIRECTIONAL_LIGHT
@@ -49,8 +51,9 @@ uniform PointLight ptLights[MAX_POINT_LIGHT];
 
 //#define EVAL_IBL
 #ifndef MAX_IBL_LIGHT
-#define MAX_IBL_LIGHT 1
+#define MAX_IBL_LIGHT 8
 #endif
+//#define IBL_GAMMACORRECTION
 uniform int iblCount;
 uniform sampler2D brdfLUT;
 struct IBL{
@@ -61,20 +64,22 @@ struct IBL{
     samplerCube prefilterMap;
 };
 uniform IBL ibls[MAX_IBL_LIGHT];
+float center_distance[MAX_IBL_LIGHT];
 
 /********************************************Config********************************************/
 // Shadow map related variables
 //#define SHADOW_HARD
 //#define SHADOW_SOFT_ESM
 //#define SHADOW_SOFT_PCF
+//#define SHADOW_SOFT_PCSS
+//#define SHADOW_SOFT_EVSM
 #define SM_ESM_LOD 2
 #define SM_PCF_FILTER 0.002
+#define NUM_SAMPLES 40
 
-#define NUM_SAMPLES 10
-#define NUM_RINGS 2
 #define EPS 1e-5
-#define MAX_BIAS 4.0
-#define MIN_BIAS 0.4
+#define MAX_BIAS 2.0
+#define MIN_BIAS 0.2
 
 #define EVAL_DIFFUSE
 #define EVAL_SPECULAR
@@ -83,123 +88,140 @@ uniform IBL ibls[MAX_IBL_LIGHT];
 #define SHADING_MODEL 1
 #endif
 /***************************************Shadow Making******************************************/
-vec2 poissonDisk[NUM_SAMPLES];
+bool posFromLight(mat4 viewProj, vec3 position, out vec3 ndc){
+    vec4 fromLight = viewProj * vec4(position, 1.0);
+    ndc = fromLight.xyz / fromLight.w;
+    vec3 abs_ndc = abs(ndc);
+    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
+        return false;
+    ndc = ndc * 0.5 + 0.5;
+    return true;
+}
+float EVSM_dir_visible(int index, vec3 position, float bias){
+    vec3 ndc;
+    if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
+
+    float expz = exp(ndc.z * 40.0), _expz = -exp(-ndc.z);
+    vec4 e = textureLod(dirLights[index].shadowMap, ndc.xy, 3);
+    if(expz <= e.r * exp(bias * 40.0)) return 1.0;
+    float e2 = e.g - e.r * e.r, _e2 = e.a - e.b * e.b;
+    float max1 = e2 / (e2 + (expz - e.r) * (expz - e.r));
+    float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
+    return max1;
+}
+float EVSM_pt_visible(int index, vec3 position, float bias){
+    vec3 ndc;
+    if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
+
+    float expz = exp(ndc.z * 40.0), _expz = -exp(-ndc.z * 40.0);
+    vec4 e = textureLod(ptLights[index].shadowMap, ndc.xy, 2);
+    if(expz <= e.r * exp(bias * 40.0)) return 1.0;
+    float e2 = e.g - e.r * e.r, _e2 = e.a - e.b * e.b;
+    float max1 = e2 / (e2 + (expz - e.r) * (expz - e.r));
+    float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
+    return min(max1, max2);
+}
+
+uniform vec2 samples[NUM_SAMPLES];
+mat2 rotateM;
+
 highp float rand_2to1(vec2 uv ) {
 	const highp float a = 12.9898, b = 78.233, c = 43758.5453;
 	highp float dt = dot( uv.xy, vec2( a,b ) ), sn = mod( dt, M_PI );
 	return fract(sin(sn) * c);
 }
-void poissonDiskSamples( const in vec2 randomSeed ) {
-    float ANGLE_STEP = M_2PI * float( NUM_RINGS ) / float( NUM_SAMPLES );
-    float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );
-
-    float angle = rand_2to1( randomSeed ) * M_2PI;
-    float radius = INV_NUM_SAMPLES;
-    float radiusStep = radius;
-
-    for( int i = 0; i < NUM_SAMPLES; i ++ ) {
-        poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( radius, 0.75 );
-        radius += radiusStep;
-        angle += ANGLE_STEP;
-    }
+void setRandomRotate(vec2 uv){
+    float angle = rand_2to1(uv) * M_2PI;
+    rotateM = mat2(
+        cos(angle), sin(angle),
+        -sin(angle), cos(angle)
+    );
 }
-float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver,
-                 float filterRadius, float bias) {
+float findBlocker(sampler2D sm, vec2 uv, float zReceiver, float searchRadius){
+    float depthSum = 0.0;
+    int blockers = 0;
+    for(int i = 0; i < NUM_SAMPLES; i++){
+        ivec2 offset = ivec2(rotateM * samples[i] * searchRadius);
+        float smDepth = textureLodOffset(sm, uv, 0, offset).r;
+        if(zReceiver >= smDepth){
+            depthSum += smDepth;
+            blockers++;
+        }
+    }
+    if(blockers > 0) return depthSum / float(blockers);
+    else return -1.0;
+}
+float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver, float filterRadius, float bias) {
     float sum = 0.0;
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+        vec2 os = rotateM * -samples[i].yx * filterRadius;
+        float depth = textureLod(sm, uv + os, 0).r;
+        ATOMIC_COUNT_INCREMENT
+        if (zReceiver <= depth + bias) sum += 1.0;
+    }
+    return sum / float(NUM_SAMPLES);
+}
+float PCSS_dir_visible(int index, vec3 position, float bias){
+    vec3 ndc;
+    if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
 
-    for (int i = 0; i < NUM_SAMPLES; i++) {
-        float depth = textureLod(sm, uv + poissonDisk[i] * filterRadius, 0).r;
-        ATOMIC_COUNT_INCREMENT
-        if (zReceiver <= depth + bias)
-            sum += 1.0;
-    }
-    for (int i = 0; i < NUM_SAMPLES; i++) {
-        float depth = textureLod(sm, uv + -poissonDisk[i].yx * filterRadius, 0).r;
-        ATOMIC_COUNT_INCREMENT
-        if (zReceiver <= depth + bias)
-            sum += 1.0;
-    }
-    return sum / (2.0 * float(NUM_SAMPLES));
+    float searchRadius = dirLights[index].light_size * dirLights[index].resolution;
+    float avgDep = findBlocker(dirLights[index].shadowMap, ndc.xy, ndc.z, searchRadius);
+    if(avgDep <= 0.0) return 1.0;
+    float penumbraRatio = (ndc.z - avgDep) / avgDep;
+    float filterSize = max(penumbraRatio * dirLights[index].light_size, 1.0 / dirLights[index].resolution);
+    return PCF_Filter(dirLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias);
+}
+float PCSS_pt_visible(int index, vec3 position, float bias){
+    vec3 ndc;
+    if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
+
+    float searchRadius = ptLights[index].light_size * ptLights[index].resolution;
+    float avgDep = findBlocker(ptLights[index].shadowMap, ndc.xy, ndc.z, searchRadius);
+    if(avgDep <= 0.0) return 1.0;
+    float penumbraRatio = (ndc.z - avgDep) / avgDep;
+    float filterSize = penumbraRatio * ptLights[index].light_size;
+    return PCF_Filter(ptLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias);
 }
 float PCF_dir_visible(int index, vec3 position, float bias) {
-    vec4 fromLight = dirLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = fromLight.xyz / fromLight.w;
-    vec3 abs_ndc = abs(ndc);
-    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
-        return 1.0;
-    ndc = ndc * 0.5 + 0.5;
-    vec2 uv = ndc.xy;
-    float zReceiver = ndc.z; // Assumed to be eye-space z in this code
+    vec3 ndc;
+    if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
     float filterRadius = SM_PCF_FILTER;
-
-    poissonDiskSamples(uv);
-    return PCF_Filter(dirLights[index].shadowMap, uv, zReceiver, filterRadius, bias);
+    return PCF_Filter(dirLights[index].shadowMap, ndc.xy, ndc.z, filterRadius, bias);
 }
 float PCF_pt_visible(int index, vec3 position, float bias) {
-    vec4 fromLight = ptLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = fromLight.xyz / fromLight.w;
-    vec3 abs_ndc = abs(ndc);
-    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
-        return 1.0;
-    ndc = ndc * 0.5 + 0.5;
-    vec2 uv = ndc.xy;
-    float zReceiver = ndc.z; // Assumed to be eye-space z in this code
+    vec3 ndc;
+    if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
     float filterRadius = SM_PCF_FILTER;
-
-    poissonDiskSamples(uv);
-    return PCF_Filter(ptLights[index].shadowMap, uv, zReceiver, filterRadius, bias);
+    return PCF_Filter(ptLights[index].shadowMap, ndc.xy, ndc.z, filterRadius, bias);
 }
 float ESM_dir_visible(int index, vec3 position, float bias){
-    vec4 fromLight = dirLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = fromLight.xyz / fromLight.w;
-    vec3 abs_ndc = abs(ndc);
-    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
-        return 1.0;
-    ndc = ndc * 0.5 + 0.5;
-    vec2 uv = ndc.xy;
-    //ndc.z -= bias;
-    float mindep = textureLod(dirLights[index].shadowMap, uv, SM_ESM_LOD).r;
+    vec3 ndc;
+    if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
+    float mindep = textureLod(dirLights[index].shadowMap, ndc.xy, SM_ESM_LOD).r;
     ATOMIC_COUNT_INCREMENT
     float sx = exp(-80.0 * ndc.z) * mindep;
-    //return step(0.99, sx);
     return clamp(sx, 0.0, 1.0);
 }
 float ESM_pt_visible(int index, vec3 position, float bias){
-    vec4 fromLight = ptLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = fromLight.xyz / fromLight.w;
-    vec3 abs_ndc = abs(ndc);
-    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
-        return 1.0;
-    ndc = ndc * 0.5 + 0.5;
-    vec2 uv = ndc.xy;
-    //ndc.z -= bias;
-    float mindep = textureLod(ptLights[index].shadowMap, uv, SM_ESM_LOD).r;
+    vec3 ndc;
+    if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
+    float mindep = textureLod(ptLights[index].shadowMap, ndc.xy, SM_ESM_LOD).r;
     ATOMIC_COUNT_INCREMENT
     float sx = exp(-80.0 * ndc.z) * mindep;
-    //return step(0.99, sx);
     return pow(clamp(sx, 0.0, 1.0), 2.0);
 }
 float HARD_dir_visible(int index, vec3 position, float bias){
-    vec4 fromLight = dirLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = fromLight.xyz / fromLight.w;
-    vec3 abs_ndc = abs(ndc);
-    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
-        return 1.0;
-    ndc = ndc * 0.5 + 0.5;
-    vec2 uv = ndc.xy;
-    float mindep = texture(dirLights[index].shadowMap, uv).r;
+    vec3 ndc;
+    if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
+    float mindep = texture(dirLights[index].shadowMap, ndc.xy).r;
     ATOMIC_COUNT_INCREMENT
     return step(ndc.z, mindep + bias);
 }
 float HARD_pt_visible(int index, vec3 position, float bias){
-    vec4 fromLight = ptLights[index].viewProj * vec4(position, 1.0);
-    vec3 ndc = fromLight.xyz / fromLight.w;
-    vec3 abs_ndc = abs(ndc);
-    if(max(max(abs_ndc.x, abs_ndc.y), abs_ndc.z) >= 1.0)
-        return 1.0;
-    ndc = ndc * 0.5 + 0.5;
-    vec2 uv = ndc.xy;
-    float mindep = texture(ptLights[index].shadowMap, uv).r;
+    vec3 ndc;
+    if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
+    float mindep = texture(ptLights[index].shadowMap, ndc.xy).r;
     ATOMIC_COUNT_INCREMENT
     return step(ndc.z, mindep + bias);
 }
@@ -226,8 +248,12 @@ vec3 evalDirLight(int index, ShadingData sd){
     if(ls.NdotL <= 0.0)
         visibility = 0.0;
     else if(dirLights[index].has_shadow){
-        float bias = max(MAX_BIAS * (1.0 - ls.NdotL), MIN_BIAS) * dirLights[index].resolution;
-        #ifdef SHADOW_SOFT_PCF
+        float bias = mix(MAX_BIAS, MIN_BIAS, ls.NdotL) / dirLights[index].resolution;
+        #ifdef SHADOW_SOFT_EVSM
+        visibility = EVSM_dir_visible(index, sd.posW, bias);
+        #elif defined(SHADOW_SOFT_PCSS)
+        visibility = PCSS_dir_visible(index, sd.posW, bias);
+        #elif defined(SHADOW_SOFT_PCF)
         visibility = PCF_dir_visible(index, sd.posW, bias);
         #elif defined(SHADOW_SOFT_ESM)
         visibility = ESM_dir_visible(index, sd.posW, bias);
@@ -267,8 +293,12 @@ vec3 evalPtLight(int index, ShadingData sd){
     if(ls.NdotL <= 0.0)
         visibility = 0.0;
     else if(ptLights[index].has_shadow){
-        float bias = max(MAX_BIAS * (1.0 - ls.NdotL), MIN_BIAS) * dirLights[index].resolution;
-        #ifdef SHADOW_SOFT_PCF
+        float bias = max(MAX_BIAS * (1.0 - ls.NdotL), MIN_BIAS) / ptLights[index].resolution;
+        #ifdef SHADOW_SOFT_EVSM
+        visibility = EVSM_pt_visible(index, sd.posW, bias);
+        #elif defined SHADOW_SOFT_PCSS
+        visibility = PCSS_pt_visible(index, sd.posW, bias);
+        #elif defined SHADOW_SOFT_PCF
         visibility = PCF_pt_visible(index, sd.posW, bias);
         #elif defined(SHADOW_SOFT_ESM)
         visibility = ESM_pt_visible(index, sd.posW, bias);
@@ -296,38 +326,42 @@ vec3 fixDirection(vec3 L, vec3 R, float range2){
     return normalize(L + a * R);
 }
 
-vec3 evalIBL(int index, ShadingData sd){
-    vec3 L = sd.posW - ibls[index].position;
-    float r2 = ibls[index].range * ibls[index].range * 9.0;
-    float dist2 = dot(L, L);
-    if(dist2 >= r2)
+vec3 evalIBL(int index, ShadingData sd, float weight){
+    if(center_distance[index] >= 1.0)
         return vec3(0.0);
-    vec3 intensity = ibls[index].intensity * (1.0 - dist2 / r2);
+    vec3 L = sd.posW - ibls[index].position;
+    float r2 = ibls[index].range * ibls[index].range;
+    vec3 intensity = ibls[index].intensity * (1.0 - center_distance[index]) * weight;
     vec3 fixN = fixDirection(L, sd.N, r2);
     ATOMIC_COUNT_INCREMENT
     vec3 irradiance = textureLod(ibls[index].prefilterMap, fixN, ibls[index].miplevel).rgb;
+    #ifdef IBL_GAMMACORRECTION
+    irradiance = pow(irradiance, vec3(1.0/2.2));
+    #endif
     vec3 diffuse = irradiance * sd.baseColor * sd.kD;
 
     vec3 fixR = fixDirection(L, sd.R, r2);
     ATOMIC_COUNT_INCREMENT
-    vec3 prefilteredColor = textureLod(ibls[index].prefilterMap, fixR, sd.linearRoughness * ibls[index].miplevel).rgb; 
-    vec2 envBRDF = texture(brdfLUT, vec2(sd.NdotV, sd.linearRoughness)).rg;
+    vec3 prefilteredColor = textureLod(ibls[index].prefilterMap, fixR, sd.linearRoughness * (ibls[index].miplevel - 1.0)).rgb; 
+    #ifdef IBL_GAMMACORRECTION
+    prefilteredColor = pow(prefilteredColor, vec3(1.0/2.2));
+    #endif
+    vec2 envBRDF = texture(brdfLUT, vec2(min(sd.NdotV, 0.99), sd.linearRoughness)).rg;
     vec3 specular = prefilteredColor * (sd.kS * envBRDF.x + envBRDF.y);
     return (diffuse + specular) * intensity * sd.ao;
 }
 
-vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, vec4 position, float ao){
+vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, vec3 position, float linearDepth, float ao){
     ShadingData sd;
-    sd.posW = position.xyz;
+    sd.posW = position;
     sd.V = normalize(camera_pos - sd.posW);
     sd.N = normal;
     sd.R = reflect(-sd.V, sd.N);
-    sd.NdotV = dot(sd.V, sd.N);
-    sd.lineardep = position.w;
+    sd.NdotV = max(dot(sd.V, sd.N), 0.0);
+    sd.lineardep = linearDepth;
     sd.ao = 1.0 - ao;
     sd.baseColor = baseColor;
 
-    //specColor.gb = vec2(0.2, 0.5);
     #if SHADING_MODEL == 1
     // Shading Model Metal Rough
     float IoR = 1.5;
@@ -344,9 +378,10 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
     sd.linearRoughness = 0.0;
     sd.ggxAlpha = 0.0;
     #endif
-    sd.kS = fresnelSchlick(sd.specular, max(vec3(1.0 - sd.linearRoughness), sd.specular), max(sd.NdotV, 0.0));
-    sd.kD = 1.0 - sd.kS;
-    //sd.kD *= 1.0 - sd.metallic;
+    vec3 FS = fresnelSchlick(sd.specular, max(vec3(1.0 - sd.linearRoughness), sd.specular), sd.NdotV);
+    float G = max(sd.NdotV, 0.01) / (max(sd.NdotV, 0.01) * (1.0 - sd.ggxAlpha) + sd.ggxAlpha);
+    sd.kS = FS * G;
+    sd.kD = 1.0 - FS;
 
     vec3 color = vec3(0.0, 0.0, 0.0);    
     int count = min(dirLtCount, MAX_DIRECTIONAL_LIGHT);
@@ -359,8 +394,27 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
     }
     #ifdef EVAL_IBL
     count = min(iblCount, MAX_IBL_LIGHT);
-    for (int i = 0; i < count; i++){
-        color += evalIBL(i, sd); 
+    if(count > 0){
+        int min1 = 0, min2 = 0;
+        for (int i = 0; i < count; i++){
+            vec3 L = sd.posW - ibls[i].position;
+            float r2 = ibls[i].range * ibls[i].range;
+            center_distance[i] = dot(L, L) / r2;
+            if(center_distance[i] < center_distance[min1])
+                min1 = i;
+        }
+        if(count < 2)
+            color += evalIBL(min1, sd, 1.0); 
+        else{
+            min2 = (min1 + 1) % count;
+            for(int i = 0; i < count;i++)
+                if(center_distance[i] < center_distance[min2] && center_distance[i] > center_distance[min1])
+                    min2 = i;
+            float weight1 = center_distance[min2] / (center_distance[min1] + center_distance[min2]);
+            float weight2 = center_distance[min1] / (center_distance[min1] + center_distance[min2]);
+            color += evalIBL(min1, sd, weight1); 
+            color += evalIBL(min2, sd, weight2); 
+        }
     }
     #endif
     color += emissColor;
@@ -369,3 +423,9 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
 //sd.metallic = specColor.b;
 //sd.linearRoughness = 1 - specColor.a;
 //sd.ggxAlpha = max(0.0064, specColor.g * specColor.g);
+
+    /*vec2 e = textureLod(dirLights[index].shadowMap, uv, 2).rg;
+    if(ndc.z <= e.r + bias) return 1.0;
+    float e2 = e.g - e.r * e.r;
+    float pmax = e2 / (e2 + (ndc.z - e.r) * (ndc.z - e.r));
+    return pmax;// VSM */

@@ -32,12 +32,12 @@ public:
             attachs = 1;
         colorAttachs.resize(MAX_TARGETS);
     };
-    void attachColorTarget(Texture* tex, uint index) {
+    void attachColorTarget(Texture* tex, uint index, GLenum texTarget = GL_TEXTURE_2D) {
         if (index >= MAX_TARGETS) return;
         if (index >= attachs) attachs = index + 1;
         colorAttachs[index].texture = tex;
         use();
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_TEXTURE_2D, tex->id, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, texTarget, tex->id, 0);
         unbind();
     };
     void attachCubeTarget(Texture* tex, uint index) {
@@ -72,10 +72,10 @@ public:
         glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, tex->id, 0);
         unbind();
     }
-    void attachDepthTarget(Texture* tex) {
+    void attachDepthTarget(Texture* tex, GLenum texTarget = GL_TEXTURE_2D) {
         depthAttach.texture = tex;
         use();
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, tex->id, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texTarget, tex->id, 0);
         unbind();
     }
     void use() {
@@ -121,7 +121,7 @@ public:
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
             unbind();
         }
-        else if (flag == -1) {
+        else if (flag == DEPTH_TARGETS) {
             use();
             glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
             unbind();

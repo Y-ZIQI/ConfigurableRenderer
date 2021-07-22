@@ -38,8 +38,8 @@ struct Material {
     //Texture* heightMap;
 
     glm::vec4 baseColor;
-    glm::vec4 specular;
-    glm::vec4 emissive;
+    glm::vec3 specular;
+    glm::vec3 emissive;
 
     void loadTexture(aiMaterial* mat, aiTextureType type, const std::string& directory = "", bool genMipmap = true, bool gammaCorrection = false, bool vfilp = true) {
         int tCount = mat->GetTextureCount(type);
@@ -70,8 +70,8 @@ struct Material {
         loadTexture(mat, aiTextureType_NORMALS, directory, true, false, vfilp);
         loadTexture(mat, aiTextureType_EMISSIVE, directory, true, false, vfilp);
         baseColor = glm::vec4(1.0);
-        specular = glm::vec4(0.5);
-        emissive = glm::vec4(0.0);
+        specular = glm::vec3(0.5);
+        emissive = glm::vec3(0.0);
         use_tex = ~0x0;
         has_tex = 0x0;
         if (baseColorMap) has_tex |= BASECOLOR_BIT;
@@ -84,11 +84,9 @@ struct Material {
 class Mesh {
 public:
     // mesh Data
-    vector<Vertex>       vertices;
-    vector<uint>        indices;
-    vector<Texture*>      textures;
     Material* material;
-    uint VAO;
+    uint voffset, ioffset;
+    uint n_vertices, n_indices, n_triangles;
 
     struct AABB {
         glm::vec3 minB, maxB; // min and max bound for XYZ
@@ -97,8 +95,7 @@ public:
     };
 
     // Properties
-    uint triangles;
-    uint alphaMode;
+    uint alphaMode = 0;
     bool has_aabb = false;
     AABB aabb, aabb_transform;
 
@@ -108,15 +105,13 @@ public:
     glm::mat3 n_transform;
 
     // constructor
-    Mesh(vector<Vertex> vertices, vector<uint> indices, Material* material)
-    {
-        this->vertices = vertices;
-        this->indices = indices;
+    Mesh(uint voffset, uint ioffset, uint n_vertices, uint n_indices, Material* material) {
+        this->voffset = voffset;
+        this->ioffset = ioffset;
+        this->n_vertices = n_vertices;
+        this->n_indices = n_indices;
+        this->n_triangles = n_indices / 3;
         this->material = material;
-
-        setupMesh();
-        setupProperities();
-        setupAABB();
     }
 
     // render the mesh
@@ -146,24 +141,20 @@ public:
         if (has_tex & SPECULAR_BIT)
             shader.setTextureSource("specularMap", 1, material->specularMap->id);
         else
-            shader.setVec4("const_specular", material->specular);
+            shader.setVec3("const_specular", material->specular);
         if (has_tex & NORMAL_BIT)
             shader.setTextureSource("normalMap", 2, material->normalMap->id);
         if (has_tex & EMISSIVE_BIT)
-            shader.setTextureSource("emissiveMap", 1, material->emissiveMap->id);
+            shader.setTextureSource("emissiveMap", 3, material->emissiveMap->id);
         else
-            shader.setVec4("const_emissive", material->emissive);
+            shader.setVec3("const_emissive", material->emissive);
         // draw mesh
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+        glDrawElements(GL_TRIANGLES, n_indices, GL_UNSIGNED_INT, (void*)(ioffset * sizeof(uint)));
         return true;
     }
     void DrawMesh(Shader &shader){
         shader.setMat4("model", model_mat);
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+        glDrawElements(GL_TRIANGLES, n_indices, GL_UNSIGNED_INT, (void*)(ioffset * sizeof(uint)));
     }
     void setModelMat(glm::mat4 new_mat, glm::mat3 new_n_mat) {
         model_mat = transform * new_mat;
@@ -174,72 +165,8 @@ public:
         for (uint i = 0; i < 8; i++)
             aabb_transform.points[i] = glm::vec3(model_mat * glm::vec4(aabb.points[i], 1.0));
     }
-
-private:
-    // render data 
-    uint VBO, EBO;
-
-    // initializes all the buffer objects/arrays
-    void setupMesh()
-    {
-        // create buffers/arrays
-        glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-        glGenBuffers(1, &EBO);
-
-        glBindVertexArray(VAO);
-        // load data into vertex buffers
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);  
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint), &indices[0], GL_STATIC_DRAW);
-
-        // set the vertex attribute pointers
-        // vertex Positions
-        glEnableVertexAttribArray(0);	
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-        // vertex normals
-        glEnableVertexAttribArray(1);	
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
-        // vertex texture coords
-        glEnableVertexAttribArray(2);	
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
-        // vertex tangent
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent));
-        // vertex bitangent
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Bitangent));
-
-        glBindVertexArray(0);
-    }
-    void setupProperities() {
-        triangles = indices.size() / 3;
-        alphaMode = 0;
-        /*for (uint i = 0; i < textures.size(); i++)
-        {
-            if (textures[i]->type == "texture_diffuse" && textures[i]->format == GL_RGBA) {
-                alphaMode = 1;
-            }
-        }*/
-    }
-    void setupAABB() {
-        // Center defined by (min+max)/2
-        aabb = { vertices[0].Position ,vertices[0].Position ,glm::vec3(0.5f, 0.5f, 0.5f) };
-        for (uint i = 1; i < vertices.size(); i++) {
-            aabb.minB = glm::min(aabb.minB, vertices[i].Position);
-            aabb.maxB = glm::max(aabb.maxB, vertices[i].Position);
-        }
-        aabb.center *= aabb.minB + aabb.maxB;
-        // Center defined by centroid
-        /*aabb = { vertices[0].Position ,vertices[0].Position ,glm::vec3(0.0f, 0.0f, 0.0f) };
-        for (uint i = 1; i < vertices.size(); i++) {
-            aabb.minB = glm::min(aabb.minB, vertices[i].Position);
-            aabb.maxB = glm::max(aabb.maxB, vertices[i].Position);
-            aabb.center += vertices[i].Position;
-        }
-        aabb.center /= (float)vertices.size();*/
+    void setAABB(glm::vec3 minB, glm::vec3 maxB) {
+        aabb = { minB, maxB, glm::vec3(0.5f, 0.5f, 0.5f) * (minB + maxB) };
         aabb.points[0] = aabb.minB;
         aabb.points[1] = glm::vec3(aabb.minB[0], aabb.minB[1], aabb.maxB[2]);
         aabb.points[2] = glm::vec3(aabb.minB[0], aabb.maxB[1], aabb.minB[2]);

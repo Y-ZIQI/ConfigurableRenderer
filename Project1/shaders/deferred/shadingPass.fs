@@ -9,13 +9,11 @@ in vec2 TexCoords;
 
 uniform sampler2D albedoTex;
 uniform sampler2D specularTex;
+uniform sampler2D emissiveTex;
 uniform sampler2D positionTex;
 uniform sampler2D normalTex;
-uniform sampler2D emissiveTex;
-
-#ifdef SSAO
+uniform sampler2D depthTex;
 uniform sampler2D aoTex;
-#endif
 
 void main()
 {
@@ -25,16 +23,17 @@ void main()
         FragColor = vec4(texture(albedoTex, TexCoords).rgb, 1.0);
         ATOMIC_COUNT_INCREMENT
     }else{
-        vec4 diffuse = texture(albedoTex, TexCoords);
+        vec3 diffuse = texture(albedoTex, TexCoords).rgb;
         ATOMIC_COUNT_INCREMENT
-        vec4 specular = texture(specularTex, TexCoords);
+        vec3 specular = texture(specularTex, TexCoords).rgb;
         ATOMIC_COUNT_INCREMENT
-        vec4 position = texture(positionTex, TexCoords);
+        vec3 emissive = texture(emissiveTex, TexCoords).rgb;
         ATOMIC_COUNT_INCREMENT
-        vec4 emissive = texture(emissiveTex, TexCoords);
+        vec3 position = texture(positionTex, TexCoords).rgb;
+        ATOMIC_COUNT_INCREMENT
+        float lineardepth = texture(depthTex, TexCoords).r;
         ATOMIC_COUNT_INCREMENT
         #ifdef SSAO
-        //float ao = texture(aoTex, TexCoords).r;
         float ao = 0.0;
         for(int x = -2;x<=2;x++){
             for(int y = -2;y<=2;y++){
@@ -48,7 +47,8 @@ void main()
         #endif
 
         /* `evalShading` is in shading/shading.glsl */
-        vec3 color = evalShading(diffuse.rgb, specular.rgb, emissive.rgb, normal, position, ao);
+        setRandomRotate(TexCoords);
+        vec3 color = evalShading(diffuse, specular, emissive, normal, position, lineardepth, ao);
 
         const float gamma = 2.2;
         const float exposure = 1.0;

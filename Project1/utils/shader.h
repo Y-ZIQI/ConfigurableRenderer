@@ -37,11 +37,33 @@ public:
     std::string fragDefs;
     std::string geometryDefs;
 
+    enum class UniformType {
+        Undefined = 0,
+        Bool,
+        Int,
+        Float, 
+        Vec2,
+        Vec3, 
+        Vec4,
+        Mat2,
+        Mat3,
+        Mat4,
+        Texture
+    };
+    struct UniformBuffer {
+        GLint location;
+        UniformType type;
+        void* value;
+    };
     mutable std::unordered_map<std::string, GLint> uLocations;
+    mutable std::unordered_map<std::string, UniformBuffer> uBuffers;
+    mutable std::vector<uchar> uUniforms;
 
     Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr)
     {
+        uBuffers.clear();
         uLocations.clear();
+        uUniforms.resize(2048);
         has_gshader = geometryPath ? true : false;
         if (has_gshader) {
             paths.resize(3);
@@ -136,6 +158,7 @@ public:
             glDeleteShader(geometry);
     }
     void reload() {
+        uBuffers.clear();
         uLocations.clear();
         readFile(vertexCode, paths[VSHADER].c_str());
         readFile(fragmentCode, paths[FSHADER].c_str());
@@ -204,47 +227,182 @@ public:
         uLocations[name] = glGetUniformLocation(ID, name.c_str());
         return uLocations[name];
     }
+    UniformBuffer& getUniform(const std::string& name) const {
+        if(uBuffers.find(name) != uBuffers.end())
+            return uBuffers[name];
+        uBuffers[name] = { glGetUniformLocation(ID, name.c_str()), UniformType::Undefined };
+        return uBuffers[name];
+    }
     void setBool(const std::string& name, bool value) const{
-        glUniform1i(getUniformLocation(name), (int)value);
+        /*GLuint location = getUniformLocation(name);
+        if (*((bool*)&uUniforms[location]) != value) {
+            glUniform1i(location, (int)value);
+            *((bool*)&uUniforms[location]) = value;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Bool)
+            uniform.value = new bool;
+        else if (*((bool*)uniform.value) == value)
+            return;
+        uniform.type = UniformType::Bool;
+        *((bool*)uniform.value) = value;
+        glUniform1i(uniform.location, (int)value);
     }
     void setInt(const std::string& name, int value) const{
-        glUniform1i(getUniformLocation(name), value);
+        //glUniform1i(getUniformLocation(name), value);
+        /*GLuint location = getUniformLocation(name);
+        if (*((int*)&uUniforms[location]) != value) {
+            glUniform1i(location, (int)value);
+            *((int*)&uUniforms[location]) = value;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Int)
+            uniform.value = new int;
+        else if (*((int*)uniform.value) == value)
+            return;
+        uniform.type = UniformType::Int;
+        *((int*)uniform.value) = value;
+        glUniform1i(uniform.location, value);
     }
     void setFloat(const std::string& name, float value) const{
-        glUniform1f(getUniformLocation(name), value);
+        //glUniform1f(getUniformLocation(name), value);
+        /*GLuint location = getUniformLocation(name);
+        if (*((float*)&uUniforms[location]) != value) {
+            glUniform1f(location, (float)value);
+            *((float*)&uUniforms[location]) = value;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Float)
+            uniform.value = new float;
+        else if (*((float*)uniform.value) == value)
+            return;
+        uniform.type = UniformType::Float;
+        *((float*)uniform.value) = value;
+        glUniform1f(uniform.location, value);
     }
     void setVec2(const std::string& name, const glm::vec2& value) const{
-        glUniform2fv(getUniformLocation(name), 1, &value[0]);
+        //glUniform2fv(getUniformLocation(name), 1, &value[0]);
+        /*GLuint location = getUniformLocation(name);
+        if (*((glm::vec2*)&uUniforms[location]) != value) {
+            glUniform2fv(location, 1, &value[0]);
+            *((glm::vec2*)&uUniforms[location]) = value;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Vec2)
+            uniform.value = new glm::vec2;
+        else if (*((glm::vec2*)uniform.value) == value)
+            return;
+        uniform.type = UniformType::Vec2;
+        *((glm::vec2*)uniform.value) = value;
+        glUniform2fv(uniform.location, 1, &value[0]);
     }
     void setVec2(const std::string& name, float x, float y) const{
         glUniform2f(getUniformLocation(name), x, y);
     }
     void setVec3(const std::string& name, const glm::vec3& value) const{
-        glUniform3fv(getUniformLocation(name), 1, &value[0]);
+        //glUniform3fv(getUniformLocation(name), 1, &value[0]);
+        /*GLuint location = getUniformLocation(name);
+        if (*((glm::vec3*)&uUniforms[location]) != value) {
+            glUniform3fv(location, 1, &value[0]);
+            *((glm::vec3*)&uUniforms[location]) = value;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Vec3)
+            uniform.value = new glm::vec3;
+        else if (*((glm::vec3*)uniform.value) == value)
+            return;
+        uniform.type = UniformType::Vec3;
+        *((glm::vec3*)uniform.value) = value;
+        glUniform3fv(uniform.location, 1, &value[0]);
     }
     void setVec3(const std::string& name, float x, float y, float z) const{
         glUniform3f(getUniformLocation(name), x, y, z);
     }
     void setVec4(const std::string& name, const glm::vec4& value) const{
-        glUniform4fv(getUniformLocation(name), 1, &value[0]);
+        //glUniform4fv(getUniformLocation(name), 1, &value[0]);
+        /*GLuint location = getUniformLocation(name);
+        if (*((glm::vec4*)&uUniforms[location]) != value) {
+            glUniform4fv(location, 1, &value[0]);
+            *((glm::vec4*)&uUniforms[location]) = value;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Vec4)
+            uniform.value = new glm::vec4;
+        else if (*((glm::vec4*)uniform.value) == value)
+            return;
+        uniform.type = UniformType::Vec4;
+        *((glm::vec4*)uniform.value) = value;
+        glUniform4fv(uniform.location, 1, &value[0]);
     }
     void setVec4(const std::string& name, float x, float y, float z, float w){
         glUniform4f(getUniformLocation(name), x, y, z, w);
     }
     void setMat2(const std::string& name, const glm::mat2& mat) const{
-        glUniformMatrix2fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+        //glUniformMatrix2fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+        /*GLuint location = getUniformLocation(name);
+        if (*((glm::mat2*)&uUniforms[location]) != mat) {
+            glUniformMatrix2fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+            *((glm::mat2*)&uUniforms[location]) = mat;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Mat2)
+            uniform.value = new glm::mat2;
+        else if (*((glm::mat2*)uniform.value) == mat)
+            return;
+        uniform.type = UniformType::Mat2;
+        *((glm::mat2*)uniform.value) = mat;
+        glUniformMatrix2fv(uniform.location, 1, GL_FALSE, &mat[0][0]);
     }
     void setMat3(const std::string& name, const glm::mat3& mat) const{
-        glUniformMatrix3fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+        //glUniformMatrix3fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+        /*GLuint location = getUniformLocation(name);
+        if (*((glm::mat3*)&uUniforms[location]) != mat) {
+            glUniformMatrix3fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+            *((glm::mat3*)&uUniforms[location]) = mat;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Mat3)
+            uniform.value = new glm::mat3;
+        else if (*((glm::mat3*)uniform.value) == mat)
+            return;
+        uniform.type = UniformType::Mat3;
+        *((glm::mat3*)uniform.value) = mat;
+        glUniformMatrix3fv(uniform.location, 1, GL_FALSE, &mat[0][0]);
     }
     void setMat4(const std::string& name, const glm::mat4& mat) const{
-        glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+        //glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+        /*GLuint location = getUniformLocation(name);
+        if (*((glm::mat4*)&uUniforms[location]) != mat) {
+            glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
+            *((glm::mat4*)&uUniforms[location]) = mat;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Mat4)
+            uniform.value = new glm::mat4;
+        else if (*((glm::mat4*)uniform.value) == mat)
+            return;
+        uniform.type = UniformType::Mat4;
+        *((glm::mat4*)uniform.value) = mat;
+        glUniformMatrix4fv(uniform.location, 1, GL_FALSE, &mat[0][0]);
     }
     void setTextureSource(const std::string& name, int index, GLuint texture_id, GLenum target = GL_TEXTURE_2D) const{
         glActiveTexture(GL_TEXTURE0 + index);
-        glUniform1i(getUniformLocation(name), index);
         glBindTexture(target, texture_id);
         glActiveTexture(GL_TEXTURE0);
+        //glUniform1i(getUniformLocation(name), index);
+        /*GLuint location = getUniformLocation(name);
+        if (*((int*)&uUniforms[location]) != index) {
+            glUniform1i(location, (int)index);
+            *((int*)&uUniforms[location]) = index;
+        }*/
+        UniformBuffer& uniform = getUniform(name);
+        if (uniform.type != UniformType::Texture)
+            uniform.value = new int;
+        else if (*((int*)uniform.value) == index)
+            return;
+        uniform.type = UniformType::Texture;
+        *((int*)uniform.value) = index;
+        glUniform1i(uniform.location, index);
     }
 };
 

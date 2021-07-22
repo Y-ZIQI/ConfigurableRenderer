@@ -7,7 +7,7 @@ in vec2 TexCoords;
 uniform sampler2D Texture;
 
 const vec2 ones = vec2(1.0, 1.0);
-const vec2 threshold = 0.1*ones;
+const vec2 threshold = 0.03*ones;
 const vec3 weights = vec3(0.2126, 0.7152, 0.0722);
 
 float lumia(vec4 a){

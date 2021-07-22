@@ -14,10 +14,13 @@ public:
         width = Width; height = Height;
         smBuffer = new FrameBuffer;
         smBuffer->addDepthStencil(width, height);
-        Texture* ntex = Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT);
-        ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-        ntex->setTexParami(GL_TEXTURE_BASE_LEVEL, 0);
-        ntex->setTexParami(GL_TEXTURE_MAX_LEVEL, 3);
+        Texture* ntex = Texture::create(width, height, GL_R32F, GL_RGBA, GL_FLOAT);
+        //ntex->setTexParami(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        //ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        ntex->setTexParami(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        //ntex->setTexParami(GL_TEXTURE_BASE_LEVEL, 0);
+        //ntex->setTexParami(GL_TEXTURE_MAX_LEVEL, 4);
         smBuffer->attachColorTarget(ntex, 0);
         //ntex->setTexParami(GL_TEXTURE_REDUCTION_MODE_ARB, GL_MAX);
     };
@@ -37,8 +40,10 @@ public:
     glm::vec3 intensity;
     glm::vec3 position;
     glm::vec3 direction;
+    glm::vec3 target;
 
     bool shadow_enabled = false;
+    float light_size = 3.0f;
     std::vector<ShadowMap*> smList;
     ShadowMap* shadowMap;
     Shader* smShader;
@@ -46,6 +51,15 @@ public:
 
     nanogui::ref<nanogui::Window> lightWindow;
 
+    void prepareShadow() {
+        if (!shadow_enabled) return;
+        glEnable(GL_DEPTH_TEST);
+        glViewport(0, 0, shadowMap->width, shadowMap->height);
+        shadowMap->smBuffer->clear();
+        shadowMap->smBuffer->prepare();
+        smShader->use();
+        smShader->setMat4("viewProj", viewProj);
+    }
     void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
         gui->addButton(name, [this]() {
             lightWindow->setFocused(!lightWindow->visible());
@@ -94,21 +108,41 @@ public:
         intensity = Intensity;
         direction = Direction;
         position = Position;
+        target = Position + Direction;
     }
-    void update(bool focus = false, glm::vec3 target = glm::vec3(0.0, 0.0, 0.0), glm::vec3 front = glm::vec3(0.0, 0.0, 0.0)) {
-        if (focus)
-            focus_on(target, front);
+    bool update(uint gen_shadow = 1, glm::vec3 cam_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 cam_front = glm::vec3(0.0, 0.0, 0.0)) {
+        static glm::mat4 previous_mat = glm::mat4(0.0);
+        const float threshold = 10.0f;
+        bool genShadow = false;
         if (shadow_enabled) {
+            if (gen_shadow == 1) {
+                glm::vec3 cam_target = cam_pos + cam_front * rangeX * 0.5f;
+                float dist = glm::length(target - cam_target);
+                if (dist > threshold) {
+                    focus_on(cam_target);
+                    genShadow = true;
+                }
+            }
+            else if (gen_shadow == 2) {
+                glm::vec3 cam_target = cam_pos + cam_front * rangeX * 0.5f;
+                focus_on(cam_target);
+                genShadow = true;
+            }
             viewMat = glm::lookAt(position, position + direction, glm::vec3(0.0f, 1.0f, 0.0f));
             projMat = glm::ortho(-rangeX * 0.5f, rangeX * 0.5f, -rangeY * 0.5f, rangeY * 0.5f, 0.0f, rangeZ);
             viewProj = projMat * viewMat;
+            if (previous_mat != viewProj) {
+                previous_mat = viewProj;
+                genShadow = true;
+            }
+            if (genShadow) prepareShadow();
         }
+        return genShadow;
     }
-    void focus_on(glm::vec3 target, glm::vec3 front) {
-        if (shadow_enabled)
-            position = target + front * (rangeX > rangeY ? rangeY : rangeX) * 0.5f - direction * rangeZ * 0.5f;
-        else
-            position = target - direction * 1.0f;
+    void focus_on(glm::vec3 target) {
+        this->target = target;
+        if (shadow_enabled) position = target - direction * rangeZ * 0.5f;
+        else position = target - direction * 1.0f;
     }
     void enableShadow(float rangeX, float rangeY, float rangeZ, std::vector<uint> width_list) {
         if (!shadow_enabled) {
@@ -144,7 +178,9 @@ public:
             sprintf(tmp, "dirLights[%d].shadowMap", index);
             shader.setTextureSource(tmp, sm_index++, shadowMap->smBuffer->colorAttachs[0].texture->id);
             sprintf(tmp, "dirLights[%d].resolution", index);
-            shader.setFloat(tmp, 1.0f / (float)shadowMap->width);
+            shader.setFloat(tmp, (float)shadowMap->width);
+            sprintf(tmp, "dirLights[%d].light_size", index);
+            shader.setFloat(tmp, light_size / rangeX);
         }
     }
 };
@@ -155,7 +191,7 @@ public:
     float range, constant, linear, quadratic;
     float opening_angle, penumbra_angle;
     // For shadow map
-    float nearZ, farZ, Zoom, Aspect;
+    float nearZ, farZ, Zoom, Aspect, Frustum;
 
     PointLight(
         const std::string& Name, 
@@ -173,6 +209,7 @@ public:
         intensity = Intensity;
         position = Position;
         direction = Direction;
+        target = Position + Direction;
         range = Range;
         opening_angle = Opening_angle * M_PI / 180.0f;
         penumbra_angle = Penumbra_angle * M_PI / 180.0f;
@@ -181,12 +218,18 @@ public:
         linear = 4.0f / Range;
         quadratic = 70.0f / (Range * Range);
     }
-    void update() {
+    bool update(uint gen_shadow = 1) {
+        static glm::mat4 previous_mat = glm::mat4(0.0);
+        bool genShadow = false;
         if (shadow_enabled) {
+            if (gen_shadow == 2) genShadow = true;
             viewMat = glm::lookAt(position, position + direction, glm::vec3(0.0f, 1.0f, 0.0f));
             projMat = glm::perspective(glm::radians(Zoom), Aspect, nearZ, farZ);
             viewProj = projMat * viewMat;
+            if (previous_mat != viewProj) genShadow = true;
+            if (genShadow) prepareShadow();
         }
+        return genShadow;
     }
     void enableShadow(float Zoom, float nearZ, float farZ, std::vector<uint> width_list) {
         if (!shadow_enabled) {
@@ -201,6 +244,7 @@ public:
         this->farZ = farZ;
         this->Zoom = Zoom;
         this->Aspect = 1.0f;
+        this->Frustum = 2.0f * nearZ * tanf(glm::radians(Zoom) / 2.0f);
         update();
     }
     void setShadowMap(uint idx) {
@@ -239,7 +283,9 @@ public:
             sprintf(tmp, "ptLights[%d].shadowMap", index);
             shader.setTextureSource(tmp, sm_index++, shadowMap->smBuffer->colorAttachs[0].texture->id);
             sprintf(tmp, "ptLights[%d].resolution", index);
-            shader.setFloat(tmp, 1.0f / (float)shadowMap->width);
+            shader.setFloat(tmp, (float)shadowMap->width);
+            sprintf(tmp, "dirLights[%d].light_size", index);
+            shader.setFloat(tmp, light_size / Frustum);
         }
     }
 };
