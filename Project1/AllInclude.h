@@ -11,6 +11,7 @@
 #include "utils/light.h"
 #include "utils/mesh.h"
 #include "utils/model.h"
+#include "utils/renderer.h"
 #include "utils/renderpass.h"
 #include "utils/sample.h"
 #include "utils/scene.h"

@@ -65,6 +65,8 @@ const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define SID_SSR_RESOLVE             12
 #define SID_IBL_CONVOLUTION         13
 #define SID_IBL_PREFILTER           14
+#define SID_GAUSSIAN_BLUR           15
+#define SID_JOIN_EFFECTS            16
 const std::vector<const char*> _shader_paths
 {
     /* 0*/"shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
@@ -81,7 +83,9 @@ const std::vector<const char*> _shader_paths
     /*11*/"shaders/ssr/rayTrace.vs", "shaders/ssr/rayTrace.fs", nullptr,
     /*12*/"shaders/ssr/reuse.vs", "shaders/ssr/reuse.fs", nullptr,
     /*13*/"shaders/ibl/convolution.vs", "shaders/ibl/convolution.fs", nullptr,
-    /*14*/"shaders/ibl/prefilter.vs", "shaders/ibl/prefilter.fs", nullptr
+    /*14*/"shaders/ibl/prefilter.vs", "shaders/ibl/prefilter.fs", nullptr,
+    /*15*/"shaders/post/gaussianBlur.vs", "shaders/post/gaussianBlur.fs", nullptr,
+    /*16*/"shaders/post/join.vs", "shaders/post/join.fs", nullptr
 };
 const std::string _glsl_version = "#version 430 core\n";
 

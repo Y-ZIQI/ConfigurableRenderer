@@ -164,6 +164,7 @@
     <ClInclude Include="utils\light.h" />
     <ClInclude Include="utils\mesh.h" />
     <ClInclude Include="utils\model.h" />
+    <ClInclude Include="utils\renderer.h" />
     <ClInclude Include="utils\renderpass.h" />
     <ClInclude Include="utils\sample.h" />
     <ClInclude Include="utils\scene.h" />

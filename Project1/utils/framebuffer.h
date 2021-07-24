@@ -32,20 +32,20 @@ public:
             attachs = 1;
         colorAttachs.resize(MAX_TARGETS);
     };
-    void attachColorTarget(Texture* tex, uint index, GLenum texTarget = GL_TEXTURE_2D) {
+    void attachColorTarget(Texture* tex, uint index, GLenum texTarget = GL_TEXTURE_2D, GLint miplevel = 0) {
         if (index >= MAX_TARGETS) return;
         if (index >= attachs) attachs = index + 1;
         colorAttachs[index].texture = tex;
         use();
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, texTarget, tex->id, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, texTarget, tex->id, miplevel);
         unbind();
     };
-    void attachCubeTarget(Texture* tex, uint index) {
+    void attachCubeTarget(Texture* tex, uint index, GLint miplevel = 0) {
         if (index >= MAX_TARGETS) return;
         if (index >= attachs) attachs = index + 1;
         colorAttachs[index].texture = tex;
         use();
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, tex->id, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, tex->id, miplevel);
         unbind();
     }
     void addDepthRenderbuffer(uint width, uint height) {
@@ -66,16 +66,16 @@ public:
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         unbind();
     }
-    void attachCubeDepthTarget(Texture* tex) {
+    void attachCubeDepthTarget(Texture* tex, GLint miplevel = 0) {
         depthAttach.texture = tex;
         use();
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, tex->id, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, tex->id, miplevel);
         unbind();
     }
-    void attachDepthTarget(Texture* tex, GLenum texTarget = GL_TEXTURE_2D) {
+    void attachDepthTarget(Texture* tex, GLenum texTarget = GL_TEXTURE_2D, GLint miplevel = 0) {
         depthAttach.texture = tex;
         use();
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texTarget, tex->id, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texTarget, tex->id, miplevel);
         unbind();
     }
     void use() {

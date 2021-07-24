@@ -1,10 +1,16 @@
 //++`shaders/shading/defines.glsl`
 //++`shaders/shading/importanceSample.glsl`
 
-layout (location = 0) out vec4 hitPt12;
-layout (location = 1) out vec4 hitPt34;
-layout (location = 2) out vec4 hitPt56;
-layout (location = 3) out vec4 hitPt78;
+#ifndef SSR_LEVEL
+#define SSR_LEVEL 2
+#endif
+
+layout (location = 0) out uvec4 hitPt12;
+layout (location = 1) out uvec4 hitPt34;
+layout (location = 2) out uvec4 hitPt56;
+layout (location = 3) out uvec4 hitPt78;
+layout (location = 4) out vec4 weight1234;
+layout (location = 5) out vec4 weight5678;
 
 in vec2 TexCoords;
 
@@ -12,25 +18,39 @@ uniform vec3 camera_pos;
 uniform vec4 camera_params;
 uniform mat4 camera_vp;
 
+uniform int width;
+uniform int height;
+
 uniform sampler2D specularTex;
 uniform sampler2D positionTex;
 uniform sampler2D normalTex;
 uniform sampler2D depthTex;
 uniform sampler2D lineardepthTex;
 
+#if SSR_LEVEL == 1
+#define MAX_SAMPLES 6
+#define MAX_DISTANCE 0.5
+const float thresholds[] = {
+    0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2, 1.6, 2.0
+};
+const float init_steps[] = {
+    2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0
+};
+#else // SSR_LEVEL == 2
 #define MAX_SAMPLES 8
-
-uniform vec2 samples[MAX_SAMPLES];
-mat3 rotateM;
-
-#define MAX_DISTANCE 0.3
+#define MAX_DISTANCE 0.5
 const float thresholds[] = {
     0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0
 };
-
 const float init_steps[] = {
     1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
 };
+#endif
+
+//#define ELONGATION 2.0
+
+uniform vec2 samples[MAX_SAMPLES];
+mat3 rotateM;
 
 float Rand1(inout float p) {
     p = fract(p * .1031);
@@ -58,7 +78,7 @@ vec3 getScreenUV(vec3 posW){
 }
 
 // Need Optimize
-bool rayTrace_screenspace(vec3 texPos, vec3 texDir, float roughness, float init_step, float threshold, out vec2 hitPos){
+float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, float threshold, out vec2 hitPos){
     vec3 one_step = texDir * init_step;
     float linearz = Linearize(texPos.z), lineard, distz, d1, d2;
     uint max_step = uint(min(min(
@@ -67,8 +87,6 @@ bool rayTrace_screenspace(vec3 texPos, vec3 texDir, float roughness, float init_
     ),  max(-texPos.z / one_step.z, (1.0 - texPos.z) / one_step.z)
     ));
     
-    vec2 candidate = vec2(-1.0);
-    float mindist = 999.0;
     texPos += one_step;
     distz = Linearize(texPos.z) - linearz;
     d1 = distz;
@@ -79,10 +97,7 @@ bool rayTrace_screenspace(vec3 texPos, vec3 texDir, float roughness, float init_
             d2 = linearz - lineard;
             if(d2 < threshold + max(distz, 0.0)){
                 hitPos = texPos.xy - one_step.xy * d2 / (abs(d1) + d2);
-                return true;
-            }else if(d2 < min(MAX_DISTANCE, mindist)){
-                candidate = texPos.xy - one_step.xy * d2 / (abs(d1) + d2);
-                mindist = d2;        
+                return 1.0;
             }
         }
         d1 = lineard - linearz;
@@ -91,18 +106,20 @@ bool rayTrace_screenspace(vec3 texPos, vec3 texDir, float roughness, float init_
         linearz += distz;
         lineard = texture(lineardepthTex, texPos.xy).r;
     }
-    if(mindist < MAX_DISTANCE) hitPos = candidate;
-    else hitPos = vec2(-1.0);
-    return false;
+    texPos = clamp(texPos, 0.0, 1.0);
+    linearz = Linearize(texPos.z);
+    lineard = texture(lineardepthTex, texPos.xy).r;
+    if(lineard >= Linearize(1.0) - 0.1) return 0.0;
+    hitPos = texPos.xy;
+    float dist_w = (threshold + max(distz, 0.0)) / (abs(lineard - linearz) + max(distz, 0.0));
+    return pow(dist_w, 2.0 / log(lineard));
 }
 
 void main(){
     ATOMIC_COUNT_INCREMENT
     vec3 normal = texture(normalTex, TexCoords).rgb;
-    hitPt12 = vec4(-1.0, -1.0, -1.0, -1.0);
-    hitPt34 = vec4(-1.0, -1.0, -1.0, -1.0);
-    hitPt56 = vec4(-1.0, -1.0, -1.0, -1.0);
-    hitPt78 = vec4(-1.0, -1.0, -1.0, -1.0);
+    weight1234 = vec4(0.0);
+    weight5678 = vec4(0.0);
     if(dot(normal, normal) == 0.0){
         return;
     }
@@ -139,19 +156,25 @@ void main(){
         vec2 nXi = samples[i];
         nXi.x += move;
         vec3 H = visibleImportanceSampling(nXi, TBN, roughness, pdf);
+        #ifdef ELONGATION
+        float vertical = dot(planeV, H);
+        vec3 Hvertical = planeV * vertical;
+        H = normalize(H + (ELONGATION - 1.0) * Hvertical);
+        #endif
         vec3 refv = reflect(view, H);
         vec3 texDir = getScreenUV(position + refv * 0.1) - texPos;
         texDir *= 1.0 / length(vec2(texDir.xy));
-        bool inter = rayTrace_screenspace(texPos, texDir, roughness, init_step, threshold, hitpos);
+        float inter = rayTrace_screenspace(texPos, texDir, init_step, threshold, hitpos);
+        ivec2 hitXY = ivec2(vec2(width, height) * hitpos);
         switch(i){
-        case 0: hitPt12.xy = hitpos; break;
-        case 1: hitPt12.zw = hitpos; break;
-        case 2: hitPt34.xy = hitpos; break;
-        case 3: hitPt34.zw = hitpos; break;
-        case 4: hitPt56.xy = hitpos; break;
-        case 5: hitPt56.zw = hitpos; break;
-        case 6: hitPt78.xy = hitpos; break;
-        case 7: hitPt78.zw = hitpos; break;
+        case 0: hitPt12.xy = hitXY; weight1234.r = inter; break;
+        case 1: hitPt12.zw = hitXY; weight1234.g = inter; break;
+        case 2: hitPt34.xy = hitXY; weight1234.b = inter; break;
+        case 3: hitPt34.zw = hitXY; weight1234.a = inter; break;
+        case 4: hitPt56.xy = hitXY; weight5678.r = inter; break;
+        case 5: hitPt56.zw = hitXY; weight5678.g = inter; break;
+        case 6: hitPt78.xy = hitXY; weight5678.b = inter; break;
+        case 7: hitPt78.zw = hitXY; weight5678.a = inter; break;
         }
     }
 }

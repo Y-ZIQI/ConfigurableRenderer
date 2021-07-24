@@ -9,7 +9,7 @@ uniform float resolution;
 uniform float roughness;
 
 #define SAMPLE_COUNT 2048
-#define INF 1000.0
+#define INF 1000000.0
 
 float RadicalInverse_VdC(uint bits) 
 {

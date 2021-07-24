@@ -1,6 +1,10 @@
 //++`shaders/shading/defines.glsl`
 
-out vec3 FragColor;
+#ifndef SSR_LEVEL
+#define SSR_LEVEL 2
+#endif
+
+layout (location = 0) out vec3 FragColor;
 
 in vec2 TexCoords;
 
@@ -8,18 +12,35 @@ uniform vec3 camera_pos;
 uniform vec4 camera_params;
 uniform mat4 camera_vp;
 
+uniform int width;
+uniform int height;
+
 uniform sampler2D colorTex;
 uniform sampler2D albedoTex;
 uniform sampler2D specularTex;
 uniform sampler2D positionTex;
 uniform sampler2D normalTex;
 
-uniform sampler2D hitPt12;
-uniform sampler2D hitPt34;
-uniform sampler2D hitPt56;
-uniform sampler2D hitPt78;
+uniform usampler2D hitPt12;
+uniform usampler2D hitPt34;
+uniform usampler2D hitPt56;
+uniform usampler2D hitPt78;
+uniform sampler2D weight1234;
+uniform sampler2D weight5678;
 
+#if SSR_LEVEL == 1
+#define MAX_SAMPLES 6
+#define RESOLVE 5
+#else  // SSR_LEVEL == 2
 #define MAX_SAMPLES 8
+#define RESOLVE 9
+#endif
+
+const ivec2 offsets[] = {
+    ivec2(0, 0), ivec2(-1, 0), ivec2(0, 1), 
+    ivec2(0, -1), ivec2(0, 1), ivec2(-1, -1), 
+    ivec2(-1, 1), ivec2(1, -1), ivec2(1, 1)
+};
 
 float DistributionGGX(float NdotH, float a2)
 {
@@ -33,21 +54,6 @@ vec3 fresnelSchlick(vec3 f0, vec3 f90, float u)
 }
 
 void main(){
-    /*vec3 specular = texture(specularTex, TexCoords).rgb;
-    float roughness = specular.g;
-    int kernel = int(roughness * 2.9);
-    vec3 reflect_color = vec3(0.0);
-    for(int x = -kernel; x <= kernel; x++){
-        for(int y = -kernel; y <= kernel; y++){
-            reflect_color += textureOffset(reflectionTex, TexCoords, ivec2(x, y)).rgb;
-        }
-    }
-    reflect_color *= 1.0 / float((2 * kernel + 1) * (2 * kernel + 1));
-    FragColor = texture(colorTex, TexCoords).rgb + reflect_color;*/
-    //FragColor = vec3(texture(hitPt12, TexCoords).rg, 0.0);
-    //FragColor = vec3(texture(colorTex, TexCoords).rgb);
-    
-
     vec3 specular = texture(specularTex, TexCoords).rgb;
     vec3 position = texture(positionTex, TexCoords).xyz, texPos, H;
     vec3 normal = texture(normalTex, TexCoords).rgb;
@@ -60,58 +66,51 @@ void main(){
     
     vec3 reflect_color = vec3(0.0);
 
-    /*float r_weight = 1.0 / max(roughness, 0.01), weight_sum = 0.1, pdf;
-    int num_samples = int(min(roughness, 0.99) * MAX_SAMPLES) + 1;
+    float weight_sum = 0.001, hitW, pdf;
     vec2 hitpos;
-    for(int i = 0; i < num_samples; i++){
-        switch(i){
-        case 0: hitpos = texture(hitPt12, TexCoords).xy; break;
-        case 1: hitpos = texture(hitPt12, TexCoords).zw; break;
-        case 2: hitpos = texture(hitPt34, TexCoords).xy; break;
-        case 3: hitpos = texture(hitPt34, TexCoords).zw; break;
-        case 4: hitpos = texture(hitPt56, TexCoords).xy; break;
-        case 5: hitpos = texture(hitPt56, TexCoords).zw; break;
-        case 6: hitpos = texture(hitPt78, TexCoords).xy; break;
-        case 7: hitpos = texture(hitPt78, TexCoords).zw; break;
-        }
-        if(hitpos.x > -0.5){
-            texPos = texture(positionTex, hitpos).xyz;
-            H = normalize(normalize(texPos - position) - view);
-            pdf = DistributionGGX(max(dot(H, N_mixed), 0.0), a2);
-            reflect_color += r_weight * pdf * texture(colorTex, hitpos).rgb;
-            weight_sum += r_weight * pdf;
-        }else{
-            weight_sum += r_weight;
-        }
-    }*/
-
-    float weight_sum = 0.001, pdf;
-    vec2 hitpos;
-    for(int x = -1;x <= 1;x++){
-        for(int y = -1;y <= 1;y++){
-            float nroughness = textureOffset(specularTex, TexCoords, ivec2(x, y)).g;
-            float r_weight = 1.0 / max(nroughness, 0.01);
-            int num_samples = int(min(nroughness, 0.99) * MAX_SAMPLES) + 1;
-            for(int i = 0; i < num_samples; i++){
-                switch(i){
-                case 0: hitpos = textureOffset(hitPt12, TexCoords, ivec2(x, y)).xy; break;
-                case 1: hitpos = textureOffset(hitPt12, TexCoords, ivec2(x, y)).zw; break;
-                case 2: hitpos = textureOffset(hitPt34, TexCoords, ivec2(x, y)).xy; break;
-                case 3: hitpos = textureOffset(hitPt34, TexCoords, ivec2(x, y)).zw; break;
-                case 4: hitpos = textureOffset(hitPt56, TexCoords, ivec2(x, y)).xy; break;
-                case 5: hitpos = textureOffset(hitPt56, TexCoords, ivec2(x, y)).zw; break;
-                case 6: hitpos = textureOffset(hitPt78, TexCoords, ivec2(x, y)).xy; break;
-                case 7: hitpos = textureOffset(hitPt78, TexCoords, ivec2(x, y)).zw; break;
-                }
-                if(hitpos.x > -0.5){
-                    texPos = texture(positionTex, hitpos).xyz;
-                    H = normalize(normalize(texPos - position) - view);
-                    pdf = DistributionGGX(max(dot(H, N_mixed), 0.0), a2);
-                    reflect_color += r_weight * pdf * texture(colorTex, hitpos).rgb;
-                    weight_sum += r_weight * pdf;
-                }else{
-                    weight_sum += r_weight;
-                }
+    uvec2 hitXY;
+    for(int i = 0; i < RESOLVE; i++){
+        float nroughness = textureOffset(specularTex, TexCoords, offsets[i]).g;
+        float r_weight = 1.0 / max(nroughness, 0.01);
+        int num_samples = int(min(nroughness, 0.99) * MAX_SAMPLES) + 1;
+        for(int j = 0; j < num_samples; j++){
+            switch(j){
+            case 0: 
+                hitXY = textureOffset(hitPt12, TexCoords, offsets[i]).xy;
+                hitW = textureOffset(weight1234, TexCoords, offsets[i]).r; break;
+            case 1: 
+                hitXY = textureOffset(hitPt12, TexCoords, offsets[i]).zw; 
+                hitW = textureOffset(weight1234, TexCoords, offsets[i]).g; break;
+            case 2: 
+                hitXY = textureOffset(hitPt34, TexCoords, offsets[i]).xy; 
+                hitW = textureOffset(weight1234, TexCoords, offsets[i]).b; break;
+            case 3: 
+                hitXY = textureOffset(hitPt34, TexCoords, offsets[i]).zw; 
+                hitW = textureOffset(weight1234, TexCoords, offsets[i]).a; break;
+            case 4: 
+                hitXY = textureOffset(hitPt56, TexCoords, offsets[i]).xy; 
+                hitW = textureOffset(weight5678, TexCoords, offsets[i]).r; break;
+            case 5: 
+                hitXY = textureOffset(hitPt56, TexCoords, offsets[i]).zw; 
+                hitW = textureOffset(weight5678, TexCoords, offsets[i]).g; break;
+            case 6: 
+                hitXY = textureOffset(hitPt78, TexCoords, offsets[i]).xy; 
+                hitW = textureOffset(weight5678, TexCoords, offsets[i]).b; break;
+            case 7: 
+                hitXY = textureOffset(hitPt78, TexCoords, offsets[i]).zw; 
+                hitW = textureOffset(weight5678, TexCoords, offsets[i]).a; break;
+            }
+            hitpos = vec2(hitXY) / vec2(width, height);
+            float hit_weight = max(hitW, 0.5) * r_weight;
+            if(hitW > 0.1){
+                texPos = texture(positionTex, hitpos).xyz;
+                H = normalize(normalize(texPos - position) - view);
+                pdf = DistributionGGX(max(dot(H, N_mixed), 0.0), a2);
+                vec3 intensity = min(texture(colorTex, hitpos).rgb, 1.0);
+                reflect_color += hitW * r_weight * pdf * intensity;
+                weight_sum += hit_weight * pdf;
+            }else{
+                weight_sum += hit_weight;
             }
         }
     }
@@ -124,6 +123,6 @@ void main(){
     
     reflect_color *= reflectTerm / weight_sum;
     vec3 color = vec3(texture(colorTex, TexCoords).rgb);
-    FragColor = color + (1.0 - color) * reflect_color;
+    FragColor = reflect_color;
     //FragColor = vec3(texture(colorTex, TexCoords).rgb);
 }

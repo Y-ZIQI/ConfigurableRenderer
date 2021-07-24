@@ -9,6 +9,9 @@ const std::vector<uint> sm_width_list{ 512, 1024, 2048 };
 const char* shadow_type_name[4] = {
     "SHADOW_SOFT_EVSM", "SHADOW_SOFT_PCSS", "SHADOW_SOFT_ESM", "SHADOW_HARD"
 };
+const char* level_name[4] = {
+    "0", "1", "2", "3"
+};
 enum Level : uint {
     level1 = 0,
     level2,
@@ -64,6 +67,7 @@ public:
     Mode update_shadow;
     // 1: evsm, 2: pcss, 3: esm, 4: hard
     Mode shadow_type;
+    Level effect_level;
 
     Settings() {
         resolution = level3;
@@ -75,6 +79,7 @@ public:
 
         update_shadow = mode2;
         shadow_type = mode2;
+        effect_level = level2;
     }
 };
 
@@ -84,7 +89,7 @@ public:
     void onLoad();
     void onFrameRender();
     void processInput();
-    void config(bool force_update = false);
+    uint config(bool force_update = false);
     void initResources();
     void update();
     void run();
@@ -121,7 +126,7 @@ private:
     * 1: Bistro
     * 2: SunTemple
     */
-    uint test_scene = 1;
+    uint test_scene = 2;
     float fps, duration;
     TimeRecord record[2]; // All, SMAA+resolve
     float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
@@ -149,8 +154,6 @@ void RenderFrame::onLoad() {
         dRdrList[2] = new DeferredRenderer(width, height);
 
         oPass = new OmnidirectionalPass(512, 512);
-        //oPass->setTransforms(glm::vec3(-3.0, 5.0, 0.0), glm::perspective(glm::radians(90.0f), 1.0f, 1.0f, 20.0f));
-        //oPass->setShader(sManager.getShader(SID_CUBEMAP_RENDER));
 
         smaaList.resize(3);
         smaaList[0] = new SMAA(width * values[0][0], height * values[0][0]);
@@ -203,6 +206,7 @@ void RenderFrame::onLoad() {
         gui->addVariable("Recording", settings.recording, enabled);
         gui->addVariable("Update Shadow", settings.update_shadow, enabled)->setItems({ "Not update", "As need", "Every frame" });
         gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "EVSM", "PCSS", "ESM", "Hard"});
+        gui->addVariable("Effect", settings.effect_level, enabled)->setItems({ "Off", "On", "2" });
         gui->addGroup("Scenes");
         scene->addGui(gui, mainWindow);
         screen->setVisible(true);
@@ -230,10 +234,10 @@ void RenderFrame::onFrameRender() {
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
-    config();
+    uint flag = config();
     update();
 
-    scene->update(settings.update_shadow);
+    scene->update((flag & 0x2) ? 2 : settings.update_shadow);
     targetFbo->clear();
 
     dRenderer->renderScene(*scene);
@@ -251,6 +255,7 @@ void RenderFrame::onFrameRender() {
 
     frame_record.triangles += 2;
     frame_record.draw_calls += 1;
+    CHECKERROR
 }
 
 void RenderFrame::update(){
@@ -263,8 +268,10 @@ void RenderFrame::update(){
     frame_record.clear(settings.recording);
 }
 
-void RenderFrame::config(bool force_update) {
+uint RenderFrame::config(bool force_update) {
+    uint flag = 0x0000;
     if (settings.resolution != stHistory.resolution || force_update) {
+        flag |= 0x1;
         stHistory.resolution = settings.resolution;
         resolution = values[0][settings.resolution];
         dRenderer = dRdrList[settings.resolution];
@@ -272,6 +279,7 @@ void RenderFrame::config(bool force_update) {
         smaaPass = smaaList[settings.resolution];
     }
     if (settings.shadow_resolution != stHistory.shadow_resolution || force_update) {
+        flag |= 0x2;
         stHistory.shadow_resolution = settings.shadow_resolution;
         for (int i = 0; i < scene->dirLights.size(); i++)
             scene->dirLights[i]->setShadowMap(settings.shadow_resolution);
@@ -279,6 +287,7 @@ void RenderFrame::config(bool force_update) {
             scene->ptLights[i]->setShadowMap(settings.shadow_resolution);
     }
     if (settings.shading != stHistory.shading || force_update) {
+        flag |= 0x4;
         stHistory.shading = settings.shading;
         dRdrList[0]->ibl = (uint)settings.shading;
         dRdrList[1]->ibl = (uint)settings.shading;
@@ -291,6 +300,7 @@ void RenderFrame::config(bool force_update) {
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
     }
     if (settings.ssao_level != stHistory.ssao_level || force_update) {
+        flag |= 0x8;
         stHistory.ssao_level = settings.ssao_level;
         if (settings.ssao_level == level1) {
             sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SSAO");
@@ -311,12 +321,20 @@ void RenderFrame::config(bool force_update) {
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
     }
     if (settings.ssr_level != stHistory.ssr_level || force_update) {
+        flag |= 0x10;
         stHistory.ssr_level = settings.ssr_level;
         dRdrList[0]->ssr = (uint)settings.ssr_level;
         dRdrList[1]->ssr = (uint)settings.ssr_level;
         dRdrList[2]->ssr = (uint)settings.ssr_level;
+        if (settings.ssr_level != level1) {
+            sManager.getShader(SID_SSR)->addDef(FSHADER, "SSR_LEVEL", level_name[(uint)settings.ssr_level]);
+            sManager.getShader(SID_SSR_RESOLVE)->addDef(FSHADER, "SSR_LEVEL", level_name[(uint)settings.ssr_level]);
+            sManager.getShader(SID_SSR)->reload();
+            sManager.getShader(SID_SSR_RESOLVE)->reload();
+        }
     }
     if (settings.smaa_level != stHistory.smaa_level || force_update) {
+        flag |= 0x20;
         stHistory.smaa_level = settings.smaa_level;
         if (settings.smaa_level == level2) {
             sManager.getShader(SID_SMAA_BLENDPASS)->addDef(VSHADER, "MAX_SEARCH_STEPS", "4");
@@ -329,6 +347,7 @@ void RenderFrame::config(bool force_update) {
         sManager.getShader(SID_SMAA_BLENDPASS)->reload();
     }
     if (settings.shadow_type != stHistory.shadow_type || force_update) {
+        flag |= 0x2;
         stHistory.shadow_type = settings.shadow_type;
         for (uint i = mode1; i <= mode4; i++) {
             if (i == settings.shadow_type) {
@@ -343,6 +362,14 @@ void RenderFrame::config(bool force_update) {
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
         sManager.getShader(SID_SHADOWMAP)->reload();
     }
+    if (settings.effect_level != stHistory.effect_level || force_update) {
+        flag |= 0x40;
+        stHistory.effect_level = settings.effect_level;
+        dRdrList[0]->effect = (uint)settings.effect_level;
+        dRdrList[1]->effect = (uint)settings.effect_level;
+        dRdrList[2]->effect = (uint)settings.effect_level;
+    }
+    return flag;
 }
 
 void RenderFrame::processInput() {

@@ -14,7 +14,7 @@ public:
         width = Width; height = Height;
         smBuffer = new FrameBuffer;
         smBuffer->addDepthStencil(width, height);
-        Texture* ntex = Texture::create(width, height, GL_R32F, GL_RGBA, GL_FLOAT);
+        Texture* ntex = Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT);
         //ntex->setTexParami(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         //ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         ntex->setTexParami(GL_TEXTURE_MAG_FILTER, GL_NEAREST);

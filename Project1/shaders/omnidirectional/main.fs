@@ -61,9 +61,9 @@ void main()
 
     vec3 color = evalShading(albedo.rgb, specular, emissive, normal, WorldPos, 1.0, 0.0);
     
-    const float gamma = 2.2;
-    vec3 mapped = pow(color, vec3(1.0 / gamma));
-    FragColor = mapped;
+    //const float gamma = 2.2;
+    //vec3 mapped = pow(color, vec3(1.0 / gamma));
+    FragColor = color;
 }
 
 /*out vec4 FragColor;
