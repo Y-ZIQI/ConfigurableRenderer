@@ -111,7 +111,7 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, float thre
     lineard = texture(lineardepthTex, texPos.xy).r;
     if(lineard >= Linearize(1.0) - 0.1) return 0.0;
     hitPos = texPos.xy;
-    float dist_w = (threshold + max(distz, 0.0)) / (abs(lineard - linearz) + max(distz, 0.0));
+    float dist_w = (threshold) / (abs(lineard - linearz));
     return pow(dist_w, 2.0 / log(lineard));
 }
 

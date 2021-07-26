@@ -95,36 +95,31 @@ public:
         unbind();
         return a == GL_FRAMEBUFFER_COMPLETE;
     }
+    // Prepare all targets
+    void _prepare() {
+        switch (attachs) {
+        case 0: glDrawBuffer(GL_NONE); break;
+        case 1: glDrawBuffer(_color_attachments[0]); break;
+        default: glDrawBuffers(attachs, _color_attachments);
+        }
+    }
+    // Prepare all targets or a particular target
     void prepare(int flag = ALL_TARGETS) {
         use();
         if (id != 0) {
-            if(flag == ALL_TARGETS)
-                switch (attachs) {
-                case 0:
-                    glDrawBuffer(GL_NONE); break;
-                case 1:
-                    glDrawBuffer(_color_attachments[0]); break;
-                default:
-                    glDrawBuffers(attachs, _color_attachments);
-                }
-            else
-                glDrawBuffer(_color_attachments[flag]);
+            if (flag == ALL_TARGETS) _prepare();
+            else glDrawBuffer(_color_attachments[flag]);
         }
     }
-    /**
-    * Default means clear all
-    */
+    // Clear all targets or depthstencil or a particular target
     void clear(int flag = ALL_TARGETS, const GLfloat* color = _clear_color) {
+        use();
         if (flag == ALL_TARGETS) {
-            use();
             glClearColor(color[0], color[1], color[2], color[3]);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-            unbind();
         }
         else if (flag == DEPTH_TARGETS) {
-            use();
             glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-            unbind();
         }
         else if(flag >= 0){
             glClearBufferfv(id, GL_COLOR_ATTACHMENT0 + flag, color);

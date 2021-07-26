@@ -64,9 +64,9 @@ const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define SID_SMAA_NEIGHBORPASS       11
 #define SID_SSR                     12
 #define SID_SSR_RESOLVE             13
-#define SID_IBL_CONVOLUTION         14
+#define SID_SSR_BLUR                14
 #define SID_IBL_PREFILTER           15
-#define SID_GAUSSIAN_BLUR           16
+#define SID_BLOOM_BLUR              16
 #define SID_JOIN_EFFECTS            17
 const std::vector<const char*> _shader_paths
 {
@@ -84,9 +84,9 @@ const std::vector<const char*> _shader_paths
     /*11*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr,
     /*12*/"shaders/ssr/rayTrace.vs", "shaders/ssr/rayTrace.fs", nullptr,
     /*13*/"shaders/ssr/reuse.vs", "shaders/ssr/reuse.fs", nullptr,
-    /*14*/"shaders/ibl/convolution.vs", "shaders/ibl/convolution.fs", nullptr,
+    /*14*/"shaders/ssr/blur.vs", "shaders/ssr/blur.fs", nullptr,
     /*15*/"shaders/ibl/prefilter.vs", "shaders/ibl/prefilter.fs", nullptr,
-    /*16*/"shaders/post/gaussianBlur.vs", "shaders/post/gaussianBlur.fs", nullptr,
+    /*16*/"shaders/post/blur.vs", "shaders/post/blur.fs", nullptr,
     /*17*/"shaders/post/join.vs", "shaders/post/join.fs", nullptr
 };
 const std::string _glsl_version = "#version 430 core\n";
@@ -127,6 +127,13 @@ void checkScreenVAO() {
         glBindVertexArray(0);
         is_screen_vao_initialized = true;
     }
+}
+void renderScreen() {
+    checkScreenVAO();
+    glDisable(GL_DEPTH_TEST);
+    glBindVertexArray(_screen_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 }
 
 const float _envMapVertices[] = {
@@ -198,6 +205,13 @@ void checkEnvmapVAO() {
         glBindVertexArray(0);
         is_envmap_vao_initialized = true;
     }
+}
+void renderCube() {
+    checkEnvmapVAO();
+    glEnable(GL_DEPTH_TEST);
+    glBindVertexArray(_envmap_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
 }
 
 struct TimeRecord {

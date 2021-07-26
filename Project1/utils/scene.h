@@ -46,23 +46,11 @@ public:
     void addLightProbe(IBL* nLight) { light_probes.push_back(nLight); };
     void Draw(Shader& shader, uint pre_cut = 0) {
         glEnable(GL_DEPTH_TEST);
-        if (true) {
-            for (uint i = 0; i < models.size(); i++) {
-                if(pre_cut == 0)
-                    models[i]->Draw(shader, true, camera->Position, camera->Front);
-                else
-                    models[i]->Draw(shader, false);
-            }
-        }else{
-            for (uint i = 0; i < models.size(); i++) {
-                models[i]->DrawOpaque(shader);
-            }
-            glm::mat4 viewProj = camera->GetViewProjMatrix();
-            shader.use();
-            for (uint i = 0; i < models.size(); i++) {
-                models[i]->OrderTransparent(viewProj);
-                models[i]->DrawTransparent(shader);
-            }
+        for (uint i = 0; i < models.size(); i++) {
+            if(pre_cut == 0)
+                models[i]->Draw(shader, true, camera->Position, camera->Front);
+            else
+                models[i]->Draw(shader, false);
         }
     }
     void DrawMesh(Shader& shader) {
@@ -72,12 +60,20 @@ public:
         }
     }
     void DrawEnvMap(Shader& shader) {
-        checkEnvmapVAO();
-        glEnable(GL_DEPTH_TEST);
+        shader.use();
+        setCameraUniforms(shader, true);
+        if (envMaps[envIdx]->target == GL_TEXTURE_CUBE_MAP) {
+            shader.setBool("target_2d", false);
+            shader.setTextureSource("envmap", 0, envMaps[envIdx]->id, GL_TEXTURE_CUBE_MAP);
+            shader.setTextureSource("envmap2d", 1, 0, GL_TEXTURE_2D);
+        }
+        else {
+            shader.setBool("target_2d", true);
+            shader.setTextureSource("envmap", 0, 0, GL_TEXTURE_CUBE_MAP);
+            shader.setTextureSource("envmap2d", 1, envMaps[envIdx]->id, GL_TEXTURE_2D);
+        }
         glDepthFunc(GL_LEQUAL);
-        glBindVertexArray(_envmap_vao);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
+        renderCube();
         glDepthFunc(GL_LESS);
         frame_record.triangles += 12;
         frame_record.draw_calls += 1;

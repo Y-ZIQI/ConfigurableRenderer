@@ -7,24 +7,22 @@ Texture* createCubeMapFromTex2D(
     FrameBuffer* targetFbo,
     uint width
 ) {
-    checkEnvmapVAO();
-
     Texture* tex = Texture::createCubeMap(width, width, GL_RGB32F, GL_RGB, GL_FLOAT, GL_LINEAR);
 
     glViewport(0, 0, width, width);
-    Shader* shader = sManager.getShader(SID_DEFERRED_ENVMAP2D);
+    Shader* shader = sManager.getShader(SID_DEFERRED_ENVMAP);
     shader->use();
-    shader->setTextureSource("envmap", 0, tex2D->id, tex2D->target);
-    glBindVertexArray(_envmap_vao);
+    shader->setBool("target_2d", true);
+    shader->setTextureSource("envmap", 0, 0, GL_TEXTURE_CUBE_MAP);
+    shader->setTextureSource("envmap2d", 1, tex2D->id, GL_TEXTURE_2D);
     for (unsigned int i = 0; i < 6; ++i)
     {
         shader->setMat4("camera_vp", _capture_projection * _capture_views[i]);
         targetFbo->attachColorTarget(tex, 0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i);
-        targetFbo->clear();
         targetFbo->prepare();
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        targetFbo->clear();
+        renderCube();
     }
-    glBindVertexArray(0);
     frame_record.triangles += 72;
     frame_record.draw_calls += 6;
     return tex;
@@ -37,12 +35,10 @@ void filterCubeMap(
     uint width,
     uint level
 ) {
-    checkEnvmapVAO();
     Shader* shader = sManager.getShader(SID_IBL_PREFILTER);
     shader->use();
     shader->setTextureSource("envmap", 0, texCube->id, texCube->target);
     shader->setFloat("resolution", (float)texCube->width);
-    glBindVertexArray(_envmap_vao);
     for (uint mip = 0; mip < level; mip++) {
         glViewport(0, 0, width, width);
         float roughness = (float)mip / (float)(level - 1);
@@ -51,13 +47,12 @@ void filterCubeMap(
         {
             shader->setMat4("camera_vp", _capture_projection * _capture_views[i]);
             targetFbo->attachColorTarget(targetTex, 0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, mip);
-            targetFbo->clear();
             targetFbo->prepare();
-            glDrawArrays(GL_TRIANGLES, 0, 36);
+            targetFbo->clear();
+            renderCube();
         }
         width /= 2;
     }
-    glBindVertexArray(0);
     frame_record.triangles += 72 * level;
     frame_record.draw_calls += 6 * level;
 }

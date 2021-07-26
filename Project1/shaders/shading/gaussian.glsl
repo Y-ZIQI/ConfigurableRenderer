@@ -1,19 +1,9 @@
-//++`shaders/shading/defines.glsl`
+#ifndef __GAUSSIAN
+#define __GAUSSIAN
 
-out vec3 outColor;
+#define MAX_KERNEL_SIZE 15
 
-in vec2 TexCoords;
-
-uniform bool fixed_kernel;
-uniform bool horizontal;
-uniform sampler2D colorTex;
-uniform sampler2D horizontalTex;
-
-const float weight[] = {
-    0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216
-};
-
-const float weights[] = {
+const float gaussian_weights[] = {
     1.0, 
     0.39099131515943186, 0.304504342420284, 
     0.2688318247165084, 0.22756122669152126, 0.1380228609502245, 
@@ -30,32 +20,8 @@ const float weights[] = {
     0.1066533820917958, 0.10291154890161237, 0.09245545986898958, 0.07733569219476857, 0.06022909764065491, 0.04367286686039983, 0.029484652412623966, 0.018533578788418444, 0.010846797452690326, 0.0059104798063070885, 0.0029986302019700383, 0.00141645261144968, 0.0006229599883733249, 0.0002550922258439781, 
     0.10302436492111411, 0.09964682449363516, 0.09016417539030323, 0.07632232670772375, 0.06043885419839353, 0.04477420442729566, 0.031030342400170087, 0.020118346894489474, 0.012202394214242315, 0.006923805269210563, 0.003675290508800728, 0.0018250952538344937, 0.0008478644631867016, 0.0003684803767577559, 0.00014981294139948864
 };
-const int part[] = {
+const int gaussian_parts[] = {
     0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78, 91, 105
 };
 
-const int ksize = 15;
-
-void main()
-{
-    //const vec3 Lumia = vec3(0.2126, 0.7152, 0.0722);
-    //float L = dot(color, Lumia);
-    //int kSize = int(log(L));
-    vec3 result;
-    int start = part[ksize - 1];
-    if(horizontal){
-        vec3 color = texture(colorTex, TexCoords).rgb;
-        result = color * weights[start];
-        for(int i = 1;i < ksize;i++){
-            result += textureOffset(colorTex, TexCoords, ivec2(i, 0)).rgb * weights[start + i];
-            result += textureOffset(colorTex, TexCoords, ivec2(-i, 0)).rgb * weights[start + i];
-        }
-    }else{
-        result = texture(horizontalTex, TexCoords).rgb * weights[start];
-        for(int i = 1;i < ksize;i++){
-            result += textureOffset(horizontalTex, TexCoords, ivec2(0, i)).rgb * weights[start + i];
-            result += textureOffset(horizontalTex, TexCoords, ivec2(0, -i)).rgb * weights[start + i];
-        }
-    }
-    outColor = result;
-}
+#endif

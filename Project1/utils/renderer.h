@@ -1,15 +1,17 @@
 #pragma once
-
-#include "renderpass.h"
+#include "scene.h"
+#include "framebuffer.h"
+#include "sample.h"
 
 class DeferredRenderer {
 public:
-    ScreenPass prePass;
-    ScreenPass shadingPass;
-    ScreenPass ssrPass;
-    ScreenPass resolvePass;
-    ScreenPass blurPass;
-    ScreenPass joinPass;
+    Shader* preShader;
+    Shader* shadingShader;
+    Shader* ssrShader;
+    Shader* resolveShader;
+    Shader* ssrblurShader;
+    Shader* blurShader;
+    Shader* joinShader;
     FrameBuffer* gPreBuffer;
     FrameBuffer* gBuffer;
     FrameBuffer* shadingBuffer;
@@ -70,12 +72,13 @@ public:
         screenBuffer = new FrameBuffer;
         screenBuffer->attachColorTarget(Texture::create(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
 
-        prePass.setShader(sManager.getShader(SID_DEFERRED_PREPROCESS));
-        shadingPass.setShader(sManager.getShader(SID_DEFERRED_SHADING));
-        ssrPass.setShader(sManager.getShader(SID_SSR));
-        resolvePass.setShader(sManager.getShader(SID_SSR_RESOLVE));
-        blurPass.setShader(sManager.getShader(SID_GAUSSIAN_BLUR));
-        joinPass.setShader(sManager.getShader(SID_JOIN_EFFECTS));
+        preShader = sManager.getShader(SID_DEFERRED_PREPROCESS);
+        shadingShader = sManager.getShader(SID_DEFERRED_SHADING);
+        ssrShader = sManager.getShader(SID_SSR);
+        resolveShader = sManager.getShader(SID_SSR_RESOLVE);
+        blurShader = sManager.getShader(SID_BLOOM_BLUR);
+        ssrblurShader = sManager.getShader(SID_SSR_BLUR);
+        joinShader = sManager.getShader(SID_JOIN_EFFECTS);
 
         ssao_sample.init(1.0, 32);
         shadow_sample.init(1.0, 5.0, 40, true);
@@ -84,115 +87,107 @@ public:
     void renderGeometry(Scene& scene) {
         Shader* gShader = sManager.getShader(SID_DEFERRED_BASE);
         gShader->use();
-        gPreBuffer->clear();
         gPreBuffer->prepare();
+        gPreBuffer->clear();
         scene.setCameraUniforms(*gShader);
         scene.Draw(*gShader, 0);
         renderEnvmap(scene);
 
-        prePass.shader->use();
+        preShader->use();
         gBuffer->prepare();
-        ssao_sample.setUniforms(prePass.shader, 16);
-        scene.setCameraUniforms(*prePass.shader);
-        prePass.shader->setTextureSource("positionTex", 0, gPreBuffer->colorAttachs[3].texture->id);
-        prePass.shader->setTextureSource("tangentTex", 1, gPreBuffer->colorAttachs[4].texture->id);
-        prePass.shader->setTextureSource("normalTex", 2, gPreBuffer->colorAttachs[5].texture->id);
-        prePass.shader->setTextureSource("depthTex", 3, gPreBuffer->depthAttach.texture->id);
-        prePass.render();
+        ssao_sample.setUniforms(preShader, 16);
+        scene.setCameraUniforms(*preShader);
+        preShader->setTextureSource("positionTex", 0, gPreBuffer->colorAttachs[3].texture->id);
+        preShader->setTextureSource("tangentTex", 1, gPreBuffer->colorAttachs[4].texture->id);
+        preShader->setTextureSource("normalTex", 2, gPreBuffer->colorAttachs[5].texture->id);
+        preShader->setTextureSource("depthTex", 3, gPreBuffer->depthAttach.texture->id);
+        renderScreen();
         //gBuffer->colorAttachs[1].texture->genMipmap();
         frame_record.triangles += 2;
         frame_record.draw_calls += 1;
     }
     void renderEnvmap(Scene& scene) {
-        if (!scene.envMap_enabled || scene.envIdx < 0)
-            return;
-        Texture* envmap = scene.envMaps[scene.envIdx];
-        bool is_cube = envmap->target == GL_TEXTURE_CUBE_MAP;
-        Shader* eShader = sManager.getShader(is_cube ? SID_DEFERRED_ENVMAP : SID_DEFERRED_ENVMAP2D);
-        eShader->use();
+        if (!scene.envMap_enabled || scene.envIdx < 0) return;
         gPreBuffer->prepare(0);
-        scene.setCameraUniforms(*eShader, true);
-        eShader->setTextureSource("envmap", 0, envmap->id, envmap->target);
-        scene.DrawEnvMap(*eShader);
-        gPreBuffer->prepare();
+        scene.DrawEnvMap(*sManager.getShader(SID_DEFERRED_ENVMAP));
     }
     void renderShading(Scene& scene) {
-        shadingPass.shader->use();
+        shadingShader->use();
         shadingBuffer->prepare();
         setShadingUniforms(scene);
-        shadingPass.render();
+        renderScreen();
         frame_record.triangles += 2;
         frame_record.draw_calls += 1;
     }
     void renderReflection(Scene& scene) {
         glViewport(0, 0, width / 2, height / 2);
-        ssrPass.shader->use();
+        ssrShader->use();
         rayTraceBuffer->prepare();
-        ssr_sample.setUniforms(ssrPass.shader, 8);
+        ssr_sample.setUniforms(ssrShader, 8);
         setSSRUniforms(scene);
-        ssrPass.render();
+        renderScreen();
 
         glViewport(0, 0, width, height);
-        resolvePass.shader->use();
+        resolveShader->use();
         reflectionBuffer->prepare(0);
-        scene.setCameraUniforms(*resolvePass.shader);
-        resolvePass.shader->setInt("width", width);
-        resolvePass.shader->setInt("height", height);
-        resolvePass.shader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[0].texture->id);
-        resolvePass.shader->setTextureSource("albedoTex", 1, gPreBuffer->colorAttachs[0].texture->id);
-        resolvePass.shader->setTextureSource("specularTex", 2, gPreBuffer->colorAttachs[1].texture->id);
-        resolvePass.shader->setTextureSource("positionTex", 3, gPreBuffer->colorAttachs[3].texture->id);
-        resolvePass.shader->setTextureSource("normalTex", 4, gBuffer->colorAttachs[0].texture->id);
-        resolvePass.shader->setTextureSource("hitPt12", 5, rayTraceBuffer->colorAttachs[0].texture->id);
-        resolvePass.shader->setTextureSource("hitPt34", 6, rayTraceBuffer->colorAttachs[1].texture->id);
-        resolvePass.shader->setTextureSource("hitPt56", 7, rayTraceBuffer->colorAttachs[2].texture->id);
-        resolvePass.shader->setTextureSource("hitPt78", 8, rayTraceBuffer->colorAttachs[3].texture->id);
-        resolvePass.shader->setTextureSource("weight1234", 9, rayTraceBuffer->colorAttachs[4].texture->id);
-        resolvePass.shader->setTextureSource("weight5678", 10, rayTraceBuffer->colorAttachs[5].texture->id);
-        resolvePass.render();
+        scene.setCameraUniforms(*resolveShader);
+        resolveShader->setInt("width", width);
+        resolveShader->setInt("height", height);
+        resolveShader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[0].texture->id);
+        resolveShader->setTextureSource("albedoTex", 1, gPreBuffer->colorAttachs[0].texture->id);
+        resolveShader->setTextureSource("specularTex", 2, gPreBuffer->colorAttachs[1].texture->id);
+        resolveShader->setTextureSource("positionTex", 3, gPreBuffer->colorAttachs[3].texture->id);
+        resolveShader->setTextureSource("normalTex", 4, gBuffer->colorAttachs[0].texture->id);
+        resolveShader->setTextureSource("hitPt12", 5, rayTraceBuffer->colorAttachs[0].texture->id);
+        resolveShader->setTextureSource("hitPt34", 6, rayTraceBuffer->colorAttachs[1].texture->id);
+        resolveShader->setTextureSource("hitPt56", 7, rayTraceBuffer->colorAttachs[2].texture->id);
+        resolveShader->setTextureSource("hitPt78", 8, rayTraceBuffer->colorAttachs[3].texture->id);
+        resolveShader->setTextureSource("weight1234", 9, rayTraceBuffer->colorAttachs[4].texture->id);
+        resolveShader->setTextureSource("weight5678", 10, rayTraceBuffer->colorAttachs[5].texture->id);
+        renderScreen();
 
-        blurPass.shader->use();
+        ssrblurShader->use();
         reflectionBuffer->prepare(1);
-        blurPass.shader->setTextureSource("colorTex", 0, reflectionBuffer->colorAttachs[0].texture->id);
-        blurPass.shader->setBool("horizontal", true);
-        blurPass.render();
+        ssrblurShader->setTextureSource("colorTex", 0, reflectionBuffer->colorAttachs[0].texture->id);
+        ssrblurShader->setTextureSource("specularTex", 2, gPreBuffer->colorAttachs[1].texture->id);
+        ssrblurShader->setBool("horizontal", true);
+        renderScreen();
         reflectionBuffer->prepare(2);
-        blurPass.shader->setTextureSource("colorTex", 0, reflectionBuffer->colorAttachs[0].texture->id);
-        blurPass.shader->setTextureSource("horizontalTex", 1, reflectionBuffer->colorAttachs[1].texture->id);
-        blurPass.shader->setBool("horizontal", false);
-        blurPass.render();
+        ssrblurShader->setTextureSource("horizontalTex", 1, reflectionBuffer->colorAttachs[1].texture->id);
+        ssrblurShader->setBool("horizontal", false);
+        renderScreen();
 
-        joinPass.shader->use();
+        joinShader->use();
         reflectionBuffer->prepare(0);
-        joinPass.shader->setBool("join", true);
-        joinPass.shader->setBool("tone_mapping", false);
-        joinPass.shader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[0].texture->id);
-        joinPass.shader->setTextureSource("joinTex", 1, reflectionBuffer->colorAttachs[2].texture->id);
-        joinPass.render();
+        joinShader->setBool("join", true);
+        joinShader->setBool("tone_mapping", false);
+        joinShader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[0].texture->id);
+        joinShader->setTextureSource("joinTex", 1, reflectionBuffer->colorAttachs[2].texture->id);
+        renderScreen();
 
         frame_record.triangles += 8;
         frame_record.draw_calls += 4;
     }
     void renderEffects() {
-        blurPass.shader->use();
-        blurPass.shader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[1].texture->id);
-        blurPass.shader->setTextureSource("horizontalTex", 1, effectBuffer->colorAttachs[0].texture->id);
+        blurShader->use();
+        blurShader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[1].texture->id);
+        blurShader->setTextureSource("horizontalTex", 1, effectBuffer->colorAttachs[0].texture->id);
         effectBuffer->prepare(0);
-        blurPass.shader->setBool("horizontal", true);
-        blurPass.render();
+        blurShader->setBool("horizontal", true);
+        renderScreen();
 
         effectBuffer->prepare(1);
-        blurPass.shader->setBool("horizontal", false);
-        blurPass.render();
+        blurShader->setBool("horizontal", false);
+        renderScreen();
     }
     void joinEffects(Texture *colorTex) {
-        joinPass.shader->use();
+        joinShader->use();
         screenBuffer->prepare();
-        joinPass.shader->setBool("join", effect != 0);
-        joinPass.shader->setBool("tone_mapping", true);
-        joinPass.shader->setTextureSource("colorTex", 0, colorTex->id);
-        joinPass.shader->setTextureSource("joinTex", 1, effectBuffer->colorAttachs[1].texture->id);
-        joinPass.render();
+        joinShader->setBool("join", effect != 0);
+        joinShader->setBool("tone_mapping", true);
+        joinShader->setTextureSource("colorTex", 0, colorTex->id);
+        joinShader->setTextureSource("joinTex", 1, effectBuffer->colorAttachs[1].texture->id);
+        renderScreen();
     }
     void renderScene(Scene& scene) {
         glViewport(0, 0, width, height);
@@ -209,25 +204,25 @@ public:
         }
     }
     void setShadingUniforms(Scene& scene) {
-        scene.setCameraUniforms(*shadingPass.shader);
-        scene.setLightUniforms(*shadingPass.shader, ibl != 0);
-        shadow_sample.setUniforms(shadingPass.shader, 40);
-        shadingPass.shader->setTextureSource("albedoTex", 0, gPreBuffer->colorAttachs[0].texture->id);
-        shadingPass.shader->setTextureSource("specularTex", 1, gPreBuffer->colorAttachs[1].texture->id);
-        shadingPass.shader->setTextureSource("emissiveTex", 2, gPreBuffer->colorAttachs[2].texture->id);
-        shadingPass.shader->setTextureSource("positionTex", 3, gPreBuffer->colorAttachs[3].texture->id);
-        shadingPass.shader->setTextureSource("normalTex", 4, gBuffer->colorAttachs[0].texture->id);
-        shadingPass.shader->setTextureSource("depthTex", 5, gBuffer->colorAttachs[1].texture->id);
-        shadingPass.shader->setTextureSource("aoTex", 6, gBuffer->colorAttachs[2].texture->id);
+        scene.setCameraUniforms(*shadingShader);
+        scene.setLightUniforms(*shadingShader, ibl != 0);
+        shadow_sample.setUniforms(shadingShader, 40);
+        shadingShader->setTextureSource("albedoTex", 0, gPreBuffer->colorAttachs[0].texture->id);
+        shadingShader->setTextureSource("specularTex", 1, gPreBuffer->colorAttachs[1].texture->id);
+        shadingShader->setTextureSource("emissiveTex", 2, gPreBuffer->colorAttachs[2].texture->id);
+        shadingShader->setTextureSource("positionTex", 3, gPreBuffer->colorAttachs[3].texture->id);
+        shadingShader->setTextureSource("normalTex", 4, gBuffer->colorAttachs[0].texture->id);
+        shadingShader->setTextureSource("depthTex", 5, gBuffer->colorAttachs[1].texture->id);
+        shadingShader->setTextureSource("aoTex", 6, gBuffer->colorAttachs[2].texture->id);
     }
     void setSSRUniforms(Scene& scene) {
-        scene.setCameraUniforms(*ssrPass.shader);
-        ssrPass.shader->setInt("width", width);
-        ssrPass.shader->setInt("height", height);
-        ssrPass.shader->setTextureSource("specularTex", 1, gPreBuffer->colorAttachs[1].texture->id);
-        ssrPass.shader->setTextureSource("positionTex", 2, gPreBuffer->colorAttachs[3].texture->id);
-        ssrPass.shader->setTextureSource("normalTex", 3, gBuffer->colorAttachs[0].texture->id);
-        ssrPass.shader->setTextureSource("lineardepthTex", 4, gBuffer->colorAttachs[1].texture->id);
-        ssrPass.shader->setTextureSource("depthTex", 5, gPreBuffer->depthAttach.texture->id);
+        scene.setCameraUniforms(*ssrShader);
+        ssrShader->setInt("width", width);
+        ssrShader->setInt("height", height);
+        ssrShader->setTextureSource("specularTex", 1, gPreBuffer->colorAttachs[1].texture->id);
+        ssrShader->setTextureSource("positionTex", 2, gPreBuffer->colorAttachs[3].texture->id);
+        ssrShader->setTextureSource("normalTex", 3, gBuffer->colorAttachs[0].texture->id);
+        ssrShader->setTextureSource("lineardepthTex", 4, gBuffer->colorAttachs[1].texture->id);
+        ssrShader->setTextureSource("depthTex", 5, gPreBuffer->depthAttach.texture->id);
     }
 };

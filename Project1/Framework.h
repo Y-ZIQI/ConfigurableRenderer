@@ -71,8 +71,8 @@ public:
     Level effect_level;
 
     Settings() {
-        resolution = level1;
-        shadow_resolution = level1;
+        resolution = level3;
+        shadow_resolution = level3;
         ssao_level = level1;
         ssr_level = level1;
         shading = level1;
@@ -80,7 +80,7 @@ public:
 
         update_shadow = mode2;
         shadow_type = mode1;
-        effect_level = level1;
+        effect_level = level2;
     }
 };
 
@@ -108,7 +108,7 @@ private:
     std::vector<DeferredRenderer*> dRdrList;
     std::vector<SMAA*> smaaList;
     DeferredRenderer* dRenderer;
-    ScreenPass* resolvePass;
+    Shader* resolveShader;
     FrameBuffer* screenFbo;
     SMAA* smaaPass;
     FrameBuffer* targetFbo; // Respect for default FB
@@ -127,7 +127,7 @@ private:
     * 1: Bistro
     * 2: SunTemple
     */
-    uint test_scene = 2;
+    uint test_scene = 1;
     float fps, duration;
     TimeRecord record[2]; // All, SMAA+resolve
     float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
@@ -161,9 +161,7 @@ void RenderFrame::onLoad() {
         smaaList[1] = new SMAA(width * values[0][1], height * values[0][1]);
         smaaList[2] = new SMAA(width, height);
 
-        resolvePass = new ScreenPass;
-        Shader* ups_shader = sManager.getShader(SID_UPSAMPLING);
-        resolvePass->setShader(ups_shader);
+        resolveShader = sManager.getShader(SID_UPSAMPLING);
     }
     {
         scene = new Scene;
@@ -239,7 +237,6 @@ void RenderFrame::onFrameRender() {
     update();
 
     scene->update((flag & 0x2) ? 2 : settings.update_shadow, settings.shadow_type == mode1);
-    targetFbo->clear();
 
     dRenderer->renderScene(*scene);
 
@@ -247,12 +244,13 @@ void RenderFrame::onFrameRender() {
         smaaPass->Draw(screenFbo->colorAttachs[0].texture);
     glViewport(0, 0, width, height);
     targetFbo->prepare();
-    resolvePass->shader->use();
+    targetFbo->clear();
+    resolveShader->use();
     if (settings.smaa_level == level1)
-        resolvePass->shader->setTextureSource("screenTex", 0, screenFbo->colorAttachs[0].texture->id);
+        resolveShader->setTextureSource("screenTex", 0, screenFbo->colorAttachs[0].texture->id);
     else
-        resolvePass->shader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
-    resolvePass->render();
+        resolveShader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
+    renderScreen();
 
     frame_record.triangles += 2;
     frame_record.draw_calls += 1;

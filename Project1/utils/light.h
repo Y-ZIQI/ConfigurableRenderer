@@ -71,31 +71,28 @@ public:
     void setShadowMapTex(uint idx) {
         if (shadow_enabled)
             for (uint i = 0; i < smList.size(); i++)
-                smList[idx]->setTex(idx);
+                smList[i]->setTex(idx);
     }
     void prepareShadow() {
         if (!shadow_enabled) return;
         glEnable(GL_DEPTH_TEST);
         glViewport(0, 0, shadowMap->width, shadowMap->height);
-        shadowMap->smBuffer->clear();
         shadowMap->smBuffer->prepare(0);
+        shadowMap->smBuffer->clear();
         smShader->use();
         smShader->setMat4("viewProj", viewProj);
     }
     void filterShadow() {
-        checkScreenVAO();
-        glDisable(GL_DEPTH_TEST);
-        glBindVertexArray(_screen_vao);
         shadowMap->smBuffer->prepare(1);
         filterShader->use();
+        filterShader->setInt("ksize", (shadowMap->width / 512) + 1);
         filterShader->setBool("horizontal", true);
         filterShader->setTextureSource("colorTex", 0, shadowMap->smBuffer->colorAttachs[0].texture->id);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        renderScreen();
         shadowMap->smBuffer->prepare(0);
         filterShader->setBool("horizontal", false);
         filterShader->setTextureSource("horizontalTex", 1, shadowMap->smBuffer->colorAttachs[1].texture->id);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glBindVertexArray(0);
+        renderScreen();
     }
     void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
         gui->addButton(name, [this]() {
