@@ -417,7 +417,8 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
         }
     }
     #endif
-    color += emissColor;
+    color += -log(1.0000001 - emissColor);
+    //color += emissColor;
     return color;
 }
 //sd.metallic = specColor.b;

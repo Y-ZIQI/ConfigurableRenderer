@@ -9,6 +9,7 @@ const std::vector<uint> sm_width_list{ 512, 1024, 2048 };
 const char* shadow_type_name[4] = {
     "SHADOW_SOFT_EVSM", "SHADOW_SOFT_PCSS", "SHADOW_SOFT_ESM", "SHADOW_HARD"
 };
+const uint shadow_type_tex_id[4] = {1, 0, 1, 0};
 const char* level_name[4] = {
     "0", "1", "2", "3"
 };
@@ -70,16 +71,16 @@ public:
     Level effect_level;
 
     Settings() {
-        resolution = level3;
-        shadow_resolution = level3;
+        resolution = level1;
+        shadow_resolution = level1;
         ssao_level = level1;
         ssr_level = level1;
         shading = level1;
         smaa_level = level1;
 
         update_shadow = mode2;
-        shadow_type = mode2;
-        effect_level = level2;
+        shadow_type = mode1;
+        effect_level = level1;
     }
 };
 
@@ -237,7 +238,7 @@ void RenderFrame::onFrameRender() {
     uint flag = config();
     update();
 
-    scene->update((flag & 0x2) ? 2 : settings.update_shadow);
+    scene->update((flag & 0x2) ? 2 : settings.update_shadow, settings.shadow_type == mode1);
     targetFbo->clear();
 
     dRenderer->renderScene(*scene);
@@ -361,6 +362,10 @@ uint RenderFrame::config(bool force_update) {
         }
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
         sManager.getShader(SID_SHADOWMAP)->reload();
+        for (int i = 0; i < scene->dirLights.size(); i++)
+            scene->dirLights[i]->setShadowMapTex(shadow_type_tex_id[settings.shadow_type]);
+        for (int i = 0; i < scene->ptLights.size(); i++)
+            scene->ptLights[i]->setShadowMapTex(shadow_type_tex_id[settings.shadow_type]);
     }
     if (settings.effect_level != stHistory.effect_level || force_update) {
         flag |= 0x40;

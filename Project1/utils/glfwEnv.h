@@ -128,10 +128,10 @@ private:
         glfwSetScrollCallback(window, scroll_callback);
 
         // Turn off Vertical synchronization
-        typedef BOOL(APIENTRY* PFNWGLSWAPINTERVALFARPROC)(int);
+        /*typedef BOOL(APIENTRY* PFNWGLSWAPINTERVALFARPROC)(int);
         PFNWGLSWAPINTERVALFARPROC wglSwapIntervalEXT = 0;
         wglSwapIntervalEXT = (PFNWGLSWAPINTERVALFARPROC)wglGetProcAddress("wglSwapIntervalEXT");
-        wglSwapIntervalEXT(0);
+        wglSwapIntervalEXT(0);*/
 
         if (mouse_enable)
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);

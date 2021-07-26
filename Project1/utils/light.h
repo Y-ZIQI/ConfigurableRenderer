@@ -7,6 +7,8 @@ class ShadowMap {
 public:
     bool initialized = false;
     FrameBuffer* smBuffer;
+    Texture* smTex[2];
+    uint texId;
     uint width, height;
 
     ShadowMap(uint Width, uint Height) {
@@ -14,16 +16,27 @@ public:
         width = Width; height = Height;
         smBuffer = new FrameBuffer;
         smBuffer->addDepthStencil(width, height);
-        Texture* ntex = Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT);
+        smTex[0] = Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT, GL_NEAREST); // For pcss/hard
+        smTex[1] = Texture::create(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT, GL_LINEAR); // For evsm
+        texId = 1;
+        smBuffer->attachColorTarget(smTex[texId], 0);
+        smBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT, GL_LINEAR), 1); // Buffer for filter
+        //Texture* ntex = Texture::create(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT);
         //ntex->setTexParami(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         //ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        ntex->setTexParami(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         //ntex->setTexParami(GL_TEXTURE_BASE_LEVEL, 0);
         //ntex->setTexParami(GL_TEXTURE_MAX_LEVEL, 4);
-        smBuffer->attachColorTarget(ntex, 0);
+        //Texture* ntex = Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT);
+        //ntex->setTexParami(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        //ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         //ntex->setTexParami(GL_TEXTURE_REDUCTION_MODE_ARB, GL_MAX);
     };
+    void setTex(uint id) {
+        if (texId != id) {
+            texId = id;
+            smBuffer->attachColorTarget(smTex[id], 0);
+        }
+    }
 };
 
 enum class LType : int {
@@ -46,19 +59,43 @@ public:
     float light_size = 3.0f;
     std::vector<ShadowMap*> smList;
     ShadowMap* shadowMap;
-    Shader* smShader;
+    Shader* smShader, *filterShader;
     glm::mat4 viewProj, viewMat, projMat;
 
     nanogui::ref<nanogui::Window> lightWindow;
 
+    void setShadowMap(uint idx) {
+        if (shadow_enabled)
+            shadowMap = smList[idx];
+    }
+    void setShadowMapTex(uint idx) {
+        if (shadow_enabled)
+            for (uint i = 0; i < smList.size(); i++)
+                smList[idx]->setTex(idx);
+    }
     void prepareShadow() {
         if (!shadow_enabled) return;
         glEnable(GL_DEPTH_TEST);
         glViewport(0, 0, shadowMap->width, shadowMap->height);
         shadowMap->smBuffer->clear();
-        shadowMap->smBuffer->prepare();
+        shadowMap->smBuffer->prepare(0);
         smShader->use();
         smShader->setMat4("viewProj", viewProj);
+    }
+    void filterShadow() {
+        checkScreenVAO();
+        glDisable(GL_DEPTH_TEST);
+        glBindVertexArray(_screen_vao);
+        shadowMap->smBuffer->prepare(1);
+        filterShader->use();
+        filterShader->setBool("horizontal", true);
+        filterShader->setTextureSource("colorTex", 0, shadowMap->smBuffer->colorAttachs[0].texture->id);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        shadowMap->smBuffer->prepare(0);
+        filterShader->setBool("horizontal", false);
+        filterShader->setTextureSource("horizontalTex", 1, shadowMap->smBuffer->colorAttachs[1].texture->id);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
     }
     void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
         gui->addButton(name, [this]() {
@@ -152,15 +189,12 @@ public:
                 smList[i] = new ShadowMap(width_list[i], width_list[i]);
             shadowMap = smList[0];
             smShader = sManager.getShader(SID_SHADOWMAP);
+            filterShader = sManager.getShader(SID_SHADOWMAP_FILTER);
         }
         this->rangeX = rangeX;
         this->rangeY = rangeY;
         this->rangeZ = rangeZ;
         update();
-    }
-    void setShadowMap(uint idx) {
-        if (shadow_enabled)
-            shadowMap = smList[idx];
     }
     void setUniforms(Shader& shader, uint index, uint& sm_index) {
         char tmp[64];
@@ -239,6 +273,7 @@ public:
                 smList[i] = new ShadowMap(width_list[i], width_list[i]);
             shadowMap = smList[0];
             smShader = sManager.getShader(SID_SHADOWMAP);
+            filterShader = sManager.getShader(SID_SHADOWMAP_FILTER);
         }
         this->nearZ = nearZ;
         this->farZ = farZ;
@@ -246,10 +281,6 @@ public:
         this->Aspect = 1.0f;
         this->Frustum = 2.0f * nearZ * tanf(glm::radians(Zoom) / 2.0f);
         update();
-    }
-    void setShadowMap(uint idx) {
-        if (shadow_enabled)
-            shadowMap = smList[idx];
     }
     void setUniforms(Shader& shader, uint index, uint& sm_index) {
         char tmp[64];

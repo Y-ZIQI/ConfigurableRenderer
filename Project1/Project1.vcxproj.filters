@@ -74,7 +74,7 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\..\include\MyIncludePath\glad.c">
+    <ClCompile Include="G:\include\MyIncludePath\glad.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -165,7 +165,7 @@ public:
         joinPass.shader->use();
         reflectionBuffer->prepare(0);
         joinPass.shader->setBool("join", true);
-        joinPass.shader->setBool("gamma_correction", false);
+        joinPass.shader->setBool("tone_mapping", false);
         joinPass.shader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[0].texture->id);
         joinPass.shader->setTextureSource("joinTex", 1, reflectionBuffer->colorAttachs[2].texture->id);
         joinPass.render();
@@ -189,7 +189,7 @@ public:
         joinPass.shader->use();
         screenBuffer->prepare();
         joinPass.shader->setBool("join", effect != 0);
-        joinPass.shader->setBool("gamma_correction", true);
+        joinPass.shader->setBool("tone_mapping", true);
         joinPass.shader->setTextureSource("colorTex", 0, colorTex->id);
         joinPass.shader->setTextureSource("joinTex", 1, effectBuffer->colorAttachs[1].texture->id);
         joinPass.render();

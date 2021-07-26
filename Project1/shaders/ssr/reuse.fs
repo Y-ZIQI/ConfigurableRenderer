@@ -105,7 +105,7 @@ void main(){
             if(hitW > 0.1){
                 texPos = texture(positionTex, hitpos).xyz;
                 H = normalize(normalize(texPos - position) - view);
-                pdf = DistributionGGX(max(dot(H, N_mixed), 0.0), a2);
+                pdf = min(DistributionGGX(max(dot(H, N_mixed), 0.0), a2), 1.0);
                 vec3 intensity = min(texture(colorTex, hitpos).rgb, 1.0);
                 reflect_color += hitW * r_weight * pdf * intensity;
                 weight_sum += hit_weight * pdf;

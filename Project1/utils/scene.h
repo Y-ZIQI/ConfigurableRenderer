@@ -82,7 +82,7 @@ public:
         frame_record.triangles += 12;
         frame_record.draw_calls += 1;
     }
-    void update(uint gen_shadow = 1) {
+    void update(uint gen_shadow = 1, bool filtering = false) {
         camera->update();
 
         const bool cull_front = false;
@@ -90,11 +90,13 @@ public:
         for (int i = 0; i < dirLights.size(); i++)
             if (dirLights[i]->update(gen_shadow, camera->Position, camera->Front)) {
                 DrawMesh(*dirLights[i]->smShader);
+                if (filtering)dirLights[i]->filterShadow();
                 //dirLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->genMipmap();
             }
         for (int i = 0; i < ptLights.size(); i++)
             if (ptLights[i]->update(gen_shadow)) {
                 DrawMesh(*ptLights[i]->smShader);
+                if (filtering)ptLights[i]->filterShadow();
                 //ptLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->genMipmap();
             }
         if (cull_front) glCullFace(GL_BACK);

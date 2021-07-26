@@ -57,16 +57,17 @@ const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define SID_DEFERRED_ENVMAP2D       4
 #define SID_UPSAMPLING              5
 #define SID_SHADOWMAP               6
-#define SID_CUBEMAP_RENDER          7
-#define SID_SMAA_EDGEPASS           8
-#define SID_SMAA_BLENDPASS          9
-#define SID_SMAA_NEIGHBORPASS       10
-#define SID_SSR                     11
-#define SID_SSR_RESOLVE             12
-#define SID_IBL_CONVOLUTION         13
-#define SID_IBL_PREFILTER           14
-#define SID_GAUSSIAN_BLUR           15
-#define SID_JOIN_EFFECTS            16
+#define SID_SHADOWMAP_FILTER        7
+#define SID_CUBEMAP_RENDER          8
+#define SID_SMAA_EDGEPASS           9
+#define SID_SMAA_BLENDPASS          10
+#define SID_SMAA_NEIGHBORPASS       11
+#define SID_SSR                     12
+#define SID_SSR_RESOLVE             13
+#define SID_IBL_CONVOLUTION         14
+#define SID_IBL_PREFILTER           15
+#define SID_GAUSSIAN_BLUR           16
+#define SID_JOIN_EFFECTS            17
 const std::vector<const char*> _shader_paths
 {
     /* 0*/"shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
@@ -76,16 +77,17 @@ const std::vector<const char*> _shader_paths
     /* 4*/"shaders/envmap/deferred2d.vs", "shaders/envmap/deferred2d.fs", nullptr,
     /* 5*/"shaders/upsampling/main.vs", "shaders/upsampling/main.fs", nullptr,
     /* 6*/"shaders/shadow/shadow.vs", "shaders/shadow/shadow.fs", nullptr,
-    /* 7*/"shaders/omnidirectional/main.vs", "shaders/omnidirectional/main.fs", "shaders/omnidirectional/main.gs",
-    /* 8*/"shaders/smaa/edgeDetection.vs", "shaders/smaa/edgeDetection.fs", nullptr,
-    /* 9*/"shaders/smaa/blendCalculation.vs", "shaders/smaa/blendCalculation.fs", nullptr,
-    /*10*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr,
-    /*11*/"shaders/ssr/rayTrace.vs", "shaders/ssr/rayTrace.fs", nullptr,
-    /*12*/"shaders/ssr/reuse.vs", "shaders/ssr/reuse.fs", nullptr,
-    /*13*/"shaders/ibl/convolution.vs", "shaders/ibl/convolution.fs", nullptr,
-    /*14*/"shaders/ibl/prefilter.vs", "shaders/ibl/prefilter.fs", nullptr,
-    /*15*/"shaders/post/gaussianBlur.vs", "shaders/post/gaussianBlur.fs", nullptr,
-    /*16*/"shaders/post/join.vs", "shaders/post/join.fs", nullptr
+    /* 7*/"shaders/shadow/filter.vs", "shaders/shadow/filter.fs", nullptr,
+    /* 8*/"shaders/omnidirectional/main.vs", "shaders/omnidirectional/main.fs", "shaders/omnidirectional/main.gs",
+    /* 9*/"shaders/smaa/edgeDetection.vs", "shaders/smaa/edgeDetection.fs", nullptr,
+    /*10*/"shaders/smaa/blendCalculation.vs", "shaders/smaa/blendCalculation.fs", nullptr,
+    /*11*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr,
+    /*12*/"shaders/ssr/rayTrace.vs", "shaders/ssr/rayTrace.fs", nullptr,
+    /*13*/"shaders/ssr/reuse.vs", "shaders/ssr/reuse.fs", nullptr,
+    /*14*/"shaders/ibl/convolution.vs", "shaders/ibl/convolution.fs", nullptr,
+    /*15*/"shaders/ibl/prefilter.vs", "shaders/ibl/prefilter.fs", nullptr,
+    /*16*/"shaders/post/gaussianBlur.vs", "shaders/post/gaussianBlur.fs", nullptr,
+    /*17*/"shaders/post/join.vs", "shaders/post/join.fs", nullptr
 };
 const std::string _glsl_version = "#version 430 core\n";
 

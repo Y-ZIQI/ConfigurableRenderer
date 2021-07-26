@@ -5,7 +5,7 @@ out vec3 outColor;
 in vec2 TexCoords;
 
 uniform bool join;
-uniform bool gamma_correction;
+uniform bool tone_mapping;
 uniform sampler2D colorTex;
 uniform sampler2D joinTex;
 
@@ -15,7 +15,7 @@ void main()
     hdrColor += texture(colorTex, TexCoords).rgb;
     if(join) hdrColor += texture(joinTex, TexCoords).rgb;
     
-    if(gamma_correction){
+    if(tone_mapping){
         const float gamma = 2.2;
         const float exposure = 1.0;
         //vec3 mapped = hdrColor / (hdrColor + vec3(1.0));
