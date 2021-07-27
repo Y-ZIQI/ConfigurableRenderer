@@ -53,8 +53,8 @@ const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define SID_DEFERRED_BASE           0
 #define SID_DEFERRED_PREPROCESS     1
 #define SID_DEFERRED_SHADING        2
-#define SID_DEFERRED_ENVMAP         3
-#define SID_DEFERRED_ENVMAP2D       4
+#define SID_SSAO_FILTER             3
+#define SID_DEFERRED_ENVMAP         4
 #define SID_UPSAMPLING              5
 #define SID_SHADOWMAP               6
 #define SID_SHADOWMAP_FILTER        7
@@ -62,7 +62,7 @@ const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 #define SID_SMAA_EDGEPASS           9
 #define SID_SMAA_BLENDPASS          10
 #define SID_SMAA_NEIGHBORPASS       11
-#define SID_SSR                     12
+#define SID_SSR_RAYTRACE            12
 #define SID_SSR_RESOLVE             13
 #define SID_SSR_BLUR                14
 #define SID_IBL_PREFILTER           15
@@ -73,8 +73,8 @@ const std::vector<const char*> _shader_paths
     /* 0*/"shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
     /* 1*/"shaders/deferred/preprocess.vs", "shaders/deferred/preprocess.fs", nullptr,
     /* 2*/"shaders/deferred/shadingPass.vs", "shaders/deferred/shadingPass.fs", nullptr,
-    /* 3*/"shaders/envmap/deferred.vs", "shaders/envmap/deferred.fs", nullptr,
-    /* 4*/"shaders/envmap/deferred2d.vs", "shaders/envmap/deferred2d.fs", nullptr,
+    /* 3*/"shaders/deferred/filter.vs", "shaders/deferred/filter.fs", nullptr,
+    /* 4*/"shaders/envmap/deferred.vs", "shaders/envmap/deferred.fs", nullptr,
     /* 5*/"shaders/upsampling/main.vs", "shaders/upsampling/main.fs", nullptr,
     /* 6*/"shaders/shadow/shadow.vs", "shaders/shadow/shadow.fs", nullptr,
     /* 7*/"shaders/shadow/filter.vs", "shaders/shadow/filter.fs", nullptr,
@@ -127,13 +127,6 @@ void checkScreenVAO() {
         glBindVertexArray(0);
         is_screen_vao_initialized = true;
     }
-}
-void renderScreen() {
-    checkScreenVAO();
-    glDisable(GL_DEPTH_TEST);
-    glBindVertexArray(_screen_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
 }
 
 const float _envMapVertices[] = {
@@ -205,13 +198,6 @@ void checkEnvmapVAO() {
         glBindVertexArray(0);
         is_envmap_vao_initialized = true;
     }
-}
-void renderCube() {
-    checkEnvmapVAO();
-    glEnable(GL_DEPTH_TEST);
-    glBindVertexArray(_envmap_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
 }
 
 struct TimeRecord {
@@ -291,4 +277,23 @@ void _checkError(std::string file, uint line) {
     auto a = glGetError();
     if (a)
         std::cout << "Error " << a << " in " << file << ", line " << line << std::endl;
+}
+
+void renderScreen() {
+    checkScreenVAO();
+    glDisable(GL_DEPTH_TEST);
+    glBindVertexArray(_screen_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    frame_record.triangles += 2;
+    frame_record.draw_calls += 1;
+}
+void renderCube() {
+    checkEnvmapVAO();
+    glEnable(GL_DEPTH_TEST);
+    glBindVertexArray(_envmap_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    frame_record.triangles += 12;
+    frame_record.draw_calls += 1;
 }

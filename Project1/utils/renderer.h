@@ -6,6 +6,7 @@
 class DeferredRenderer {
 public:
     Shader* preShader;
+    Shader* ssaoblurShader;
     Shader* shadingShader;
     Shader* ssrShader;
     Shader* resolveShader;
@@ -14,6 +15,7 @@ public:
     Shader* joinShader;
     FrameBuffer* gPreBuffer;
     FrameBuffer* gBuffer;
+    FrameBuffer* aoBuffer;
     FrameBuffer* shadingBuffer;
     FrameBuffer* effectBuffer;
     FrameBuffer* joinBuffer;
@@ -50,6 +52,8 @@ public:
         ntex->setTexParami(GL_TEXTURE_MAX_LEVEL, 4);*/
         gBuffer->attachColorTarget(ntex, 1);
         gBuffer->attachColorTarget(Texture::create(width, height, GL_R16F, GL_RED, GL_FLOAT), 2);
+        aoBuffer = new FrameBuffer;
+        aoBuffer->attachColorTarget(Texture::create(width, height, GL_R16F, GL_RED, GL_FLOAT), 0);
         shadingBuffer = new FrameBuffer;
         shadingBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 0);
         shadingBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 1);
@@ -73,8 +77,9 @@ public:
         screenBuffer->attachColorTarget(Texture::create(width, height, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
 
         preShader = sManager.getShader(SID_DEFERRED_PREPROCESS);
+        ssaoblurShader = sManager.getShader(SID_SSAO_FILTER);
         shadingShader = sManager.getShader(SID_DEFERRED_SHADING);
-        ssrShader = sManager.getShader(SID_SSR);
+        ssrShader = sManager.getShader(SID_SSR_RAYTRACE);
         resolveShader = sManager.getShader(SID_SSR_RESOLVE);
         blurShader = sManager.getShader(SID_BLOOM_BLUR);
         ssrblurShader = sManager.getShader(SID_SSR_BLUR);
@@ -97,14 +102,26 @@ public:
         gBuffer->prepare();
         ssao_sample.setUniforms(preShader, 16);
         scene.setCameraUniforms(*preShader);
+        preShader->setFloat("ssao_range", scene.ssao_range);
+        preShader->setFloat("ssao_bias", scene.ssao_bias);
+        preShader->setFloat("ssao_threshold", scene.ssao_threshold);
         preShader->setTextureSource("positionTex", 0, gPreBuffer->colorAttachs[3].texture->id);
         preShader->setTextureSource("tangentTex", 1, gPreBuffer->colorAttachs[4].texture->id);
         preShader->setTextureSource("normalTex", 2, gPreBuffer->colorAttachs[5].texture->id);
         preShader->setTextureSource("depthTex", 3, gPreBuffer->depthAttach.texture->id);
         renderScreen();
         //gBuffer->colorAttachs[1].texture->genMipmap();
-        frame_record.triangles += 2;
-        frame_record.draw_calls += 1;
+
+        ssaoblurShader->use();
+        ssaoblurShader->setInt("ksize", 9);
+        aoBuffer->prepare();
+        ssaoblurShader->setTextureSource("colorTex", 0, gBuffer->colorAttachs[2].texture->id);
+        ssaoblurShader->setBool("horizontal", true);
+        renderScreen();
+        gBuffer->prepare(2);
+        ssaoblurShader->setTextureSource("horizontalTex", 1, aoBuffer->colorAttachs[0].texture->id);
+        ssaoblurShader->setBool("horizontal", false);
+        renderScreen();
     }
     void renderEnvmap(Scene& scene) {
         if (!scene.envMap_enabled || scene.envIdx < 0) return;
@@ -116,8 +133,6 @@ public:
         shadingBuffer->prepare();
         setShadingUniforms(scene);
         renderScreen();
-        frame_record.triangles += 2;
-        frame_record.draw_calls += 1;
     }
     void renderReflection(Scene& scene) {
         glViewport(0, 0, width / 2, height / 2);
@@ -160,13 +175,11 @@ public:
         joinShader->use();
         reflectionBuffer->prepare(0);
         joinShader->setBool("join", true);
+        joinShader->setBool("substract", false);
         joinShader->setBool("tone_mapping", false);
         joinShader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[0].texture->id);
         joinShader->setTextureSource("joinTex", 1, reflectionBuffer->colorAttachs[2].texture->id);
         renderScreen();
-
-        frame_record.triangles += 8;
-        frame_record.draw_calls += 4;
     }
     void renderEffects() {
         blurShader->use();
@@ -184,9 +197,11 @@ public:
         joinShader->use();
         screenBuffer->prepare();
         joinShader->setBool("join", effect != 0);
+        joinShader->setBool("substract", effect != 0);
         joinShader->setBool("tone_mapping", true);
         joinShader->setTextureSource("colorTex", 0, colorTex->id);
         joinShader->setTextureSource("joinTex", 1, effectBuffer->colorAttachs[1].texture->id);
+        joinShader->setTextureSource("substractTex", 2, shadingBuffer->colorAttachs[1].texture->id);
         renderScreen();
     }
     void renderScene(Scene& scene) {
@@ -217,6 +232,7 @@ public:
     }
     void setSSRUniforms(Scene& scene) {
         scene.setCameraUniforms(*ssrShader);
+        ssrShader->setFloat("threshold", scene.ssr_threshold);
         ssrShader->setInt("width", width);
         ssrShader->setInt("height", height);
         ssrShader->setTextureSource("specularTex", 1, gPreBuffer->colorAttachs[1].texture->id);

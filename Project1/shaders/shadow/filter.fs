@@ -30,4 +30,6 @@ void main()
         }
     }
     outColor = result;
+    ATOMIC_COUNT_INCREMENTS(ksize * 2 - 1)    
+    ATOMIC_COUNT_CALCULATE
 }

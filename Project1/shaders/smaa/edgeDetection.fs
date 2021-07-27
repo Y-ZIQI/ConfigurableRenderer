@@ -16,19 +16,13 @@ float lumia(vec4 a){
 
 vec2 edgeDetection(){
 	vec4 color = texture(Texture, TexCoords);
-    ATOMIC_COUNT_INCREMENT
 	vec4 topcolor = textureOffset(Texture, TexCoords, ivec2(0, 1));
-    ATOMIC_COUNT_INCREMENT
 	vec4 top2color = textureOffset(Texture, TexCoords, ivec2(0, 2));
-    ATOMIC_COUNT_INCREMENT
 	vec4 leftcolor = textureOffset(Texture, TexCoords, ivec2(-1, 0));
-    ATOMIC_COUNT_INCREMENT
 	vec4 left2color = textureOffset(Texture, TexCoords, ivec2(-2, 0));
-    ATOMIC_COUNT_INCREMENT
 	vec4 bottomcolor = textureOffset(Texture, TexCoords, ivec2(0, -1));
-    ATOMIC_COUNT_INCREMENT
 	vec4 rightcolor = textureOffset(Texture, TexCoords, ivec2(1, 0));
-    ATOMIC_COUNT_INCREMENT
+    ATOMIC_COUNT_INCREMENTS(7)
 
 	float L = lumia(color);
 	float Lleft = lumia(leftcolor);

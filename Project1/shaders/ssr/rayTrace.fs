@@ -20,6 +20,7 @@ uniform mat4 camera_vp;
 
 uniform int width;
 uniform int height;
+uniform float threshold;
 
 uniform sampler2D specularTex;
 uniform sampler2D positionTex;
@@ -30,23 +31,20 @@ uniform sampler2D lineardepthTex;
 #if SSR_LEVEL == 1
 #define MAX_SAMPLES 6
 #define MAX_DISTANCE 0.5
-const float thresholds[] = {
-    0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2, 1.6, 2.0
-};
 const float init_steps[] = {
     2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0
 };
 #else // SSR_LEVEL == 2
 #define MAX_SAMPLES 8
 #define MAX_DISTANCE 0.5
-const float thresholds[] = {
-    0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0
-};
 const float init_steps[] = {
     1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
 };
 #endif
 
+/*const float thresholds[] = {
+    0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0
+};*/
 //#define ELONGATION 2.0
 
 uniform vec2 samples[MAX_SAMPLES];
@@ -78,7 +76,7 @@ vec3 getScreenUV(vec3 posW){
 }
 
 // Need Optimize
-float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, float threshold, out vec2 hitPos){
+float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 hitPos){
     vec3 one_step = texDir * init_step;
     float linearz = Linearize(texPos.z), lineard, distz, d1, d2;
     uint max_step = uint(min(min(
@@ -91,11 +89,12 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, float thre
     distz = Linearize(texPos.z) - linearz;
     d1 = distz;
     linearz += distz;
+    ATOMIC_COUNT_INCREMENT
     lineard = texture(lineardepthTex, texPos.xy).r;
     for(uint i = 0;i < max_step;i++){
         if(linearz > lineard + 0.001){
             d2 = linearz - lineard;
-            if(d2 < threshold + max(distz, 0.0)){
+            if(d2 < threshold + abs(distz)){
                 hitPos = texPos.xy - one_step.xy * d2 / (abs(d1) + d2);
                 return 1.0;
             }
@@ -104,19 +103,20 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, float thre
         texPos += one_step;
         distz = Linearize(texPos.z) - linearz;
         linearz += distz;
+        ATOMIC_COUNT_INCREMENT
         lineard = texture(lineardepthTex, texPos.xy).r;
     }
     texPos = clamp(texPos, 0.0, 1.0);
     linearz = Linearize(texPos.z);
+    ATOMIC_COUNT_INCREMENT
     lineard = texture(lineardepthTex, texPos.xy).r;
     if(lineard >= Linearize(1.0) - 0.1) return 0.0;
     hitPos = texPos.xy;
-    float dist_w = (threshold) / (abs(lineard - linearz));
-    return pow(dist_w, 2.0 / log(lineard));
+    float dist_w = abs(distz) / (abs(lineard - linearz) + abs(distz));
+    return dist_w;
 }
 
 void main(){
-    ATOMIC_COUNT_INCREMENT
     vec3 normal = texture(normalTex, TexCoords).rgb;
     weight1234 = vec4(0.0);
     weight5678 = vec4(0.0);
@@ -147,8 +147,7 @@ void main(){
     TBN = TBN * rotateM;
 
     int level = int(roughness * 9.9);
-    float threshold = thresholds[level], pdf;
-    float init_step = init_steps[level] / 100.0;
+    float init_step = init_steps[level] / 100.0, pdf;
     int num_samples = int(min(roughness, 0.99) * MAX_SAMPLES) + 1;
     vec2 hitpos;
     vec3 texPos = getScreenUV(position);
@@ -164,7 +163,7 @@ void main(){
         vec3 refv = reflect(view, H);
         vec3 texDir = getScreenUV(position + refv * 0.1) - texPos;
         texDir *= 1.0 / length(vec2(texDir.xy));
-        float inter = rayTrace_screenspace(texPos, texDir, init_step, threshold, hitpos);
+        float inter = rayTrace_screenspace(texPos, texDir, init_step, hitpos);
         ivec2 hitXY = ivec2(vec2(width, height) * hitpos);
         switch(i){
         case 0: hitPt12.xy = hitXY; weight1234.r = inter; break;
@@ -177,6 +176,8 @@ void main(){
         case 7: hitPt78.zw = hitXY; weight5678.a = inter; break;
         }
     }
+    ATOMIC_COUNT_INCREMENTS(3)
+    ATOMIC_COUNT_CALCULATE
 }
 
                 /*vec3 backPos = texPos - one_step * d2 / (abs(d1) + d2);

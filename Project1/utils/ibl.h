@@ -23,8 +23,6 @@ Texture* createCubeMapFromTex2D(
         targetFbo->clear();
         renderCube();
     }
-    frame_record.triangles += 72;
-    frame_record.draw_calls += 6;
     return tex;
 }
 
@@ -53,8 +51,6 @@ void filterCubeMap(
         }
         width /= 2;
     }
-    frame_record.triangles += 72 * level;
-    frame_record.draw_calls += 6 * level;
 }
 
 class IBL {

@@ -1,5 +1,6 @@
 //++`shaders/shading/shading.glsl`
 
+//#define BLOOM
 //#define SSAO
 //#define SHOW_GRID
 
@@ -18,32 +19,23 @@ uniform sampler2D aoTex;
 
 void main()
 {
-    vec3 normal = texture(normalTex, TexCoords).rgb;
     ATOMIC_COUNT_INCREMENT
+    vec3 normal = texture(normalTex, TexCoords).rgb;
     if(dot(normal, normal) == 0.0){
+        ATOMIC_COUNT_INCREMENT
         FragColor = texture(albedoTex, TexCoords).rgb;
         BloomColor = vec3(0.0);
-        ATOMIC_COUNT_INCREMENT
     }else{
+        ATOMIC_COUNT_INCREMENTS(5)
         vec3 diffuse = texture(albedoTex, TexCoords).rgb;
-        ATOMIC_COUNT_INCREMENT
         vec3 specular = texture(specularTex, TexCoords).rgb;
-        ATOMIC_COUNT_INCREMENT
-        vec3 emissive = texture(emissiveTex, TexCoords).rgb;
-        ATOMIC_COUNT_INCREMENT
+        vec3 emissive = texture(emissiveTex, TexCoords).rgb * M_PI;
         vec3 position = texture(positionTex, TexCoords).rgb;
-        ATOMIC_COUNT_INCREMENT
         float lineardepth = texture(depthTex, TexCoords).r;
-        ATOMIC_COUNT_INCREMENT
+
         #ifdef SSAO
-        float ao = 0.0;
-        for(int x = -2;x<=2;x++){
-            for(int y = -2;y<=2;y++){
-                ao += textureOffset(aoTex, TexCoords, ivec2(x, y)).r;
-                ATOMIC_COUNT_INCREMENT
-            }
-        }
-        ao /= 25.0;
+        ATOMIC_COUNT_INCREMENT
+        float ao = texture(aoTex, TexCoords).r;
         #else
         float ao = 0.0;
         #endif
@@ -56,12 +48,20 @@ void main()
         const float exposure = 1.0;
         vec3 mapped = pow(color, vec3(1.0 / gamma));*/
 
-        FragColor = color;
+        #ifdef BLOOM
         const vec3 Lumia = vec3(0.2126, 0.7152, 0.0722);
-        if(dot(color, Lumia) >= 1.0){
-            BloomColor = max(color, emissive);
-        }else
+        float rate = dot(color, Lumia);
+        if(rate > 1.0){
+            vec3 clip_color = color / min(rate, 10.0);
+            BloomColor = clip_color;
+        }else{
             BloomColor = emissive;
+        }
+        FragColor = color;
+        #else
+        BloomColor = vec3(0.0);
+        FragColor = color;
+        #endif
         
         #ifdef SHOW_GRID
         if(fract(position.x) < 0.004)

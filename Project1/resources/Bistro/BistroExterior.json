@@ -2,6 +2,10 @@
     "version": 2,
     "camera_speed": 1.0,
     "lighting_scale": 1.0,
+    "ssao_range": 0.4,
+    "ssao_bias": 0.05,
+    "ssao_threshold": 1.0,
+    "ssr_threshold": 0.1,
     "active_camera": "Camera0",
     "models": [
         {

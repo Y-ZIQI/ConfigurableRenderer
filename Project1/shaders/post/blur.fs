@@ -14,7 +14,7 @@ const float weight[] = {
     0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216
 };
 
-const int ksize = 3;
+const int ksize = 5;
 
 void main()
 {
@@ -38,4 +38,6 @@ void main()
         }
     }
     outColor = result;
+    ATOMIC_COUNT_INCREMENTS(ksize * 2 - 1)    
+    ATOMIC_COUNT_CALCULATE
 }

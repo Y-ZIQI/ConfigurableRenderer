@@ -66,13 +66,14 @@ void main(){
     
     vec3 reflect_color = vec3(0.0);
 
-    float weight_sum = 0.001, hitW, pdf;
+    float weight_sum = 1.0, hitW, pdf;
     vec2 hitpos;
     uvec2 hitXY;
     for(int i = 0; i < RESOLVE; i++){
         float nroughness = textureOffset(specularTex, TexCoords, offsets[i]).g;
-        float r_weight = 1.0 / max(nroughness, 0.01);
+        float r_weight = 1.0 / max(nroughness, 0.1);
         int num_samples = int(min(nroughness, 0.99) * MAX_SAMPLES) + 1;
+        ATOMIC_COUNT_INCREMENTS(num_samples * 2 + 1)
         for(int j = 0; j < num_samples; j++){
             switch(j){
             case 0: 
@@ -103,14 +104,15 @@ void main(){
             hitpos = vec2(hitXY) / vec2(width, height);
             float hit_weight = max(hitW, 0.5) * r_weight;
             if(hitW > 0.1){
+                ATOMIC_COUNT_INCREMENTS(2)
                 texPos = texture(positionTex, hitpos).xyz;
                 H = normalize(normalize(texPos - position) - view);
-                pdf = min(DistributionGGX(max(dot(H, N_mixed), 0.0), a2), 1.0);
-                vec3 intensity = min(texture(colorTex, hitpos).rgb, 1.0);
+                pdf = min(DistributionGGX(max(dot(H, N_mixed), 0.0), a2), 10.0);
+                vec3 intensity = min(texture(colorTex, hitpos).rgb, 10.0);
                 reflect_color += hitW * r_weight * pdf * intensity;
-                weight_sum += hit_weight * pdf;
+                weight_sum += r_weight * pdf;
             }else{
-                weight_sum += hit_weight;
+                weight_sum += r_weight;
             }
         }
     }
@@ -119,10 +121,12 @@ void main(){
     vec3 diffTerm = mix(albedo.rgb, vec3(0), specular.b);
     vec3 specTerm = mix(vec3(0.04), albedo, specular.b);
     float NdotV = max(dot(normal, -view), 0.0), G = NdotV / (NdotV * (1.0 - ggxAlpha) + ggxAlpha);
-    vec3 reflectTerm = diffTerm * M_1_PI + fresnelSchlick(specTerm, vec3(1.0), NdotV) * G;
+    vec3 reflectTerm = diffTerm + fresnelSchlick(specTerm, vec3(1.0), NdotV) * G;
     
-    reflect_color *= reflectTerm / weight_sum;
+    reflect_color *= reflectTerm * M_1_PI / weight_sum;
     vec3 color = vec3(texture(colorTex, TexCoords).rgb);
     FragColor = reflect_color;
     //FragColor = vec3(texture(colorTex, TexCoords).rgb);
+    ATOMIC_COUNT_INCREMENTS(5)
+    ATOMIC_COUNT_CALCULATE
 }

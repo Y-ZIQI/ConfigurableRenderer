@@ -60,7 +60,7 @@ public:
     std::vector<ShadowMap*> smList;
     ShadowMap* shadowMap;
     Shader* smShader, *filterShader;
-    glm::mat4 viewProj, viewMat, projMat;
+    glm::mat4 viewProj, viewMat, projMat, previousMat;
 
     nanogui::ref<nanogui::Window> lightWindow;
 
@@ -145,7 +145,6 @@ public:
         target = Position + Direction;
     }
     bool update(uint gen_shadow = 1, glm::vec3 cam_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 cam_front = glm::vec3(0.0, 0.0, 0.0)) {
-        static glm::mat4 previous_mat = glm::mat4(0.0);
         const float threshold = 10.0f;
         bool genShadow = false;
         if (shadow_enabled) {
@@ -162,14 +161,13 @@ public:
                 focus_on(cam_target);
                 genShadow = true;
             }
-            viewMat = glm::lookAt(position, position + direction, glm::vec3(0.0f, 1.0f, 0.0f));
+            viewMat = glm::lookAt(position, position + direction, abs(direction[1]) > 0.999f ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f));
             projMat = glm::ortho(-rangeX * 0.5f, rangeX * 0.5f, -rangeY * 0.5f, rangeY * 0.5f, 0.0f, rangeZ);
             viewProj = projMat * viewMat;
-            if (previous_mat != viewProj) {
-                previous_mat = viewProj;
+            if (previousMat != viewProj) {
+                previousMat = viewProj;
                 genShadow = true;
             }
-            if (genShadow) prepareShadow();
         }
         return genShadow;
     }
@@ -187,11 +185,14 @@ public:
             shadowMap = smList[0];
             smShader = sManager.getShader(SID_SHADOWMAP);
             filterShader = sManager.getShader(SID_SHADOWMAP_FILTER);
+            previousMat = glm::mat4(0.0);
         }
         this->rangeX = rangeX;
         this->rangeY = rangeY;
         this->rangeZ = rangeZ;
-        update();
+        viewMat = glm::lookAt(position, position + direction, abs(direction[1]) > 0.999f ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f));
+        projMat = glm::ortho(-rangeX * 0.5f, rangeX * 0.5f, -rangeY * 0.5f, rangeY * 0.5f, 0.0f, rangeZ);
+        viewProj = projMat * viewMat;
     }
     void setUniforms(Shader& shader, uint index, uint& sm_index) {
         char tmp[64];
@@ -250,15 +251,16 @@ public:
         quadratic = 70.0f / (Range * Range);
     }
     bool update(uint gen_shadow = 1) {
-        static glm::mat4 previous_mat = glm::mat4(0.0);
         bool genShadow = false;
         if (shadow_enabled) {
             if (gen_shadow == 2) genShadow = true;
-            viewMat = glm::lookAt(position, position + direction, glm::vec3(0.0f, 1.0f, 0.0f));
+            viewMat = glm::lookAt(position, position + direction, abs(direction[1]) > 0.999f? glm::vec3(1.0f, 0.0f, 0.0f):glm::vec3(0.0f, 1.0f, 0.0f));
             projMat = glm::perspective(glm::radians(Zoom), Aspect, nearZ, farZ);
             viewProj = projMat * viewMat;
-            if (previous_mat != viewProj) genShadow = true;
-            if (genShadow) prepareShadow();
+            if (previousMat != viewProj) {
+                previousMat = viewProj;
+                genShadow = true;
+            }
         }
         return genShadow;
     }
@@ -271,13 +273,16 @@ public:
             shadowMap = smList[0];
             smShader = sManager.getShader(SID_SHADOWMAP);
             filterShader = sManager.getShader(SID_SHADOWMAP_FILTER);
+            previousMat = glm::mat4(0.0);
         }
         this->nearZ = nearZ;
         this->farZ = farZ;
         this->Zoom = Zoom;
         this->Aspect = 1.0f;
         this->Frustum = 2.0f * nearZ * tanf(glm::radians(Zoom) / 2.0f);
-        update();
+        viewMat = glm::lookAt(position, position + direction, abs(direction[1]) > 0.999f ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f));
+        projMat = glm::perspective(glm::radians(Zoom), Aspect, nearZ, farZ);
+        viewProj = projMat * viewMat;
     }
     void setUniforms(Shader& shader, uint index, uint& sm_index) {
         char tmp[64];
@@ -313,7 +318,7 @@ public:
             sprintf(tmp, "ptLights[%d].resolution", index);
             shader.setFloat(tmp, (float)shadowMap->width);
             sprintf(tmp, "dirLights[%d].light_size", index);
-            shader.setFloat(tmp, light_size / Frustum);
+            shader.setFloat(tmp, 0.002);
         }
     }
 };

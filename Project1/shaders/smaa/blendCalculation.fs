@@ -130,13 +130,10 @@ void SMAADetectHorizontalCornerPattern(inout vec2 weights, vec4 texcoord, vec2 d
 
     vec2 factor = vec2(1.0, 1.0);
     factor.x -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2(0,  -1)).r;
-    ATOMIC_COUNT_INCREMENT
     factor.x -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(1,  -1)).r;
-    ATOMIC_COUNT_INCREMENT
     factor.y -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2(0, 2)).r;
-    ATOMIC_COUNT_INCREMENT
     factor.y -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(1, 2)).r;
-    ATOMIC_COUNT_INCREMENT
+    ATOMIC_COUNT_INCREMENTS(4)
 
     weights *= clamp(factor, 0.0, 1.0);
 }
@@ -149,13 +146,10 @@ void SMAADetectVerticalCornerPattern(inout vec2 weights, vec4 texcoord, vec2 d) 
 
     vec2 factor = vec2(1.0, 1.0);
     factor.x -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2( 1, 0)).g;
-    ATOMIC_COUNT_INCREMENT
     factor.x -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2( 1, -1)).g;
-    ATOMIC_COUNT_INCREMENT
     factor.y -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2(-2, 0)).g;
-    ATOMIC_COUNT_INCREMENT
     factor.y -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(-2, -1)).g;
-    ATOMIC_COUNT_INCREMENT
+    ATOMIC_COUNT_INCREMENTS(4)
 
     weights *= clamp(factor, 0.0, 1.0);
 }
@@ -272,9 +266,8 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
         vec4 coords = fma(vec4(-d.x + 0.25, -d.x, d.y, d.y + 0.25), pixel_size.xyxy, texcoord.xyxy);
         vec4 c;
         c.xy = textureOffset(edgeTex_linear, coords.xy, ivec2(-1,  0)).rg;
-        ATOMIC_COUNT_INCREMENT
         c.zw = textureOffset(edgeTex_linear, coords.zw, ivec2( 1,  0)).rg;
-        ATOMIC_COUNT_INCREMENT
+        ATOMIC_COUNT_INCREMENTS(2)
         c.yxwz = SMAADecodeDiagBilinearAccess(c.xyzw);
 
         // Merge crossing edges at each side into a single value:
@@ -301,11 +294,9 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
         vec4 coords = fma(vec4(-d.x, d.x, d.y, -d.y), pixel_size.xyxy, texcoord.xyxy);
         vec4 c;
         c.x  = textureOffset(edgeTex_linear, coords.xy, ivec2(-1,  0)).g;
-        ATOMIC_COUNT_INCREMENT
         c.y  = textureOffset(edgeTex_linear, coords.xy, ivec2( 0, 1)).r;
-        ATOMIC_COUNT_INCREMENT
         c.zw = textureOffset(edgeTex_linear, coords.zw, ivec2( 1,  0)).gr;
-        ATOMIC_COUNT_INCREMENT
+        ATOMIC_COUNT_INCREMENTS(3)
         vec2 cc = fma(vec2(2.0, 2.0), c.xz, c.yw);
 
         // Remove the crossing edge if we didn't found the end of the line:
@@ -344,7 +335,6 @@ vec4 blendingWeightCalculation(){
         d.x = coords.x;
 
         float e1 = texture(edgeTex_linear, coords.xy).r;
-        ATOMIC_COUNT_INCREMENT
 
         // distance to right
         coords.z = SearchXRight(offset[0].zw, offset[2].y);
@@ -357,7 +347,7 @@ vec4 blendingWeightCalculation(){
 
         // Fetch the right crossing edges:
         float e2 = textureOffset(edgeTex_linear, coords.zy, ivec2(1, 0)).r;
-        ATOMIC_COUNT_INCREMENT
+        ATOMIC_COUNT_INCREMENTS(2)
 
         // Ok, we know how this pattern looks like, now it is time for getting
         // the actual area:
@@ -384,7 +374,6 @@ vec4 blendingWeightCalculation(){
         d.x = coords.y;
 
         float e1 = texture(edgeTex_linear, coords.xy).g;
-        ATOMIC_COUNT_INCREMENT
 
         // distance to bottom
         coords.z = SearchYDown(offset[1].zw, offset[2].w);
@@ -396,7 +385,7 @@ vec4 blendingWeightCalculation(){
         vec2 sqrt_d = sqrt(d);
 
         float e2 = textureOffset(edgeTex_linear, coords.xz, ivec2(0, -1)).g;
-        ATOMIC_COUNT_INCREMENT
+        ATOMIC_COUNT_INCREMENTS(2)
 
         // Ok, we know how this pattern looks like, now it is time for getting
         // the actual area:

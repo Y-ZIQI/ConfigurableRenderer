@@ -125,9 +125,10 @@ private:
 
     /**
     * 1: Bistro
-    * 2: SunTemple
+    * 2: Bistro Interior
+    * 3: SunTemple
     */
-    uint test_scene = 1;
+    uint test_scene = 3;
     float fps, duration;
     TimeRecord record[2]; // All, SMAA+resolve
     float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
@@ -172,6 +173,14 @@ void RenderFrame::onLoad() {
             //scene->ptLights[0]->enableShadow(90.0f, 1.0f, 200.0f, sm_width_list);
         }
         else if (test_scene == 2) {
+            /************************BistroInterior******************************/
+            scene->loadScene("resources/Bistro/BistroInterior_Wine.json", "BistroInterior");
+            scene->ptLights[0]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
+            scene->ptLights[1]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
+            scene->ptLights[2]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
+            scene->ptLights[3]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
+        }
+        else if (test_scene == 3) {
             /***************************SunTemple*********************************/
             scene->loadScene("resources/SunTemple/SunTemple.json", "SunTemple");
             scene->dirLights[0]->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
@@ -252,8 +261,6 @@ void RenderFrame::onFrameRender() {
         resolveShader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
     renderScreen();
 
-    frame_record.triangles += 2;
-    frame_record.draw_calls += 1;
     CHECKERROR
 }
 
@@ -302,20 +309,20 @@ uint RenderFrame::config(bool force_update) {
         flag |= 0x8;
         stHistory.ssao_level = settings.ssao_level;
         if (settings.ssao_level == level1) {
-            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SSAO");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->removeDef(FSHADER, "SSAO");
+            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SSAO");
         }
         else if (settings.ssao_level == level2) {
-            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SSAO");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SAMPLE_NUM", "4");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->reload();
+            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
         }
         else if (settings.ssao_level == level3) {
-            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SSAO");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SAMPLE_NUM", "16");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->reload();
+            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
         }
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
     }
@@ -326,9 +333,9 @@ uint RenderFrame::config(bool force_update) {
         dRdrList[1]->ssr = (uint)settings.ssr_level;
         dRdrList[2]->ssr = (uint)settings.ssr_level;
         if (settings.ssr_level != level1) {
-            sManager.getShader(SID_SSR)->addDef(FSHADER, "SSR_LEVEL", level_name[(uint)settings.ssr_level]);
+            sManager.getShader(SID_SSR_RAYTRACE)->addDef(FSHADER, "SSR_LEVEL", level_name[(uint)settings.ssr_level]);
             sManager.getShader(SID_SSR_RESOLVE)->addDef(FSHADER, "SSR_LEVEL", level_name[(uint)settings.ssr_level]);
-            sManager.getShader(SID_SSR)->reload();
+            sManager.getShader(SID_SSR_RAYTRACE)->reload();
             sManager.getShader(SID_SSR_RESOLVE)->reload();
         }
     }
@@ -371,6 +378,9 @@ uint RenderFrame::config(bool force_update) {
         dRdrList[0]->effect = (uint)settings.effect_level;
         dRdrList[1]->effect = (uint)settings.effect_level;
         dRdrList[2]->effect = (uint)settings.effect_level;
+        if(settings.effect_level != level1) sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "BLOOM");
+        else sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "BLOOM");
+        sManager.getShader(SID_DEFERRED_SHADING)->reload();
     }
     return flag;
 }

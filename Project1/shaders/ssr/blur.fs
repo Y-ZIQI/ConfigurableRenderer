@@ -33,4 +33,6 @@ void main()
         }
     }
     outColor = result;
+    ATOMIC_COUNT_INCREMENTS(kSize * 2 + 2)    
+    ATOMIC_COUNT_CALCULATE
 }

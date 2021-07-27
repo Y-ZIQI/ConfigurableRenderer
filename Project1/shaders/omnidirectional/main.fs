@@ -33,6 +33,7 @@ void main()
 {
     vec4 albedo;
     if((has_tex & BASECOLOR_BIT) != 0x0){
+        ATOMIC_COUNT_INCREMENT
         albedo = sampleTexture(baseColorMap, TexCoords);
     }else
         albedo = const_color;
@@ -42,16 +43,19 @@ void main()
     }
     vec3 specular;
     if((has_tex & SPECULAR_BIT) != 0x0){
+        ATOMIC_COUNT_INCREMENT
         specular = sampleTexture(specularMap, TexCoords).rgb;
     }else
         specular = const_specular;
     vec3 emissive;
     if((has_tex & EMISSIVE_BIT) != 0x0){
+        ATOMIC_COUNT_INCREMENT
         emissive = sampleTexture(emissiveMap, TexCoords).rgb;
     }else
         emissive = const_emissive;
     vec3 normal;
     if((has_tex & NORMAL_BIT) != 0x0){
+        ATOMIC_COUNT_INCREMENT
         normal = vec3(sampleTexture(normalMap, TexCoords).rg, 0.0);
         normal.z = sqrt(1.0 - clamp(dot(normal, normal), 0.0, 1.0));
         normal.xy = normal.xy * 2.0 - 1.0;
@@ -59,11 +63,12 @@ void main()
     }else
         normal = TBN[2];
 
-    vec3 color = evalShading(albedo.rgb, specular, emissive, normal, WorldPos, 1.0, 0.0);
+    vec3 color = evalShading(albedo.rgb, specular, emissive * M_PI, normal, WorldPos, 1.0, 0.0);
     
     //const float gamma = 2.2;
     //vec3 mapped = pow(color, vec3(1.0 / gamma));
     FragColor = color;
+    ATOMIC_COUNT_CALCULATE
 }
 
 /*out vec4 FragColor;

@@ -81,7 +81,6 @@ void main()
             float saSample = 1.0 / (float(SAMPLE_COUNT) * pdf + 0.0001);
             float mipLevel = roughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel); 
 
-            ATOMIC_COUNT_INCREMENT
             prefilteredColor += clamp(textureLod(envmap, L, mipLevel).rgb, 0.0, INF) * NdotL;
             totalWeight      += NdotL;
         }
@@ -89,5 +88,6 @@ void main()
     prefilteredColor = prefilteredColor / totalWeight;
 
     outColor = vec4(prefilteredColor, 1.0);
+    ATOMIC_COUNT_INCREMENTS(SAMPLE_COUNT)
     ATOMIC_COUNT_CALCULATE
 }

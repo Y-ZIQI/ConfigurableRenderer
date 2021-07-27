@@ -16,6 +16,7 @@ public:
     vector<PointLight*> ptLights;
     vector<DirectionalLight*> dirLights;
     vector<IBL*> light_probes;
+    float ssao_range, ssao_bias, ssao_threshold, ssr_threshold;
 
     vector<Texture*> envMaps;
     uint envIdx;
@@ -75,8 +76,6 @@ public:
         glDepthFunc(GL_LEQUAL);
         renderCube();
         glDepthFunc(GL_LESS);
-        frame_record.triangles += 12;
-        frame_record.draw_calls += 1;
     }
     void update(uint gen_shadow = 1, bool filtering = false) {
         camera->update();
@@ -85,12 +84,14 @@ public:
         if(cull_front) glCullFace(GL_FRONT);
         for (int i = 0; i < dirLights.size(); i++)
             if (dirLights[i]->update(gen_shadow, camera->Position, camera->Front)) {
+                dirLights[i]->prepareShadow();
                 DrawMesh(*dirLights[i]->smShader);
                 if (filtering)dirLights[i]->filterShadow();
                 //dirLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->genMipmap();
             }
         for (int i = 0; i < ptLights.size(); i++)
             if (ptLights[i]->update(gen_shadow)) {
+                ptLights[i]->prepareShadow();
                 DrawMesh(*ptLights[i]->smShader);
                 if (filtering)ptLights[i]->filterShadow();
                 //ptLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->genMipmap();
@@ -149,6 +150,12 @@ public:
         }
         this->name = name;
         clearScene();
+
+        ssao_range = jscene["ssao_range"].as_float();
+        ssao_bias = jscene["ssao_bias"].as_float();
+        ssao_threshold = jscene["ssao_threshold"].as_float();
+        ssr_threshold = jscene["ssr_threshold"].as_float();
+
         std::string directory = path.substr(0, path.find_last_of('/')) + '/';
         uint mid = 0;
         auto models = jscene["models"].as_array();

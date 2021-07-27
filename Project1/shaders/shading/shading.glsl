@@ -97,25 +97,29 @@ bool posFromLight(mat4 viewProj, vec3 position, out vec3 ndc){
     ndc = ndc * 0.5 + 0.5;
     return true;
 }
+const float posi_c = 40.0;
+const float nega_c = 5.0;
 float EVSM_dir_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
 
-    float expz = exp(ndc.z * 40.0), _expz = -exp(-ndc.z);
-    vec4 e = textureLod(dirLights[index].shadowMap, ndc.xy, 3);
-    if(expz <= e.r * exp(bias * 40.0)) return 1.0;
+    float expz = exp(ndc.z * posi_c), _expz = -exp(-ndc.z * nega_c);
+    ATOMIC_COUNT_INCREMENT
+    vec4 e = texture(dirLights[index].shadowMap, ndc.xy);
+    if(expz <= e.r * exp(bias * posi_c)) return 1.0;
     float e2 = e.g - e.r * e.r, _e2 = e.a - e.b * e.b;
     float max1 = e2 / (e2 + (expz - e.r) * (expz - e.r));
     float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
-    return max1;
+    return min(max1, max2);
 }
 float EVSM_pt_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
 
-    float expz = exp(ndc.z * 40.0), _expz = -exp(-ndc.z * 40.0);
-    vec4 e = textureLod(ptLights[index].shadowMap, ndc.xy, 2);
-    if(expz <= e.r * exp(bias * 40.0)) return 1.0;
+    float expz = exp(ndc.z * posi_c), _expz = -exp(-ndc.z * nega_c);
+    ATOMIC_COUNT_INCREMENT
+    vec4 e = texture(ptLights[index].shadowMap, ndc.xy);
+    if(expz <= e.r * exp(bias * posi_c)) return 1.0;
     float e2 = e.g - e.r * e.r, _e2 = e.a - e.b * e.b;
     float max1 = e2 / (e2 + (expz - e.r) * (expz - e.r));
     float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
@@ -140,9 +144,10 @@ void setRandomRotate(vec2 uv){
 float findBlocker(sampler2D sm, vec2 uv, float zReceiver, float searchRadius){
     float depthSum = 0.0;
     int blockers = 0;
+    ATOMIC_COUNT_INCREMENTS(NUM_SAMPLES)
     for(int i = 0; i < NUM_SAMPLES; i++){
         ivec2 offset = ivec2(rotateM * samples[i] * searchRadius);
-        float smDepth = textureLodOffset(sm, uv, 0, offset).r;
+        float smDepth = textureOffset(sm, uv, offset).r;
         if(zReceiver >= smDepth){
             depthSum += smDepth;
             blockers++;
@@ -153,10 +158,10 @@ float findBlocker(sampler2D sm, vec2 uv, float zReceiver, float searchRadius){
 }
 float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver, float filterRadius, float bias) {
     float sum = 0.0;
+    ATOMIC_COUNT_INCREMENTS(NUM_SAMPLES)
     for (int i = 0; i < NUM_SAMPLES; i++) {
         vec2 os = rotateM * -samples[i].yx * filterRadius;
-        float depth = textureLod(sm, uv + os, 0).r;
-        ATOMIC_COUNT_INCREMENT
+        float depth = texture(sm, uv + os).r;
         if (zReceiver <= depth + bias) sum += 1.0;
     }
     return sum / float(NUM_SAMPLES);
@@ -176,11 +181,11 @@ float PCSS_pt_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
 
-    float searchRadius = ptLights[index].light_size * ptLights[index].resolution;
+    float searchRadius = 0.01 * ptLights[index].resolution;
     float avgDep = findBlocker(ptLights[index].shadowMap, ndc.xy, ndc.z, searchRadius);
     if(avgDep <= 0.0) return 1.0;
     float penumbraRatio = (ndc.z - avgDep) / avgDep;
-    float filterSize = penumbraRatio * ptLights[index].light_size;
+    float filterSize = max(penumbraRatio * 0.01, 1.0 / ptLights[index].resolution);
     return PCF_Filter(ptLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias);
 }
 float PCF_dir_visible(int index, vec3 position, float bias) {
@@ -198,7 +203,7 @@ float PCF_pt_visible(int index, vec3 position, float bias) {
 float ESM_dir_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
-    float mindep = textureLod(dirLights[index].shadowMap, ndc.xy, SM_ESM_LOD).r;
+    float mindep = texture(dirLights[index].shadowMap, ndc.xy).r;
     ATOMIC_COUNT_INCREMENT
     float sx = exp(-80.0 * ndc.z) * mindep;
     return clamp(sx, 0.0, 1.0);
@@ -206,7 +211,7 @@ float ESM_dir_visible(int index, vec3 position, float bias){
 float ESM_pt_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
-    float mindep = textureLod(ptLights[index].shadowMap, ndc.xy, SM_ESM_LOD).r;
+    float mindep = texture(ptLights[index].shadowMap, ndc.xy).r;
     ATOMIC_COUNT_INCREMENT
     float sx = exp(-80.0 * ndc.z) * mindep;
     return pow(clamp(sx, 0.0, 1.0), 2.0);
@@ -269,7 +274,7 @@ vec3 evalDirLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = dirLights[index].intensity;
-    vec3 ambient = dirLights[index].ambient * ls.color * sd.baseColor * sd.kD * sd.ao;
+    vec3 ambient = dirLights[index].ambient * ls.color * sd.baseColor * sd.kD/* * sd.ao*/;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
@@ -314,7 +319,7 @@ vec3 evalPtLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = ptLights[index].intensity * falloff;
-    vec3 ambient = ptLights[index].ambient * ls.color * sd.baseColor * sd.kD * sd.ao;
+    vec3 ambient = ptLights[index].ambient * ls.color * sd.baseColor * sd.kD/* * sd.ao*/;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
@@ -333,7 +338,6 @@ vec3 evalIBL(int index, ShadingData sd, float weight){
     float r2 = ibls[index].range * ibls[index].range;
     vec3 intensity = ibls[index].intensity * (1.0 - center_distance[index]) * weight;
     vec3 fixN = fixDirection(L, sd.N, r2);
-    ATOMIC_COUNT_INCREMENT
     vec3 irradiance = textureLod(ibls[index].prefilterMap, fixN, ibls[index].miplevel).rgb;
     #ifdef IBL_GAMMACORRECTION
     irradiance = pow(irradiance, vec3(1.0/2.2));
@@ -341,14 +345,14 @@ vec3 evalIBL(int index, ShadingData sd, float weight){
     vec3 diffuse = irradiance * sd.baseColor * sd.kD;
 
     vec3 fixR = fixDirection(L, sd.R, r2);
-    ATOMIC_COUNT_INCREMENT
     vec3 prefilteredColor = textureLod(ibls[index].prefilterMap, fixR, sd.linearRoughness * (ibls[index].miplevel - 1.0)).rgb; 
     #ifdef IBL_GAMMACORRECTION
     prefilteredColor = pow(prefilteredColor, vec3(1.0/2.2));
     #endif
     vec2 envBRDF = texture(brdfLUT, vec2(min(sd.NdotV, 0.99), sd.linearRoughness)).rg;
     vec3 specular = prefilteredColor * (sd.kS * envBRDF.x + envBRDF.y);
-    return (diffuse + specular) * intensity * sd.ao;
+    ATOMIC_COUNT_INCREMENTS(3)
+    return (diffuse + specular) * intensity/* * sd.ao*/;
 }
 
 vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, vec3 position, float linearDepth, float ao){
@@ -419,7 +423,7 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
     #endif
     color += emissColor;
     //color += emissColor;
-    return color;
+    return color * sd.ao;
 }
 //sd.metallic = specColor.b;
 //sd.linearRoughness = 1 - specColor.a;

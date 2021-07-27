@@ -27,6 +27,7 @@ layout (binding = 0, offset = 0) uniform atomic_uint counter[8];
 uint tCount = 0;
 //#define ATOMIC_COUNT_INCREMENT atomicCounterIncrement(counter[0]);
 #define ATOMIC_COUNT_INCREMENT tCount++;
+#define ATOMIC_COUNT_INCREMENTS(i) tCount+=i;
 #define ATOMIC_COUNTER_I_INCREMENT(i) atomicCounterIncrement(counter[i]);
 #define ATOMIC_COUNT_CALCULATE atomic_calculate();
 void atomic_calculate(){
@@ -41,6 +42,7 @@ void atomic_calculate(){
 }
 #else
 #define ATOMIC_COUNT_INCREMENT
+#define ATOMIC_COUNT_INCREMENTS(i)
 #define ATOMIC_COUNTER_I_INCREMENT(i)
 #define ATOMIC_COUNT_CALCULATE
 #endif
