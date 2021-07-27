@@ -1,0 +1,167 @@
+{
+    "ssao_range": 0.1,
+    "ssao_bias": 0.01,
+    "ssao_threshold": 0.25,
+    "ssr_threshold": 0.025,
+    "active_camera": "Camera0",
+    "models": [
+        {
+            "file": "BistroInterior_Wine.fbx",
+            "name": "BistroInterior_Wine",
+            "instances": [
+                {
+                    "name": "BistroInterior_Wine",
+                    "translation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scaling": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                }
+            ]
+        }
+    ],
+    "environment_maps": [
+        {
+            "files": [
+                "skybox/posx.jpg",
+                "skybox/negx.jpg",
+                "skybox/posy.jpg",
+                "skybox/negy.jpg",
+                "skybox/posz.jpg",
+                "skybox/negz.jpg"
+            ]
+        }
+    ],
+    "light_probes": [],
+    "lights": [
+        {
+            "name": "PointLight1",
+            "type": "point_light",
+            "intensity": [
+                2.00,
+                1.62,
+                0.89
+            ],
+            "pos": [
+                2.658,
+                1.614,
+                -0.260
+            ],
+            "direction": [
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "opening_angle": 180.0,
+            "penumbra_angle": 0.0,
+            "ambient": 0.1,
+            "range": 10.0
+        },
+        {
+            "name": "PointLight2",
+            "type": "point_light",
+            "intensity": [
+                2.00,
+                1.62,
+                0.89
+            ],
+            "pos": [
+                4.255,
+                1.637,
+                0.541
+            ],
+            "direction": [
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "opening_angle": 180.0,
+            "penumbra_angle": 0.0,
+            "ambient": 0.1,
+            "range": 10.0
+        },
+        {
+            "name": "PointLight3",
+            "type": "point_light",
+            "intensity": [
+                2.00,
+                1.62,
+                0.89
+            ],
+            "pos": [
+                2.270,
+                1.648,
+                -2.620
+            ],
+            "direction": [
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "opening_angle": 180.0,
+            "penumbra_angle": 0.0,
+            "ambient": 0.1,
+            "range": 10.0
+        },
+        {
+            "name": "PointLight4",
+            "type": "point_light",
+            "intensity": [
+                2.00,
+                1.62,
+                0.89
+            ],
+            "pos": [
+                3.252,
+                1.565,
+                -4.510
+            ],
+            "direction": [
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "opening_angle": 180.0,
+            "penumbra_angle": 0.0,
+            "ambient": 0.1,
+            "range": 10.0
+        }
+    ],
+    "cameras": [
+        {
+            "name": "Camera0",
+            "pos": [
+                -0.222,
+                1.330,
+                -0.706
+            ],
+            "target": [
+                0.710,
+                1.189,
+                -1.040
+            ],
+            "up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "focal_length": 35.0,
+            "depth_range": [
+                0.01,
+                100.0
+            ],
+            "aspect_ratio": 1.0,
+            "camera_speed": 1.5
+        }
+    ]
+}
