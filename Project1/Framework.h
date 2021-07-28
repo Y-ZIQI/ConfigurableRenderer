@@ -169,21 +169,21 @@ void RenderFrame::onLoad() {
         if (test_scene == 1) {
             /***************************Bistro*********************************/
             scene->loadScene("resources/Bistro/BistroExterior.json", "Bistro");
-            scene->dirLights[0]->enableShadow(80.0f, 80.0f, 200.0f, sm_width_list);
+            //scene->dirLights[0]->enableShadow(80.0f, 80.0f, 200.0f, sm_width_list);
             //scene->ptLights[0]->enableShadow(90.0f, 1.0f, 200.0f, sm_width_list);
         }
         else if (test_scene == 2) {
             /************************BistroInterior******************************/
             scene->loadScene("resources/Bistro/BistroInterior_Wine.json", "BistroInterior");
-            scene->ptLights[0]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
-            scene->ptLights[1]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
-            scene->ptLights[2]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
-            scene->ptLights[3]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
+            //scene->ptLights[0]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
+            //scene->ptLights[1]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
+            //scene->ptLights[2]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
+            //scene->ptLights[3]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
         }
         else if (test_scene == 3) {
             /***************************SunTemple*********************************/
             scene->loadScene("resources/SunTemple/SunTemple.json", "SunTemple");
-            scene->dirLights[0]->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
+            //scene->dirLights[0]->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
         }
         camera = scene->camera;
         camera->setAspect((float)width / (float)height);
@@ -237,13 +237,14 @@ void RenderFrame::initResources() {
 }
 
 void RenderFrame::onFrameRender() {
+    update();
+
     glDisable(GL_BLEND); 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
     uint flag = config();
-    update();
 
     scene->update((flag & 0x2) ? 2 : settings.update_shadow, settings.shadow_type == mode1);
 
@@ -261,17 +262,20 @@ void RenderFrame::onFrameRender() {
         resolveShader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
     renderScreen();
 
+    screen->drawContents();
+    screen->drawWidgets();
+    gui->refresh();
     CHECKERROR
 }
 
 void RenderFrame::update(){
+    frame_record.clear(settings.recording);
     duration = glfw->lastFrame - glfw->recordTime;
     if (duration >= 0.25f) {
         fps = (float)(glfw->frame_count - glfw->record_frame) / duration;
         glfw->record();
         time_ratio[0] = record[0].getTime() / duration;
     }
-    frame_record.clear(settings.recording);
 }
 
 uint RenderFrame::config(bool force_update) {
@@ -308,6 +312,9 @@ uint RenderFrame::config(bool force_update) {
     if (settings.ssao_level != stHistory.ssao_level || force_update) {
         flag |= 0x8;
         stHistory.ssao_level = settings.ssao_level;
+        dRdrList[0]->ssao = (uint)settings.ssao_level;
+        dRdrList[1]->ssao = (uint)settings.ssao_level;
+        dRdrList[2]->ssao = (uint)settings.ssao_level;
         if (settings.ssao_level == level1) {
             sManager.getShader(SID_DEFERRED_PREPROCESS)->removeDef(FSHADER, "SSAO");
             sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "SSAO");
@@ -315,15 +322,14 @@ uint RenderFrame::config(bool force_update) {
         else if (settings.ssao_level == level2) {
             sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SSAO");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SAMPLE_NUM", "4");
-            sManager.getShader(SID_DEFERRED_PREPROCESS)->reload();
             sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
         }
         else if (settings.ssao_level == level3) {
             sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SSAO");
             sManager.getShader(SID_DEFERRED_PREPROCESS)->addDef(FSHADER, "SAMPLE_NUM", "16");
-            sManager.getShader(SID_DEFERRED_PREPROCESS)->reload();
             sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "SSAO");
         }
+        sManager.getShader(SID_DEFERRED_PREPROCESS)->reload();
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
     }
     if (settings.ssr_level != stHistory.ssr_level || force_update) {
@@ -434,10 +440,6 @@ void RenderFrame::run() {
         glfw->processInput();
         processInput();
         onFrameRender();
-
-        screen->drawContents();
-        screen->drawWidgets();
-        gui->refresh();
 
         if (settings.recording) {
             frame_record.copy();

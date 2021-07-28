@@ -19,14 +19,13 @@ uniform sampler2D aoTex;
 
 void main()
 {
-    ATOMIC_COUNT_INCREMENT
     vec3 normal = texture(normalTex, TexCoords).rgb;
     if(dot(normal, normal) == 0.0){
-        ATOMIC_COUNT_INCREMENT
+        ATOMIC_COUNT_INCREMENTS(2)
         FragColor = texture(albedoTex, TexCoords).rgb;
         BloomColor = vec3(0.0);
     }else{
-        ATOMIC_COUNT_INCREMENTS(5)
+        ATOMIC_COUNT_INCREMENTS(6)
         vec3 diffuse = texture(albedoTex, TexCoords).rgb;
         vec3 specular = texture(specularTex, TexCoords).rgb;
         vec3 emissive = texture(emissiveTex, TexCoords).rgb * M_PI;

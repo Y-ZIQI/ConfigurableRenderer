@@ -161,7 +161,14 @@
                 21.0,
                 9.0
             ],
-            "ambient": 0.06
+            "ambient": 0.06,
+            "light_size": 1.0,
+            "shadow": {
+                "enable": true,
+                "rangeX": 80.0,
+                "rangeY": 80.0,
+                "rangeZ": 200.0
+            }
         }
     ],
     "cameras": [

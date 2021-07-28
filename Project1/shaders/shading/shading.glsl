@@ -181,11 +181,11 @@ float PCSS_pt_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
 
-    float searchRadius = 0.01 * ptLights[index].resolution;
+    float searchRadius = ptLights[index].light_size * ptLights[index].resolution;
     float avgDep = findBlocker(ptLights[index].shadowMap, ndc.xy, ndc.z, searchRadius);
     if(avgDep <= 0.0) return 1.0;
     float penumbraRatio = (ndc.z - avgDep) / avgDep;
-    float filterSize = max(penumbraRatio * 0.01, 1.0 / ptLights[index].resolution);
+    float filterSize = max(penumbraRatio * ptLights[index].light_size, 1.0 / ptLights[index].resolution);
     return PCF_Filter(ptLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias);
 }
 float PCF_dir_visible(int index, vec3 position, float bias) {

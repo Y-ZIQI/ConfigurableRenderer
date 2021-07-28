@@ -65,7 +65,14 @@
             "opening_angle": 180.0,
             "penumbra_angle": 0.0,
             "ambient": 0.1,
-            "range": 10.0
+            "range": 10.0,
+            "light_size": 0.1,
+            "shadow": {
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.2,
+                "farz": 10.0
+            }
         },
         {
             "name": "PointLight2",
@@ -88,7 +95,14 @@
             "opening_angle": 180.0,
             "penumbra_angle": 0.0,
             "ambient": 0.1,
-            "range": 10.0
+            "range": 10.0,
+            "light_size": 0.1,
+            "shadow": {
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.2,
+                "farz": 10.0
+            }
         },
         {
             "name": "PointLight3",
@@ -111,7 +125,14 @@
             "opening_angle": 180.0,
             "penumbra_angle": 0.0,
             "ambient": 0.1,
-            "range": 10.0
+            "range": 10.0,
+            "light_size": 0.1,
+            "shadow": {
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.2,
+                "farz": 10.0
+            }
         },
         {
             "name": "PointLight4",
@@ -134,7 +155,14 @@
             "opening_angle": 180.0,
             "penumbra_angle": 0.0,
             "ambient": 0.1,
-            "range": 10.0
+            "range": 10.0,
+            "light_size": 0.1,
+            "shadow": {
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.2,
+                "farz": 10.0
+            }
         }
     ],
     "cameras": [

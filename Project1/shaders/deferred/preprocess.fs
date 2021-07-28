@@ -61,12 +61,12 @@ float ambientOcclusion(vec3 posW, vec3 normal){
 
     LocalBasis(normal, Rand3(seed) * 2.0 - 1.0, b1, b2);
     mat3 TBN = mat3(b1, b2, normal);
+    ATOMIC_COUNT_INCREMENTS(SAMPLE_NUM)
     for(int i = 0;i < SAMPLE_NUM;i++){
         randPos = samples[i] * ssao_range;
         samplePos = TBN * randPos + posW;
         ssPos = camera_vp * vec4(samplePos, 1.0);
         ndc = clamp((ssPos.xyz / ssPos.w + 1.0) / 2.0, 0.0, 1.0);
-        ATOMIC_COUNT_INCREMENT
         mindep = LinearizeDepth(texture(depthTex, ndc.xy).x);
         ndc.z = LinearizeDepth(ndc.z);
         sum += step(ndc.z, mindep + ssao_bias) + step(mindep + ssao_threshold, ndc.z);

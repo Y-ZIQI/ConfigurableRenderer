@@ -229,24 +229,43 @@ public:
             auto direction = lights[i]["direction"].as_array();
             auto pos = lights[i]["pos"].as_array();
             float ambient = lights[i]["ambient"].as_float();
+            float light_size = lights[i]["light_size"].as_float();
+            auto shadow = lights[i]["shadow"];
+            bool shadow_enable = shadow["enable"].as_bool();
             if (type == "dir_light") {
-                addLight(new DirectionalLight(
+                DirectionalLight* nLight = new DirectionalLight(
                     name,
                     glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
                     glm::vec3(direction[0].as_float(), direction[1].as_float(), direction[2].as_float()),
                     glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
-                    ambient
-                ));
+                    ambient, light_size
+                );
+                if (shadow_enable) {
+                    float rangeX = shadow["rangeX"].as_float();
+                    float rangeY = shadow["rangeY"].as_float();
+                    float rangeZ = shadow["rangeZ"].as_float();
+                    nLight->enableShadow(rangeX, rangeY, rangeZ, { 512, 1024, 2048 });
+                }
+                addLight(nLight);
             }
             else if (type == "point_light") {
                 float range = lights[i]["range"].as_float();
-                addLight(new PointLight(
+                float opening_angle = lights[i]["opening_angle"].as_float();
+                float penumbra_angle = lights[i]["penumbra_angle"].as_float();
+                PointLight* nLight = new PointLight(
                     name,
                     glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
                     glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
                     glm::vec3(direction[0].as_float(), direction[1].as_float(), direction[2].as_float()),
-                    ambient, range
-                ));
+                    ambient, range, opening_angle, penumbra_angle, light_size
+                );
+                if (shadow_enable) {
+                    float fovy = shadow["fovy"].as_float();
+                    float nearz = shadow["nearz"].as_float();
+                    float farz = shadow["farz"].as_float();
+                    nLight->enableShadow(fovy, nearz, farz, { 512, 1024, 2048 });
+                }
+                addLight(nLight);
             }
         }
 

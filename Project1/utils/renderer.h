@@ -28,7 +28,7 @@ public:
     PoissonDiskSample shadow_sample;
     HammersleySample ssr_sample;
 
-    uint ssr = 0, ibl = 0, effect = 0;
+    uint ssao = 0, ssr = 0, ibl = 0, effect = 0;
 
     TimeRecord record[2]; // Shading, AO
 
@@ -100,11 +100,13 @@ public:
 
         preShader->use();
         gBuffer->prepare();
-        ssao_sample.setUniforms(preShader, 16);
         scene.setCameraUniforms(*preShader);
-        preShader->setFloat("ssao_range", scene.ssao_range);
-        preShader->setFloat("ssao_bias", scene.ssao_bias);
-        preShader->setFloat("ssao_threshold", scene.ssao_threshold);
+        if (ssao) {
+            ssao_sample.setUniforms(preShader, 16);
+            preShader->setFloat("ssao_range", scene.ssao_range);
+            preShader->setFloat("ssao_bias", scene.ssao_bias);
+            preShader->setFloat("ssao_threshold", scene.ssao_threshold);
+        }
         preShader->setTextureSource("positionTex", 0, gPreBuffer->colorAttachs[3].texture->id);
         preShader->setTextureSource("tangentTex", 1, gPreBuffer->colorAttachs[4].texture->id);
         preShader->setTextureSource("normalTex", 2, gPreBuffer->colorAttachs[5].texture->id);
@@ -112,16 +114,18 @@ public:
         renderScreen();
         //gBuffer->colorAttachs[1].texture->genMipmap();
 
-        ssaoblurShader->use();
-        ssaoblurShader->setInt("ksize", 9);
-        aoBuffer->prepare();
-        ssaoblurShader->setTextureSource("colorTex", 0, gBuffer->colorAttachs[2].texture->id);
-        ssaoblurShader->setBool("horizontal", true);
-        renderScreen();
-        gBuffer->prepare(2);
-        ssaoblurShader->setTextureSource("horizontalTex", 1, aoBuffer->colorAttachs[0].texture->id);
-        ssaoblurShader->setBool("horizontal", false);
-        renderScreen();
+        if (ssao) {
+            ssaoblurShader->use();
+            ssaoblurShader->setInt("ksize", 9);
+            aoBuffer->prepare();
+            ssaoblurShader->setTextureSource("colorTex", 0, gBuffer->colorAttachs[2].texture->id);
+            ssaoblurShader->setBool("horizontal", true);
+            renderScreen();
+            gBuffer->prepare(2);
+            ssaoblurShader->setTextureSource("horizontalTex", 1, aoBuffer->colorAttachs[0].texture->id);
+            ssaoblurShader->setBool("horizontal", false);
+            renderScreen();
+        }
     }
     void renderEnvmap(Scene& scene) {
         if (!scene.envMap_enabled || scene.envIdx < 0) return;

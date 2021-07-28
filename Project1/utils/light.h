@@ -56,7 +56,7 @@ public:
     glm::vec3 target;
 
     bool shadow_enabled = false;
-    float light_size = 3.0f;
+    float light_size;
     std::vector<ShadowMap*> smList;
     ShadowMap* shadowMap;
     Shader* smShader, *filterShader;
@@ -134,7 +134,8 @@ public:
         glm::vec3 Intensity, 
         glm::vec3 Direction, 
         glm::vec3 Position = glm::vec3(0.0, 0.0, 0.0), 
-        float Ambient = 0.01f
+        float Ambient = 0.01f,
+        float Light_size = 1.0f
     ) {
         type = LType::Directional;
         name = Name;
@@ -143,6 +144,7 @@ public:
         direction = Direction;
         position = Position;
         target = Position + Direction;
+        light_size = Light_size;
     }
     bool update(uint gen_shadow = 1, glm::vec3 cam_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 cam_front = glm::vec3(0.0, 0.0, 0.0)) {
         const float threshold = 10.0f;
@@ -233,7 +235,8 @@ public:
         float Ambient = 0.01f, 
         float Range = 10.0f, 
         float Opening_angle = 180.0f, 
-        float Penumbra_angle = 0.0f
+        float Penumbra_angle = 0.0f,
+        float Light_size = 0.1f
     ) {
         type = LType::Point;
         name = Name;
@@ -249,6 +252,7 @@ public:
         constant = 0.01f;
         linear = 4.0f / Range;
         quadratic = 70.0f / (Range * Range);
+        light_size = Light_size;
     }
     bool update(uint gen_shadow = 1) {
         bool genShadow = false;
@@ -317,8 +321,8 @@ public:
             shader.setTextureSource(tmp, sm_index++, shadowMap->smBuffer->colorAttachs[0].texture->id);
             sprintf(tmp, "ptLights[%d].resolution", index);
             shader.setFloat(tmp, (float)shadowMap->width);
-            sprintf(tmp, "dirLights[%d].light_size", index);
-            shader.setFloat(tmp, 0.002);
+            sprintf(tmp, "ptLights[%d].light_size", index);
+            shader.setFloat(tmp, light_size);
         }
     }
 };
