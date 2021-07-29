@@ -63,12 +63,10 @@ public:
         joinBuffer = new FrameBuffer;
         joinBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 0);
         rayTraceBuffer = new FrameBuffer;
-        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA16UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT, GL_NEAREST), 0);
-        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA16UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT, GL_NEAREST), 1);
-        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA16UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT, GL_NEAREST), 2);
-        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA16UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT, GL_NEAREST), 3);
-        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST), 4);
-        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST), 5);
+        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA32UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT, GL_NEAREST), 0);
+        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA32UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT, GL_NEAREST), 1);
+        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST), 2);
+        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST), 3);
         reflectionBuffer = new FrameBuffer;
         reflectionBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 0);
         reflectionBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 1);
@@ -157,12 +155,10 @@ public:
         resolveShader->setTextureSource("specularTex", 2, gPreBuffer->colorAttachs[1].texture->id);
         resolveShader->setTextureSource("positionTex", 3, gPreBuffer->colorAttachs[3].texture->id);
         resolveShader->setTextureSource("normalTex", 4, gBuffer->colorAttachs[0].texture->id);
-        resolveShader->setTextureSource("hitPt12", 5, rayTraceBuffer->colorAttachs[0].texture->id);
-        resolveShader->setTextureSource("hitPt34", 6, rayTraceBuffer->colorAttachs[1].texture->id);
-        resolveShader->setTextureSource("hitPt56", 7, rayTraceBuffer->colorAttachs[2].texture->id);
-        resolveShader->setTextureSource("hitPt78", 8, rayTraceBuffer->colorAttachs[3].texture->id);
-        resolveShader->setTextureSource("weight1234", 9, rayTraceBuffer->colorAttachs[4].texture->id);
-        resolveShader->setTextureSource("weight5678", 10, rayTraceBuffer->colorAttachs[5].texture->id);
+        resolveShader->setTextureSource("hitPt1234", 5, rayTraceBuffer->colorAttachs[0].texture->id);
+        resolveShader->setTextureSource("hitPt5678", 6, rayTraceBuffer->colorAttachs[1].texture->id);
+        resolveShader->setTextureSource("weight1234", 7, rayTraceBuffer->colorAttachs[2].texture->id);
+        resolveShader->setTextureSource("weight5678", 8, rayTraceBuffer->colorAttachs[3].texture->id);
         renderScreen();
 
         ssrblurShader->use();
@@ -205,7 +201,6 @@ public:
         joinShader->setBool("tone_mapping", true);
         joinShader->setTextureSource("colorTex", 0, colorTex->id);
         joinShader->setTextureSource("joinTex", 1, effectBuffer->colorAttachs[1].texture->id);
-        joinShader->setTextureSource("substractTex", 2, shadingBuffer->colorAttachs[1].texture->id);
         renderScreen();
     }
     void renderScene(Scene& scene) {

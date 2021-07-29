@@ -1,16 +1,15 @@
 //++`shaders/shading/defines.glsl`
 //++`shaders/shading/importanceSample.glsl`
+//++`shaders/shading/noise.glsl`
 
 #ifndef SSR_LEVEL
 #define SSR_LEVEL 2
 #endif
 
-layout (location = 0) out uvec4 hitPt12;
-layout (location = 1) out uvec4 hitPt34;
-layout (location = 2) out uvec4 hitPt56;
-layout (location = 3) out uvec4 hitPt78;
-layout (location = 4) out vec4 weight1234;
-layout (location = 5) out vec4 weight5678;
+layout (location = 0) out uvec4 hitPt1234;
+layout (location = 1) out uvec4 hitPt5678;
+layout (location = 2) out vec4 weight1234;
+layout (location = 3) out vec4 weight5678;
 
 in vec2 TexCoords;
 
@@ -32,13 +31,13 @@ uniform sampler2D lineardepthTex;
 #define MAX_SAMPLES 6
 #define MAX_DISTANCE 0.5
 const float init_steps[] = {
-    2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0
+    5, 10, 30, 50, 70, 90, 110, 130, 160, 200
 };
 #else // SSR_LEVEL == 2
 #define MAX_SAMPLES 8
 #define MAX_DISTANCE 0.5
 const float init_steps[] = {
-    1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
+    5, 10, 20, 30, 40, 50, 60, 70, 80, 100
 };
 #endif
 
@@ -49,19 +48,6 @@ const float init_steps[] = {
 
 uniform vec2 samples[MAX_SAMPLES];
 mat3 rotateM;
-
-float Rand1(inout float p) {
-    p = fract(p * .1031);
-    p *= p + 33.33;
-    p *= p + p;
-    return fract(p);
-}
-
-float InitRand(vec2 uv) {
-	vec3 p3  = fract(vec3(uv.xyx) * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-}
 
 float Linearize(float depth)
 {
@@ -85,7 +71,7 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 h
     ),  max(-texPos.z / one_step.z, (1.0 - texPos.z) / one_step.z)
     ));
     
-    texPos += one_step;
+    texPos += one_step * random(texDir.yx);
     distz = Linearize(texPos.z) - linearz;
     d1 = distz;
     linearz += distz;
@@ -94,7 +80,7 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 h
     for(uint i = 0;i < max_step;i++){
         if(linearz > lineard + 0.001){
             d2 = linearz - lineard;
-            if(d2 < threshold + abs(distz)){
+            if(d2 < threshold + max(distz, 0.0)){
                 hitPos = texPos.xy - one_step.xy * d2 / (abs(d1) + d2);
                 return 1.0;
             }
@@ -114,6 +100,10 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 h
     hitPos = texPos.xy;
     float dist_w = abs(distz) / (abs(lineard - linearz) + abs(distz));
     return dist_w;
+}
+
+uint pack2to1(uvec2 uv){
+    return ((uv.x << 16) & (0xffff0000u)) | (uv.y & 0x0000ffffu);
 }
 
 void main(){
@@ -137,8 +127,7 @@ void main(){
     TBN[0] = normalize(cross(up, N_mixed));
     TBN[1] = cross(N_mixed, TBN[0]);
     
-    float seed = InitRand(TexCoords); 
-    float angle = Rand1(seed) * M_2PI, move = Rand1(seed) * 0.12;
+    float angle = random(TexCoords) * M_2PI, move = random(TexCoords.yx) * 0.12;
     rotateM = mat3(
         cos(angle), sin(angle), 0.0,
         -sin(angle), cos(angle), 0.0,
@@ -147,7 +136,7 @@ void main(){
     TBN = TBN * rotateM;
 
     int level = int(roughness * 9.9);
-    float init_step = init_steps[level] / 100.0, pdf;
+    float init_step = init_steps[level] / 1000.0, pdf;
     int num_samples = int(min(roughness, 0.99) * MAX_SAMPLES) + 1;
     vec2 hitpos;
     vec3 texPos = getScreenUV(position);
@@ -164,16 +153,17 @@ void main(){
         vec3 texDir = getScreenUV(position + refv * 0.1) - texPos;
         texDir *= 1.0 / length(vec2(texDir.xy));
         float inter = rayTrace_screenspace(texPos, texDir, init_step, hitpos);
-        ivec2 hitXY = ivec2(vec2(width, height) * hitpos);
+        uvec2 hitXY = uvec2(vec2(width, height) * hitpos);
+        uint packXY = pack2to1(hitXY);
         switch(i){
-        case 0: hitPt12.xy = hitXY; weight1234.r = inter; break;
-        case 1: hitPt12.zw = hitXY; weight1234.g = inter; break;
-        case 2: hitPt34.xy = hitXY; weight1234.b = inter; break;
-        case 3: hitPt34.zw = hitXY; weight1234.a = inter; break;
-        case 4: hitPt56.xy = hitXY; weight5678.r = inter; break;
-        case 5: hitPt56.zw = hitXY; weight5678.g = inter; break;
-        case 6: hitPt78.xy = hitXY; weight5678.b = inter; break;
-        case 7: hitPt78.zw = hitXY; weight5678.a = inter; break;
+        case 0: hitPt1234.r = packXY; weight1234.r = inter; break;
+        case 1: hitPt1234.g = packXY; weight1234.g = inter; break;
+        case 2: hitPt1234.b = packXY; weight1234.b = inter; break;
+        case 3: hitPt1234.a = packXY; weight1234.a = inter; break;
+        case 4: hitPt5678.r = packXY; weight5678.r = inter; break;
+        case 5: hitPt5678.g = packXY; weight5678.g = inter; break;
+        case 6: hitPt5678.b = packXY; weight5678.b = inter; break;
+        case 7: hitPt5678.a = packXY; weight5678.a = inter; break;
         }
     }
     ATOMIC_COUNT_INCREMENTS(3)

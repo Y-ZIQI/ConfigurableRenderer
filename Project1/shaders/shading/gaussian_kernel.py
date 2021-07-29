@@ -13,7 +13,13 @@ def kernel_1d(urange, sigma2):
     return wlist
 
 if __name__ == "__main__":
-    wlist = []
-    for i in range(15):
-        wlist.extend(kernel_1d(i, i + 1))
-    print(wlist)
+    #wlist = []
+    #for i in range(15):
+    #    wlist.extend(kernel_1d(i, i + 1))
+    #print(wlist)
+    #for i in range(15, 30):
+    #    print(kernel_1d(i, i + 1))
+    part_list = [0]
+    for i in range(1, 30):
+        part_list.append(part_list[-1] + i)
+    print(part_list)

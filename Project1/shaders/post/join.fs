@@ -9,7 +9,6 @@ uniform bool substract;
 uniform bool tone_mapping;
 uniform sampler2D colorTex;
 uniform sampler2D joinTex;
-uniform sampler2D substractTex;
 
 void main()
 {
@@ -18,11 +17,8 @@ void main()
     hdrColor += texture(colorTex, TexCoords).rgb;
     if(join) {
         ATOMIC_COUNT_INCREMENT
-        hdrColor += texture(joinTex, TexCoords).rgb;
-    }
-    if(substract){
-        ATOMIC_COUNT_INCREMENT
-        hdrColor -= texture(substractTex, TexCoords).rgb;
+        if(substract) hdrColor += texture(joinTex, TexCoords).rgb;
+        else hdrColor += texture(joinTex, TexCoords).rgb * 0.5;
     }
     
     if(tone_mapping){

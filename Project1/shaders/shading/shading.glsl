@@ -1,4 +1,5 @@
 //++`shaders/shading/BRDF.glsl`
+//++`shaders/shading/noise.glsl`
 
 uniform vec3 camera_pos;
 uniform vec4 camera_params;
@@ -129,13 +130,8 @@ float EVSM_pt_visible(int index, vec3 position, float bias){
 uniform vec2 samples[NUM_SAMPLES];
 mat2 rotateM;
 
-highp float rand_2to1(vec2 uv ) {
-	const highp float a = 12.9898, b = 78.233, c = 43758.5453;
-	highp float dt = dot( uv.xy, vec2( a,b ) ), sn = mod( dt, M_PI );
-	return fract(sin(sn) * c);
-}
 void setRandomRotate(vec2 uv){
-    float angle = rand_2to1(uv) * M_2PI;
+    float angle = random(uv) * M_2PI;
     rotateM = mat2(
         cos(angle), sin(angle),
         -sin(angle), cos(angle)

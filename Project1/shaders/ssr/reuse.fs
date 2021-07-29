@@ -21,10 +21,8 @@ uniform sampler2D specularTex;
 uniform sampler2D positionTex;
 uniform sampler2D normalTex;
 
-uniform usampler2D hitPt12;
-uniform usampler2D hitPt34;
-uniform usampler2D hitPt56;
-uniform usampler2D hitPt78;
+uniform usampler2D hitPt1234;
+uniform usampler2D hitPt5678;
 uniform sampler2D weight1234;
 uniform sampler2D weight5678;
 
@@ -53,6 +51,10 @@ vec3 fresnelSchlick(vec3 f0, vec3 f90, float u)
     return f0 + (f90 - f0) * pow(1 - u, 5);
 }
 
+uvec2 unpack1to2(uint a){
+    return uvec2((a >> 16) & 0x0000ffffu, a & 0x0000ffffu);
+}
+
 void main(){
     vec3 specular = texture(specularTex, TexCoords).rgb;
     vec3 position = texture(positionTex, TexCoords).xyz, texPos, H;
@@ -69,41 +71,47 @@ void main(){
     float weight_sum = 1.0, hitW, pdf;
     vec2 hitpos;
     uvec2 hitXY;
+    vec4 _hitW;
+    uvec4 _hitXY;
     for(int i = 0; i < RESOLVE; i++){
         float nroughness = textureOffset(specularTex, TexCoords, offsets[i]).g;
         float r_weight = 1.0 / max(nroughness, 0.1);
         int num_samples = int(min(nroughness, 0.99) * MAX_SAMPLES) + 1;
-        ATOMIC_COUNT_INCREMENTS(num_samples * 2 + 1)
+        ATOMIC_COUNT_INCREMENTS(2 * (num_samples / 4) + 1)
         for(int j = 0; j < num_samples; j++){
             switch(j){
             case 0: 
-                hitXY = textureOffset(hitPt12, TexCoords, offsets[i]).xy;
-                hitW = textureOffset(weight1234, TexCoords, offsets[i]).r; break;
+                _hitXY = textureOffset(hitPt1234, TexCoords, offsets[i]);
+                hitXY = unpack1to2(_hitXY.r);
+                _hitW = textureOffset(weight1234, TexCoords, offsets[i]);
+                hitW = _hitW.r; break;
             case 1: 
-                hitXY = textureOffset(hitPt12, TexCoords, offsets[i]).zw; 
-                hitW = textureOffset(weight1234, TexCoords, offsets[i]).g; break;
+                hitXY = unpack1to2(_hitXY.g);
+                hitW = _hitW.g; break;
             case 2: 
-                hitXY = textureOffset(hitPt34, TexCoords, offsets[i]).xy; 
-                hitW = textureOffset(weight1234, TexCoords, offsets[i]).b; break;
+                hitXY = unpack1to2(_hitXY.b);
+                hitW = _hitW.b; break;
             case 3: 
-                hitXY = textureOffset(hitPt34, TexCoords, offsets[i]).zw; 
-                hitW = textureOffset(weight1234, TexCoords, offsets[i]).a; break;
+                hitXY = unpack1to2(_hitXY.a);
+                hitW = _hitW.a; break;
             case 4: 
-                hitXY = textureOffset(hitPt56, TexCoords, offsets[i]).xy; 
-                hitW = textureOffset(weight5678, TexCoords, offsets[i]).r; break;
+                _hitXY = textureOffset(hitPt5678, TexCoords, offsets[i]); 
+                hitXY = unpack1to2(_hitXY.r);
+                _hitW = textureOffset(weight5678, TexCoords, offsets[i]);
+                hitW = _hitW.r; break;
             case 5: 
-                hitXY = textureOffset(hitPt56, TexCoords, offsets[i]).zw; 
-                hitW = textureOffset(weight5678, TexCoords, offsets[i]).g; break;
+                hitXY = unpack1to2(_hitXY.g);
+                hitW = _hitW.g; break;
             case 6: 
-                hitXY = textureOffset(hitPt78, TexCoords, offsets[i]).xy; 
-                hitW = textureOffset(weight5678, TexCoords, offsets[i]).b; break;
+                hitXY = unpack1to2(_hitXY.b);
+                hitW = _hitW.b; break;
             case 7: 
-                hitXY = textureOffset(hitPt78, TexCoords, offsets[i]).zw; 
-                hitW = textureOffset(weight5678, TexCoords, offsets[i]).a; break;
+                hitXY = unpack1to2(_hitXY.a);
+                hitW = _hitW.a; break;
             }
             hitpos = vec2(hitXY) / vec2(width, height);
             float hit_weight = max(hitW, 0.5) * r_weight;
-            if(hitW > 0.1){
+            if(hitW > 0.5){
                 ATOMIC_COUNT_INCREMENTS(2)
                 texPos = texture(positionTex, hitpos).xyz;
                 H = normalize(normalize(texPos - position) - view);

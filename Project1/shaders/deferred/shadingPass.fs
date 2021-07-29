@@ -51,7 +51,7 @@ void main()
         const vec3 Lumia = vec3(0.2126, 0.7152, 0.0722);
         float rate = dot(color, Lumia);
         if(rate > 1.0){
-            vec3 clip_color = color / min(rate, 10.0);
+            vec3 clip_color = color - color / rate;
             BloomColor = clip_color;
         }else{
             BloomColor = emissive;

@@ -42,15 +42,130 @@
             ]
         }
     ],
-    "light_probes": [],
+    "light_probes": [
+        {
+            "name": "Map1",
+            "file": "",
+            "depth_range": [
+                0.1,
+                10.0
+            ],
+            "range": 5.0,
+            "intensity": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "pos": [
+                1.91,
+                1.30,
+                -0.12
+            ]
+        }, 
+        {
+            "name": "Map2",
+            "file": "",
+            "depth_range": [
+                0.1,
+                10.0
+            ],
+            "range": 5.0,
+            "intensity": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "pos": [
+                3.10,
+                1.30,
+                0.49
+            ]
+        }, 
+        {
+            "name": "Map3",
+            "file": "",
+            "depth_range": [
+                0.1,
+                10.0
+            ],
+            "range": 5.0,
+            "intensity": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "pos": [
+                4.46,
+                1.30,
+                1.02
+            ]
+        }, 
+        {
+            "name": "Map4",
+            "file": "",
+            "depth_range": [
+                0.1,
+                10.0
+            ],
+            "range": 5.0,
+            "intensity": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "pos": [
+                1.02,
+                1.30,
+                -2.43
+            ]
+        }, 
+        {
+            "name": "Map5",
+            "file": "",
+            "depth_range": [
+                0.1,
+                10.0
+            ],
+            "range": 5.0,
+            "intensity": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "pos": [
+                4.21,
+                1.75,
+                -1.99
+            ]
+        }, 
+        {
+            "name": "Map6",
+            "file": "",
+            "depth_range": [
+                0.1,
+                10.0
+            ],
+            "range": 5.0,
+            "intensity": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "pos": [
+                5.39,
+                1.47,
+                -1.17
+            ]
+        }
+    ],
     "lights": [
         {
             "name": "PointLight1",
             "type": "point_light",
             "intensity": [
-                2.00,
-                1.62,
-                0.89
+                4.00,
+                3.24,
+                1.78
             ],
             "pos": [
                 2.658,
@@ -64,13 +179,13 @@
             ],
             "opening_angle": 180.0,
             "penumbra_angle": 0.0,
-            "ambient": 0.1,
+            "ambient": 0.02,
             "range": 10.0,
-            "light_size": 0.1,
+            "light_size": 0.2,
             "shadow": {
                 "enable": true,
                 "fovy": 150.0,
-                "nearz": 0.2,
+                "nearz": 0.05,
                 "farz": 10.0
             }
         },
@@ -78,9 +193,9 @@
             "name": "PointLight2",
             "type": "point_light",
             "intensity": [
-                2.00,
-                1.62,
-                0.89
+                4.00,
+                3.24,
+                1.78
             ],
             "pos": [
                 4.255,
@@ -94,13 +209,13 @@
             ],
             "opening_angle": 180.0,
             "penumbra_angle": 0.0,
-            "ambient": 0.1,
+            "ambient": 0.02,
             "range": 10.0,
-            "light_size": 0.1,
+            "light_size": 0.2,
             "shadow": {
                 "enable": true,
                 "fovy": 150.0,
-                "nearz": 0.2,
+                "nearz": 0.05,
                 "farz": 10.0
             }
         },
@@ -108,9 +223,9 @@
             "name": "PointLight3",
             "type": "point_light",
             "intensity": [
-                2.00,
-                1.62,
-                0.89
+                4.00,
+                3.24,
+                1.78
             ],
             "pos": [
                 2.270,
@@ -124,13 +239,13 @@
             ],
             "opening_angle": 180.0,
             "penumbra_angle": 0.0,
-            "ambient": 0.1,
+            "ambient": 0.02,
             "range": 10.0,
-            "light_size": 0.1,
+            "light_size": 0.2,
             "shadow": {
                 "enable": true,
                 "fovy": 150.0,
-                "nearz": 0.2,
+                "nearz": 0.05,
                 "farz": 10.0
             }
         },
@@ -138,9 +253,9 @@
             "name": "PointLight4",
             "type": "point_light",
             "intensity": [
-                2.00,
-                1.62,
-                0.89
+                4.00,
+                3.24,
+                1.78
             ],
             "pos": [
                 3.252,
@@ -154,13 +269,13 @@
             ],
             "opening_angle": 180.0,
             "penumbra_angle": 0.0,
-            "ambient": 0.1,
+            "ambient": 0.02,
             "range": 10.0,
-            "light_size": 0.1,
+            "light_size": 0.2,
             "shadow": {
                 "enable": true,
                 "fovy": 150.0,
-                "nearz": 0.2,
+                "nearz": 0.05,
                 "farz": 10.0
             }
         }

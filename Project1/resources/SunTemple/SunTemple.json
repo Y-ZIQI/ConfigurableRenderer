@@ -185,9 +185,9 @@
             "name": "SunLight",
             "type": "dir_light",
             "intensity": [
-                1.0,
-                1.0,
-                1.0
+                2.0,
+                2.0,
+                2.0
             ],
             "direction": [
                 0.8601617813110352,
@@ -199,7 +199,7 @@
                 1.1900001764297486,
                 -4.959444999694824
             ],
-            "ambient": 0.04,
+            "ambient": 0.01,
             "light_size": 1.0,
             "shadow": {
                 "enable": true,
@@ -230,9 +230,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -257,9 +260,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -284,9 +290,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -311,9 +320,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -338,9 +350,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -365,9 +380,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -392,9 +410,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -419,9 +440,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -446,9 +470,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -473,9 +500,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -500,9 +530,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -527,9 +560,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         },
         {
@@ -554,9 +590,12 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.1,
+            "light_size": 0.3,
             "shadow": {
-                "enable": false
+                "enable": true,
+                "fovy": 150.0,
+                "nearz": 0.01,
+                "farz": 10.0
             }
         }
     ],
