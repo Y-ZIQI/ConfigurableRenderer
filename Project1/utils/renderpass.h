@@ -55,10 +55,10 @@ public:
     void renderScene(Scene& scene) {
         glViewport(0, 0, width, height);
         cubeShader->use();
-        targetFbo->prepare();
-        targetFbo->clear(DEPTH_TARGETS);
         setUniforms();
         scene.setLightUniforms(*cubeShader, false);
+        targetFbo->prepare();
+        targetFbo->clear(DEPTH_TARGETS);
         scene.Draw(*cubeShader, 1);
         targetFbo->colorAttachs[0].texture->genMipmap();
     }

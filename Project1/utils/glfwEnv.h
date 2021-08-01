@@ -1,6 +1,6 @@
 #pragma once
 #include <windows.h>
-#include "defines.h"
+#include "utils.h"
 
 struct InputInfo {
     bool cursor_changed, mbutton_changed, key_changed, char_changed, drop_changed, scroll_changed;

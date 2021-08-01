@@ -33,26 +33,50 @@ struct PointLight{
 
     bool has_shadow;
     mat4 viewProj;
+    float inv_n, inv_f;
     sampler2D shadowMap;
     float resolution;
     float light_size;
 };
 
+struct RadioactiveLight{
+    vec3 intensity;
+    vec3 position;
+    float ambient;
+
+    float range;
+
+    float constant;
+    float linear;
+    float quadratic;
+
+    bool has_shadow;
+    float inv_n, inv_f;
+    samplerCube shadowMap;
+    float resolution;
+    float light_size;
+};
+
 #ifndef MAX_DIRECTIONAL_LIGHT
-#define MAX_DIRECTIONAL_LIGHT 2
+#define MAX_DIRECTIONAL_LIGHT 4
 #endif
 #ifndef MAX_POINT_LIGHT
 #define MAX_POINT_LIGHT 15
 #endif
+#ifndef MAX_RADIOACTIVE_LIGHT
+#define MAX_RADIOACTIVE_LIGHT 15
+#endif
 
 uniform int dirLtCount;
 uniform int ptLtCount;
+uniform int radioLtCount;
 uniform DirectionalLight dirLights[MAX_DIRECTIONAL_LIGHT];
 uniform PointLight ptLights[MAX_POINT_LIGHT];
+uniform RadioactiveLight radioLights[MAX_RADIOACTIVE_LIGHT];
 
 //#define EVAL_IBL
 #ifndef MAX_IBL_LIGHT
-#define MAX_IBL_LIGHT 8
+#define MAX_IBL_LIGHT 10
 #endif
 //#define IBL_GAMMACORRECTION
 uniform int iblCount;
@@ -70,13 +94,12 @@ float center_distance[MAX_IBL_LIGHT];
 /********************************************Config********************************************/
 // Shadow map related variables
 //#define SHADOW_HARD
-//#define SHADOW_SOFT_ESM
-//#define SHADOW_SOFT_PCF
 //#define SHADOW_SOFT_PCSS
 //#define SHADOW_SOFT_EVSM
 #define SM_ESM_LOD 2
 #define SM_PCF_FILTER 0.002
 #define NUM_SAMPLES 40
+#define NUM_PT_SAMPLES 10
 
 #define EPS 1e-5
 #define MAX_BIAS 2.0
@@ -89,6 +112,18 @@ float center_distance[MAX_IBL_LIGHT];
 #define SHADING_MODEL 1
 #endif
 /***************************************Shadow Making******************************************/
+
+float Linearize(float depth, float inv_n, float inv_f)
+{
+    float z = depth * 2.0 - 1.0;
+    return 2.0 / (inv_n + inv_f - z * (inv_n - inv_f));    
+}
+float invLinearize(float depth, float inv_n, float inv_f)
+{
+    float d = (-2.0 / depth + inv_n + inv_f) / (inv_n - inv_f);
+    return d * 0.5 + 0.5;    
+}
+
 bool posFromLight(mat4 viewProj, vec3 position, out vec3 ndc){
     vec4 fromLight = viewProj * vec4(position, 1.0);
     ndc = fromLight.xyz / fromLight.w;
@@ -126,9 +161,25 @@ float EVSM_pt_visible(int index, vec3 position, float bias){
     float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
     return min(max1, max2);
 }
+float EVSM_radio_visible(int index, vec3 L, float bias){
+    vec3 absl = abs(L);
+    float dep = max(max(absl.x, absl.y), absl.z);
+    float ndcz = invLinearize(dep, radioLights[index].inv_n, radioLights[index].inv_f);
+
+    float expz = exp(ndcz * posi_c), _expz = -exp(-ndcz * nega_c);
+    vec3 dir = normalize(L);
+    ATOMIC_COUNT_INCREMENT
+    vec4 e = texture(radioLights[index].shadowMap, dir);
+    if(expz <= e.r * exp(bias * posi_c)) return 1.0;
+    float e2 = e.g - e.r * e.r, _e2 = e.a - e.b * e.b;
+    float max1 = e2 / (e2 + (expz - e.r) * (expz - e.r));
+    float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
+    return min(max1, max2);
+}
 
 uniform vec2 samples[NUM_SAMPLES];
 mat2 rotateM;
+vec2 rot_samples[NUM_SAMPLES];
 
 void setRandomRotate(vec2 uv){
     float angle = random(uv) * M_2PI;
@@ -136,15 +187,19 @@ void setRandomRotate(vec2 uv){
         cos(angle), sin(angle),
         -sin(angle), cos(angle)
     );
+    for(int i = 0; i < NUM_SAMPLES; i++){
+        rot_samples[i] = rotateM * samples[i];
+    }
 }
-float findBlocker(sampler2D sm, vec2 uv, float zReceiver, float searchRadius){
+float findBlocker(sampler2D sm, vec2 uv, float zReceiver, float searchRadius, float bias, int num_samples){
     float depthSum = 0.0;
     int blockers = 0;
-    ATOMIC_COUNT_INCREMENTS(NUM_SAMPLES)
-    for(int i = 0; i < NUM_SAMPLES; i++){
-        ivec2 offset = ivec2(rotateM * samples[i] * searchRadius);
-        float smDepth = textureOffset(sm, uv, offset).r;
-        if(zReceiver >= smDepth){
+    ATOMIC_COUNT_INCREMENTS(num_samples)
+    int _step = NUM_SAMPLES/num_samples;
+    for(int i = 0; i < NUM_SAMPLES; i += _step){
+        //ivec2 offset = ivec2(rot_samples[i] * searchRadius);
+        float smDepth = texture(sm, uv + rot_samples[i] * searchRadius).r;
+        if(zReceiver >= smDepth + bias){
             depthSum += smDepth;
             blockers++;
         }
@@ -152,66 +207,88 @@ float findBlocker(sampler2D sm, vec2 uv, float zReceiver, float searchRadius){
     if(blockers > 0) return depthSum / float(blockers);
     else return -1.0;
 }
-float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver, float filterRadius, float bias) {
+float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver, float filterRadius, float bias, int num_samples) {
     float sum = 0.0;
-    ATOMIC_COUNT_INCREMENTS(NUM_SAMPLES)
-    for (int i = 0; i < NUM_SAMPLES; i++) {
-        vec2 os = rotateM * -samples[i].yx * filterRadius;
+    ATOMIC_COUNT_INCREMENTS(num_samples)
+    int _step = NUM_SAMPLES/num_samples;
+    for (int i = 0; i < NUM_SAMPLES; i += _step) {
+        vec2 os = -rot_samples[i].yx * filterRadius;
         float depth = texture(sm, uv + os).r;
         if (zReceiver <= depth + bias) sum += 1.0;
     }
-    return sum / float(NUM_SAMPLES);
+    return sum / float(num_samples);
 }
 float PCSS_dir_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
 
-    float searchRadius = dirLights[index].light_size * dirLights[index].resolution;
-    float avgDep = findBlocker(dirLights[index].shadowMap, ndc.xy, ndc.z, searchRadius);
+    float searchRadius = dirLights[index].light_size;
+    float avgDep = findBlocker(dirLights[index].shadowMap, ndc.xy, ndc.z, searchRadius, bias, NUM_SAMPLES);
     if(avgDep <= 0.0) return 1.0;
     float penumbraRatio = (ndc.z - avgDep) / avgDep;
     float filterSize = max(penumbraRatio * dirLights[index].light_size, 1.0 / dirLights[index].resolution);
-    return PCF_Filter(dirLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias);
+    return PCF_Filter(dirLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias, NUM_SAMPLES);
 }
 float PCSS_pt_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
 
-    float searchRadius = ptLights[index].light_size * ptLights[index].resolution;
-    float avgDep = findBlocker(ptLights[index].shadowMap, ndc.xy, ndc.z, searchRadius);
+    float searchRadius = ptLights[index].light_size;
+    float avgDep = findBlocker(ptLights[index].shadowMap, ndc.xy, ndc.z, searchRadius, bias, NUM_PT_SAMPLES);
     if(avgDep <= 0.0) return 1.0;
-    float penumbraRatio = (ndc.z - avgDep) / avgDep;
+    float lineard = Linearize(avgDep, ptLights[index].inv_n, ptLights[index].inv_f);
+    float linearz = Linearize(ndc.z, ptLights[index].inv_n, ptLights[index].inv_f);
+    float penumbraRatio = (linearz - lineard) / lineard;
     float filterSize = max(penumbraRatio * ptLights[index].light_size, 1.0 / ptLights[index].resolution);
-    return PCF_Filter(ptLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias);
+    return PCF_Filter(ptLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias, NUM_PT_SAMPLES);
 }
-float PCF_dir_visible(int index, vec3 position, float bias) {
-    vec3 ndc;
-    if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
-    float filterRadius = SM_PCF_FILTER;
-    return PCF_Filter(dirLights[index].shadowMap, ndc.xy, ndc.z, filterRadius, bias);
+vec3 dirOffset(vec3 dir, vec2 uv){
+    vec3 absdir = abs(dir);
+    if(absdir.x > absdir.y)
+        if(absdir.x > absdir.z) return dir + vec3(0.0, uv);
+        else return dir + vec3(uv, 0.0);
+    else
+        if(absdir.y > absdir.z) return dir + vec3(uv.x, 0.0, uv.y);
+        else return dir + vec3(uv, 0.0);
 }
-float PCF_pt_visible(int index, vec3 position, float bias) {
-    vec3 ndc;
-    if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
-    float filterRadius = SM_PCF_FILTER;
-    return PCF_Filter(ptLights[index].shadowMap, ndc.xy, ndc.z, filterRadius, bias);
+float PCSS_radio_visible(int index, vec3 L, float bias){
+    vec3 absl = abs(L);
+    float dep = max(max(absl.x, absl.y), absl.z);
+    vec3 dir = normalize(L);
+    float searchRadius = radioLights[index].light_size;
+
+    float depthSum = 0.0, avgDep;
+    int blockers = 0, num_samples = NUM_PT_SAMPLES;
+
+    ATOMIC_COUNT_INCREMENTS(num_samples)
+    int _step = NUM_SAMPLES/num_samples;
+    for(int i = 0; i < NUM_SAMPLES; i += _step){
+        vec3 smdir = dirOffset(dir, 2.0 * rot_samples[i] * searchRadius);
+        float smDepth = texture(radioLights[index].shadowMap, smdir).r;
+        float lineard = Linearize(smDepth + bias, radioLights[index].inv_n, radioLights[index].inv_f);
+        if(dep > lineard){
+            depthSum += lineard;
+            blockers++;
+        }
+    }
+    if(blockers > 0) avgDep = depthSum / float(blockers);
+    else return 1.0;
+
+    float penumbraRatio = (dep - avgDep) / avgDep;
+    float filterSize = max(penumbraRatio * radioLights[index].light_size, 1.0 / radioLights[index].resolution);
+
+    float sum = 0.0;
+    ATOMIC_COUNT_INCREMENTS(num_samples)
+    for (int i = 0; i < NUM_SAMPLES; i += _step) {
+        vec3 smdir = dirOffset(dir, 2.0 * -rot_samples[i].yx * filterSize);
+        float smDepth = texture(radioLights[index].shadowMap, smdir).r;
+        float lineard = Linearize(smDepth + bias, radioLights[index].inv_n, radioLights[index].inv_f);
+        
+        if (dep <= lineard) sum += 1.0;
+    }
+    return sum / float(num_samples);
 }
-float ESM_dir_visible(int index, vec3 position, float bias){
-    vec3 ndc;
-    if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
-    float mindep = texture(dirLights[index].shadowMap, ndc.xy).r;
-    ATOMIC_COUNT_INCREMENT
-    float sx = exp(-80.0 * ndc.z) * mindep;
-    return clamp(sx, 0.0, 1.0);
-}
-float ESM_pt_visible(int index, vec3 position, float bias){
-    vec3 ndc;
-    if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
-    float mindep = texture(ptLights[index].shadowMap, ndc.xy).r;
-    ATOMIC_COUNT_INCREMENT
-    float sx = exp(-80.0 * ndc.z) * mindep;
-    return pow(clamp(sx, 0.0, 1.0), 2.0);
-}
+
 float HARD_dir_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
@@ -225,6 +302,14 @@ float HARD_pt_visible(int index, vec3 position, float bias){
     float mindep = texture(ptLights[index].shadowMap, ndc.xy).r;
     ATOMIC_COUNT_INCREMENT
     return step(ndc.z, mindep + bias);
+}
+float HARD_radio_visible(int index, vec3 L, float bias){
+    vec3 absl = abs(L);
+    float dep = max(max(absl.x, absl.y), absl.z);
+    vec3 dir = normalize(L);
+    float mindep = Linearize(texture(radioLights[index].shadowMap, dir).r + bias, radioLights[index].inv_n, radioLights[index].inv_f);
+    ATOMIC_COUNT_INCREMENT
+    return step(dep, mindep);
 }
 
 /******************************************Lighting***********************************************/
@@ -254,10 +339,6 @@ vec3 evalDirLight(int index, ShadingData sd){
         visibility = EVSM_dir_visible(index, sd.posW, bias);
         #elif defined(SHADOW_SOFT_PCSS)
         visibility = PCSS_dir_visible(index, sd.posW, bias);
-        #elif defined(SHADOW_SOFT_PCF)
-        visibility = PCF_dir_visible(index, sd.posW, bias);
-        #elif defined(SHADOW_SOFT_ESM)
-        visibility = ESM_dir_visible(index, sd.posW, bias);
         #elif defined(SHADOW_HARD)
         visibility = HARD_dir_visible(index, sd.posW, bias);
         #else
@@ -294,15 +375,11 @@ vec3 evalPtLight(int index, ShadingData sd){
     if(ls.NdotL <= 0.0)
         visibility = 0.0;
     else if(ptLights[index].has_shadow){
-        float bias = max(MAX_BIAS * (1.0 - ls.NdotL), MIN_BIAS) / ptLights[index].resolution;
+        float bias = mix(MAX_BIAS, MIN_BIAS, ls.NdotL) / ptLights[index].resolution;
         #ifdef SHADOW_SOFT_EVSM
         visibility = EVSM_pt_visible(index, sd.posW, bias);
-        #elif defined SHADOW_SOFT_PCSS
+        #elif defined(SHADOW_SOFT_PCSS)
         visibility = PCSS_pt_visible(index, sd.posW, bias);
-        #elif defined SHADOW_SOFT_PCF
-        visibility = PCF_pt_visible(index, sd.posW, bias);
-        #elif defined(SHADOW_SOFT_ESM)
-        visibility = ESM_pt_visible(index, sd.posW, bias);
         #elif defined(SHADOW_HARD)
         visibility = HARD_pt_visible(index, sd.posW, bias);
         #else
@@ -316,6 +393,42 @@ vec3 evalPtLight(int index, ShadingData sd){
     ls.LdotH = dot(ls.L, H);
     ls.color = ptLights[index].intensity * falloff;
     vec3 ambient = ptLights[index].ambient * ls.color * sd.baseColor * sd.kD/* * sd.ao*/;
+    if(visibility < EPS)
+        return ambient;
+    return visibility * evalColor(sd, ls) + ambient;
+}
+
+vec3 evalRadioLight(int index, ShadingData sd){
+    LightSample ls;
+    ls.posW = radioLights[index].position;
+    ls.L = normalize(ls.posW - sd.posW);
+    ls.dist = length(ls.posW - sd.posW);
+    float falloff = 1.0 / (radioLights[index].constant + radioLights[index].linear*ls.dist + radioLights[index].quadratic*ls.dist*ls.dist);
+    if(ls.dist > radioLights[index].range)
+        return vec3(0.0);
+    ls.NdotL = dot(sd.N, ls.L);
+    float visibility;
+    if(ls.NdotL <= 0.0)
+        visibility = 0.0;
+    else if(radioLights[index].has_shadow){
+        float bias = mix(MAX_BIAS, MIN_BIAS, ls.NdotL) * 0.05 / radioLights[index].resolution;
+        #ifdef SHADOW_SOFT_EVSM
+        visibility = EVSM_radio_visible(index, sd.posW - ls.posW, bias);
+        #elif defined(SHADOW_SOFT_PCSS)
+        visibility = PCSS_radio_visible(index, sd.posW - ls.posW, bias);
+        #elif defined(SHADOW_HARD)
+        visibility = HARD_radio_visible(index, sd.posW - ls.posW, bias);
+        #else
+        visibility = 1.0;
+        #endif
+    }else{
+        visibility = 1.0;
+    }
+    vec3 H = normalize(sd.V + ls.L);
+    ls.NdotH = dot(sd.N, H);
+    ls.LdotH = dot(ls.L, H);
+    ls.color = radioLights[index].intensity * falloff;
+    vec3 ambient = radioLights[index].ambient * ls.color * sd.baseColor * sd.kD/* * sd.ao*/;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
@@ -392,6 +505,10 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
     for (int i = 0; i < count; i++){
         color += evalPtLight(i, sd); 
     }
+    count = min(radioLtCount, MAX_RADIOACTIVE_LIGHT);
+    for (int i = 0; i < count; i++){
+        color += evalRadioLight(i, sd); 
+    }
     #ifdef EVAL_IBL
     count = min(iblCount, MAX_IBL_LIGHT);
     if(count > 0){
@@ -403,13 +520,18 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
             if(center_distance[i] < center_distance[min1])
                 min1 = i;
         }
-        if(count < 2)
+        if(count == 1)
             color += evalIBL(min1, sd, 1.0); 
         else{
-            min2 = (min1 + 1) % count;
-            for(int i = 0; i < count;i++)
-                if(center_distance[i] < center_distance[min2] && center_distance[i] > center_distance[min1])
+            min2 = min1 == 0? 1:0;
+            for(int i = 1; i < min1; i++){
+                if(center_distance[i] < center_distance[min2])
                     min2 = i;
+            }
+            for(int i = min1 + 1; i < count; i++){
+                if(center_distance[i] < center_distance[min2])
+                    min2 = i;
+            }
             float weight1 = center_distance[min2] / (center_distance[min1] + center_distance[min2]);
             float weight2 = center_distance[min1] / (center_distance[min1] + center_distance[min2]);
             color += evalIBL(min1, sd, weight1); 

@@ -43,10 +43,8 @@ void main()
         setRandomRotate(TexCoords);
         vec3 color = evalShading(diffuse, specular, emissive, normal, position, lineardepth, ao);
 
-        /*const float gamma = 2.2;
-        const float exposure = 1.0;
-        vec3 mapped = pow(color, vec3(1.0 / gamma));*/
-
+        FragColor = color;
+        
         #ifdef BLOOM
         const vec3 Lumia = vec3(0.2126, 0.7152, 0.0722);
         float rate = dot(color, Lumia);
@@ -56,10 +54,8 @@ void main()
         }else{
             BloomColor = emissive;
         }
-        FragColor = color;
         #else
         BloomColor = vec3(0.0);
-        FragColor = color;
         #endif
         
         #ifdef SHOW_GRID

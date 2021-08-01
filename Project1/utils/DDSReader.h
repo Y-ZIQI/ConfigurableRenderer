@@ -1,6 +1,6 @@
 #pragma once
 #include <windows.h>
-#include "defines.h"
+#include "utils.h"
 
 // Minimum and maximum macros
 #define __max(a,b) (((a) > (b)) ? (a) : (b))

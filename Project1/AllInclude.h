@@ -1,6 +1,8 @@
 #pragma once
 
 #include "utils/defines.h"
+#include "utils/constants.h"
+#include "utils/utils.h"
 
 #include "utils/glfwEnv.h"
 

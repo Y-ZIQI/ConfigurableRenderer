@@ -181,7 +181,7 @@
             "penumbra_angle": 0.0,
             "ambient": 0.02,
             "range": 10.0,
-            "light_size": 0.2,
+            "light_size": 0.01,
             "shadow": {
                 "enable": true,
                 "fovy": 150.0,
@@ -211,7 +211,7 @@
             "penumbra_angle": 0.0,
             "ambient": 0.02,
             "range": 10.0,
-            "light_size": 0.2,
+            "light_size": 0.01,
             "shadow": {
                 "enable": true,
                 "fovy": 150.0,
@@ -241,7 +241,7 @@
             "penumbra_angle": 0.0,
             "ambient": 0.02,
             "range": 10.0,
-            "light_size": 0.2,
+            "light_size": 0.01,
             "shadow": {
                 "enable": true,
                 "fovy": 150.0,
@@ -271,7 +271,7 @@
             "penumbra_angle": 0.0,
             "ambient": 0.02,
             "range": 10.0,
-            "light_size": 0.2,
+            "light_size": 0.01,
             "shadow": {
                 "enable": true,
                 "fovy": 150.0,

@@ -5,11 +5,10 @@ const float values[][3] = {
     {0.6f, 0.8f, 1.0f},
     {0.25f, 0.5f, 1.0f}
 };
-const std::vector<uint> sm_width_list{ 512, 1024, 2048 };
-const char* shadow_type_name[4] = {
-    "SHADOW_SOFT_EVSM", "SHADOW_SOFT_PCSS", "SHADOW_SOFT_ESM", "SHADOW_HARD"
+const char* shadow_type_name[3] = {
+    "SHADOW_SOFT_EVSM", "SHADOW_SOFT_PCSS", "SHADOW_HARD"
 };
-const uint shadow_type_tex_id[4] = {1, 0, 1, 0};
+const uint shadow_type_tex_id[3] = {1, 0, 0};
 const char* level_name[4] = {
     "0", "1", "2", "3"
 };
@@ -66,7 +65,7 @@ public:
     bool recording = true;
     // 1: Not update, 2: As need, 3: Every frame
     Mode update_shadow;
-    // 1: evsm, 2: pcss, 3: esm, 4: hard
+    // 1: evsm, 2: pcss, 3: hard
     Mode shadow_type;
     Level effect_level;
 
@@ -128,7 +127,7 @@ private:
     * 2: Bistro Interior
     * 3: SunTemple
     */
-    uint test_scene = 3;
+    uint test_scene = 1;
     float fps, duration;
     TimeRecord record[2]; // All, SMAA+resolve
     float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
@@ -169,21 +168,14 @@ void RenderFrame::onLoad() {
         if (test_scene == 1) {
             /***************************Bistro*********************************/
             scene->loadScene("resources/Bistro/BistroExterior.json", "Bistro");
-            //scene->dirLights[0]->enableShadow(80.0f, 80.0f, 200.0f, sm_width_list);
-            //scene->ptLights[0]->enableShadow(90.0f, 1.0f, 200.0f, sm_width_list);
         }
         else if (test_scene == 2) {
             /************************BistroInterior******************************/
             scene->loadScene("resources/Bistro/BistroInterior_Wine.json", "BistroInterior");
-            //scene->ptLights[0]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
-            //scene->ptLights[1]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
-            //scene->ptLights[2]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
-            //scene->ptLights[3]->enableShadow(90.0f, 0.2f, 10.0f, sm_width_list);
         }
         else if (test_scene == 3) {
             /***************************SunTemple*********************************/
             scene->loadScene("resources/SunTemple/SunTemple.json", "SunTemple");
-            //scene->dirLights[0]->enableShadow(40.0f, 40.0f, 200.0f, sm_width_list);
         }
         camera = scene->camera;
         camera->setAspect((float)width / (float)height);
@@ -205,7 +197,7 @@ void RenderFrame::onLoad() {
         gui->addVariable("Texture Samples", frame_record.texture_samples, false);
         gui->addGroup("Config");
         gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
-        gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "512", "1024", "2048" });
+        gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "25%", "50%", "100%" });
         gui->addVariable("Shading", settings.shading, enabled)->setItems({ "PBR", "PBR+IBL", "3" });
         gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "1", "2" });
         gui->addVariable("SSR Level", settings.ssr_level, enabled)->setItems({ "Disable", "1", "2" });
@@ -213,14 +205,13 @@ void RenderFrame::onLoad() {
         gui->addGroup("Render Setting");
         gui->addVariable("Recording", settings.recording, enabled);
         gui->addVariable("Update Shadow", settings.update_shadow, enabled)->setItems({ "Not update", "As need", "Every frame" });
-        gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "EVSM", "PCSS", "ESM", "Hard"});
+        gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "EVSM", "PCSS", "Hard"});
         gui->addVariable("Effect", settings.effect_level, enabled)->setItems({ "Off", "On", "2" });
         gui->addGroup("Scenes");
         scene->addGui(gui, mainWindow);
         screen->setVisible(true);
         screen->performLayout();
     }
-    config(true);
 }
 
 void RenderFrame::initResources() {
@@ -244,7 +235,7 @@ void RenderFrame::onFrameRender() {
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
-    uint flag = config();
+    uint flag = config(glfw->frame_count <= 1);
 
     scene->update((flag & 0x2) ? 2 : settings.update_shadow, settings.shadow_type == mode1);
 
@@ -253,13 +244,13 @@ void RenderFrame::onFrameRender() {
     if(settings.smaa_level != level1)
         smaaPass->Draw(screenFbo->colorAttachs[0].texture);
     glViewport(0, 0, width, height);
-    targetFbo->prepare();
-    targetFbo->clear();
     resolveShader->use();
     if (settings.smaa_level == level1)
         resolveShader->setTextureSource("screenTex", 0, screenFbo->colorAttachs[0].texture->id);
     else
         resolveShader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
+    targetFbo->prepare();
+    targetFbo->clear();
     renderScreen();
 
     screen->drawContents();
@@ -295,6 +286,8 @@ uint RenderFrame::config(bool force_update) {
             scene->dirLights[i]->setShadowMap(settings.shadow_resolution);
         for (int i = 0; i < scene->ptLights.size(); i++)
             scene->ptLights[i]->setShadowMap(settings.shadow_resolution);
+        for (int i = 0; i < scene->radioLights.size(); i++)
+            scene->radioLights[i]->setShadowMap(settings.shadow_resolution);
     }
     if (settings.shading != stHistory.shading || force_update) {
         flag |= 0x4;
@@ -361,22 +354,27 @@ uint RenderFrame::config(bool force_update) {
     if (settings.shadow_type != stHistory.shadow_type || force_update) {
         flag |= 0x2;
         stHistory.shadow_type = settings.shadow_type;
-        for (uint i = mode1; i <= mode4; i++) {
+        for (uint i = mode1; i <= mode3; i++) {
             if (i == settings.shadow_type) {
                 sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, shadow_type_name[i]);
                 sManager.getShader(SID_SHADOWMAP)->addDef(FSHADER, shadow_type_name[i]);
+                sManager.getShader(SID_OMNISHADOWMAP)->addDef(FSHADER, shadow_type_name[i]);
             }
             else {
                 sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, shadow_type_name[i]);
                 sManager.getShader(SID_SHADOWMAP)->removeDef(FSHADER, shadow_type_name[i]);
+                sManager.getShader(SID_OMNISHADOWMAP)->removeDef(FSHADER, shadow_type_name[i]);
             }
         }
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
         sManager.getShader(SID_SHADOWMAP)->reload();
+        sManager.getShader(SID_OMNISHADOWMAP)->reload();
         for (int i = 0; i < scene->dirLights.size(); i++)
             scene->dirLights[i]->setShadowMapTex(shadow_type_tex_id[settings.shadow_type]);
         for (int i = 0; i < scene->ptLights.size(); i++)
             scene->ptLights[i]->setShadowMapTex(shadow_type_tex_id[settings.shadow_type]);
+        for (int i = 0; i < scene->radioLights.size(); i++)
+            scene->radioLights[i]->setShadowMapTex(shadow_type_tex_id[settings.shadow_type]);
     }
     if (settings.effect_level != stHistory.effect_level || force_update) {
         flag |= 0x40;

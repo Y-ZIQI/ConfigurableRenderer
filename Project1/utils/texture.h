@@ -1,6 +1,6 @@
 #pragma once
 
-#include "defines.h"
+#include "utils.h"
 #include "DDSReader.h"
 
 #include "tex/SearchTex.h"

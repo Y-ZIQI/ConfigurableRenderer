@@ -1,299 +1,49 @@
 #pragma once
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include <nanogui/nanogui.h>
-#include <jsonxx/json.hpp>
-
-#ifndef STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#endif
-#include <stb_image.h>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <string>
-#include <map>
-#include <unordered_map>
-#include <random>
+#include "includes.h"
 
 typedef unsigned int uint;
 typedef unsigned char uchar;
-
+// Math Defines
 #define M_PI                3.1415926536f  // pi
 #define M_2PI               6.2831853072f  // 2pi
 #define M_1_PI              0.3183098862f // 1/pi
-
-GLfloat _max_anisotropy;
-
-#define GBUFFER_TARGETS 7
-
-#define MAX_TARGETS 8
-#define ALL_TARGETS -2
-#define DEPTH_TARGETS -1
-const GLuint _color_attachments[MAX_TARGETS] = {
-    GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3,
-    GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, GL_COLOR_ATTACHMENT6, GL_COLOR_ATTACHMENT7
-};
-const GLfloat _clear_color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-
+// For Gbuffer
+#define GBUFFER_TARGETS         7
+#define MAX_DIRECTIONAL_LIGHT   4
+#define MAX_POINT_LIGHT         15
+#define MAX_RADIOACTIVE_LIGHT   15
+#define MAX_IBL_LIGHT           10
+// For Framebuffer
+#define MAX_TARGETS     8
+#define ALL_TARGETS     -2
+#define DEPTH_TARGETS   -1
+// Shader type
 #define VSHADER 0
 #define FSHADER 1
 #define GSHADER 2
+// Shaders
 #define SID_DEFERRED_BASE           0
-#define SID_DEFERRED_PREPROCESS     1
-#define SID_DEFERRED_SHADING        2
-#define SID_SSAO_FILTER             3
 #define SID_DEFERRED_ENVMAP         4
-#define SID_UPSAMPLING              5
-#define SID_SHADOWMAP               6
-#define SID_SHADOWMAP_FILTER        7
-#define SID_CUBEMAP_RENDER          8
-#define SID_SMAA_EDGEPASS           9
-#define SID_SMAA_BLENDPASS          10
-#define SID_SMAA_NEIGHBORPASS       11
+#define SID_DEFERRED_PREPROCESS     1
+#define SID_SSAO_FILTER             3
+#define SID_DEFERRED_SHADING        2
+#define SID_SSR_TILING              20
 #define SID_SSR_RAYTRACE            12
 #define SID_SSR_RESOLVE             13
 #define SID_SSR_BLUR                14
-#define SID_IBL_PREFILTER           15
 #define SID_BLOOM_BLUR              16
 #define SID_JOIN_EFFECTS            17
-const std::vector<const char*> _shader_paths
-{
-    /* 0*/"shaders/deferred/basePass.vs", "shaders/deferred/basePass.fs", nullptr,
-    /* 1*/"shaders/deferred/preprocess.vs", "shaders/deferred/preprocess.fs", nullptr,
-    /* 2*/"shaders/deferred/shadingPass.vs", "shaders/deferred/shadingPass.fs", nullptr,
-    /* 3*/"shaders/deferred/filter.vs", "shaders/deferred/filter.fs", nullptr,
-    /* 4*/"shaders/envmap/deferred.vs", "shaders/envmap/deferred.fs", nullptr,
-    /* 5*/"shaders/upsampling/main.vs", "shaders/upsampling/main.fs", nullptr,
-    /* 6*/"shaders/shadow/shadow.vs", "shaders/shadow/shadow.fs", nullptr,
-    /* 7*/"shaders/shadow/filter.vs", "shaders/shadow/filter.fs", nullptr,
-    /* 8*/"shaders/omnidirectional/main.vs", "shaders/omnidirectional/main.fs", "shaders/omnidirectional/main.gs",
-    /* 9*/"shaders/smaa/edgeDetection.vs", "shaders/smaa/edgeDetection.fs", nullptr,
-    /*10*/"shaders/smaa/blendCalculation.vs", "shaders/smaa/blendCalculation.fs", nullptr,
-    /*11*/"shaders/smaa/neighborBlending.vs", "shaders/smaa/neighborBlending.fs", nullptr,
-    /*12*/"shaders/ssr/rayTrace.vs", "shaders/ssr/rayTrace.fs", nullptr,
-    /*13*/"shaders/ssr/reuse.vs", "shaders/ssr/reuse.fs", nullptr,
-    /*14*/"shaders/ssr/blur.vs", "shaders/ssr/blur.fs", nullptr,
-    /*15*/"shaders/ibl/prefilter.vs", "shaders/ibl/prefilter.fs", nullptr,
-    /*16*/"shaders/post/blur.vs", "shaders/post/blur.fs", nullptr,
-    /*17*/"shaders/post/join.vs", "shaders/post/join.fs", nullptr
-};
-const std::string _glsl_version = "#version 430 core\n";
-
+#define SID_SMAA_EDGEPASS           9
+#define SID_SMAA_BLENDPASS          10
+#define SID_SMAA_NEIGHBORPASS       11
+#define SID_UPSAMPLING              5
+#define SID_SHADOWMAP               6
+#define SID_SHADOWMAP_FILTER        7
+#define SID_OMNISHADOWMAP           18
+#define SID_OMNISHADOWMAP_FILTER    19
+#define SID_CUBEMAP_RENDER          8
+#define SID_IBL_PREFILTER           15
+// Preloaded Textures
 #define TID_BRDFLUT                 0
 #define TID_SMAA_SEARCHTEX          1
 #define TID_SMAA_AREATEX            2
-const std::vector<const char*> _texture_paths
-{
-    /* 0*/"resources/textures/ibl_brdf_lut.png",
-    /* 1*/"resources/textures/SearchTex.dds",
-    /* 2*/"resources/textures/AreaTexDX10.dds"
-};
-
-const float quadVertices[] = {
-    // positions   // texCoords
-    -1.0f,  1.0f,  0.0f, 1.0f,
-    -1.0f, -1.0f,  0.0f, 0.0f,
-     1.0f, -1.0f,  1.0f, 0.0f,
-
-    -1.0f,  1.0f,  0.0f, 1.0f,
-     1.0f, -1.0f,  1.0f, 0.0f,
-     1.0f,  1.0f,  1.0f, 1.0f
-};
-uint _screen_vao, _screen_vbo;
-void checkScreenVAO() {
-    static bool is_screen_vao_initialized = false;
-    if (!is_screen_vao_initialized) {
-        glGenVertexArrays(1, &_screen_vao);
-        glBindVertexArray(_screen_vao);
-        glGenBuffers(1, &_screen_vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, _screen_vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-        glBindVertexArray(0);
-        is_screen_vao_initialized = true;
-    }
-}
-
-const float _envMapVertices[] = {
-    // -z       
-    -1.0f,  1.0f, -1.0f,
-    -1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    // -x
-    -1.0f, -1.0f,  1.0f,
-    -1.0f, -1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f,  1.0f,
-    -1.0f, -1.0f,  1.0f,
-    // +x
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     // +z
-    -1.0f, -1.0f,  1.0f,
-    -1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f, -1.0f,  1.0f,
-    -1.0f, -1.0f,  1.0f,
-    // +y
-    -1.0f,  1.0f, -1.0f,
-     1.0f,  1.0f, -1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-    -1.0f,  1.0f,  1.0f,
-    -1.0f,  1.0f, -1.0f,
-    // -y
-    -1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f,  1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f,  1.0f,
-     1.0f, -1.0f,  1.0f
-};
-uint _envmap_vao, _envmap_vbo;
-glm::mat4 _capture_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-glm::mat4 _capture_views[] =
-{
-   glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-   glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-   glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-   glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-   glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-   glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-};
-void checkEnvmapVAO() {
-    static bool is_envmap_vao_initialized = false;
-    if (!is_envmap_vao_initialized) {
-        glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-        glGenVertexArrays(1, &_envmap_vao);
-        glBindVertexArray(_envmap_vao);
-        glGenBuffers(1, &_envmap_vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, _envmap_vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(_envMapVertices), &_envMapVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-        glBindVertexArray(0);
-        is_envmap_vao_initialized = true;
-    }
-}
-
-struct TimeRecord {
-    float time = 0.0f, time_last = 0.0f, time_current = 0.0f;
-    void start() {
-        time_current = glfwGetTime();
-    }
-    void stop() {
-        time_last = time_current;
-        time_current = glfwGetTime();
-        time += time_current - time_last;
-    }
-    void clear() {
-        time = time_last = time_current = 0.0f;
-    }
-    float getTime(bool is_clear = true) {
-        float rtime = time;
-        if (is_clear) clear();
-        return rtime;
-    }
-};
-
-GLuint _atomic_buf[2], _atomic_counter_data[8] = { 0 };
-bool is_atomic_buf_vao_initialized = false;
-struct Record {
-    uint triangles;
-    uint draw_calls;
-    uint texture_samples;
-    uint samples[8];
-    GLuint *data;
-    uint id = 0;
-    void clear(bool clear_all = true) {
-        triangles = draw_calls = 0;
-        if (clear_all) {
-            glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf[0]);
-            glClearBufferSubData(GL_ATOMIC_COUNTER_BUFFER, GL_R32UI, 0, 8 * sizeof(GLuint), GL_RED_INTEGER, GL_UNSIGNED_INT, _atomic_counter_data);
-        }
-    }
-    void init() {
-        if (!is_atomic_buf_vao_initialized) {
-            glGenBuffers(2, _atomic_buf);
-            glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, _atomic_buf[0]);
-            glBufferData(GL_ATOMIC_COUNTER_BUFFER, 8 * sizeof(GLuint), NULL, GL_DYNAMIC_COPY);
-            glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, _atomic_buf[0]);
-            glBindBuffer(GL_COPY_WRITE_BUFFER, _atomic_buf[1]);
-            glBufferStorage(GL_COPY_WRITE_BUFFER, 8 * sizeof(GLuint), NULL, GL_MAP_READ_BIT | GL_CLIENT_STORAGE_BIT);
-            is_atomic_buf_vao_initialized = true;
-        }
-        id = 0;
-        clear();
-    }
-    void copy() {
-        glCopyNamedBufferSubData(_atomic_buf[0], _atomic_buf[1], 0, 0, 8 * sizeof(GLuint));
-    }
-    void get() {
-        //glGetNamedBufferSubData(_atomic_buf[1], 0, 8 * sizeof(GLuint), data);
-        glBindBuffer(GL_COPY_WRITE_BUFFER, _atomic_buf[1]);
-        data = (GLuint*)glMapBufferRange(GL_COPY_WRITE_BUFFER, 0, 8 * sizeof(GLuint), GL_MAP_READ_BIT);
-        if (data != NULL) {
-            samples[0] = data[0];
-            samples[1] = data[1];
-            samples[2] = data[2];
-            samples[3] = data[3];
-            samples[4] = data[4];
-            samples[5] = data[5];
-            samples[6] = data[6];
-            samples[7] = data[7];
-            texture_samples = samples[7] * 128 + samples[6] * 64 + samples[5] * 32 + samples[4] * 16 + samples[3] * 8 + samples[2] * 4 + samples[1] * 2 + samples[0];
-        }
-        glUnmapBuffer(GL_COPY_WRITE_BUFFER);
-        //glCopyNamedBufferSubData(_atomic_buf[0], _atomic_buf[1], 0, 0, 8 * sizeof(GLuint));
-    }
-}frame_record;
-
-#define CHECKERROR _checkError(__FILE__, __LINE__);
-void _checkError(std::string file, uint line) {
-    auto a = glGetError();
-    if (a)
-        std::cout << "Error " << a << " in " << file << ", line " << line << std::endl;
-}
-
-void renderScreen() {
-    checkScreenVAO();
-    glDisable(GL_DEPTH_TEST);
-    glBindVertexArray(_screen_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
-    frame_record.triangles += 2;
-    frame_record.draw_calls += 1;
-}
-void renderCube() {
-    checkEnvmapVAO();
-    glEnable(GL_DEPTH_TEST);
-    glBindVertexArray(_envmap_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
-    frame_record.triangles += 12;
-    frame_record.draw_calls += 1;
-}

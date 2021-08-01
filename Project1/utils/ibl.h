@@ -1,6 +1,7 @@
 #pragma once
 
-#include "renderpass.h"
+#include "framebuffer.h"
+#include "shader.h"
 
 Texture* createCubeMapFromTex2D(
 	Texture* tex2D,
@@ -118,16 +119,10 @@ public:
         miplevel = (float)(level - 1);
     }
     void setUniforms(Shader& shader, uint index, uint& tex_index) {
-        char tmp[64];
-        sprintf(tmp, "ibls[%d].intensity", index);
-        shader.setVec3(tmp, intensity);
-        sprintf(tmp, "ibls[%d].position", index);
-        shader.setVec3(tmp, position);
-        sprintf(tmp, "ibls[%d].range", index);
-        shader.setFloat(tmp, range);
-        sprintf(tmp, "ibls[%d].miplevel", index);
-        shader.setFloat(tmp, miplevel);
-        sprintf(tmp, "ibls[%d].prefilterMap", index);
-        shader.setTextureSource(tmp, tex_index++, texCubeFiltered->id, texCubeFiltered->target);
+        shader.setVec3(getStrFormat("ibls[%d].intensity", index), intensity);
+        shader.setVec3(getStrFormat("ibls[%d].position", index), position);
+        shader.setFloat(getStrFormat("ibls[%d].range", index), range);
+        shader.setFloat(getStrFormat("ibls[%d].miplevel", index), miplevel);
+        shader.setTextureSource(getStrFormat("ibls[%d].prefilterMap", index), tex_index++, texCubeFiltered->id, texCubeFiltered->target);
     }
 };

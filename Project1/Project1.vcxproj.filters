@@ -69,6 +69,15 @@
     <ClInclude Include="utils\renderer.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="utils\constants.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\includes.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

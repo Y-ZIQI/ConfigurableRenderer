@@ -76,7 +76,8 @@ void main(){
     for(int i = 0; i < RESOLVE; i++){
         float nroughness = textureOffset(specularTex, TexCoords, offsets[i]).g;
         float r_weight = 1.0 / max(nroughness, 0.1);
-        int num_samples = int(min(nroughness, 0.99) * MAX_SAMPLES) + 1;
+        int num_samples = int(ceil(max(sqrt(roughness) * MAX_SAMPLES, 1.0)));
+        //int num_samples = int(min(sqrt(nroughness), 0.99) * MAX_SAMPLES) + 1;
         ATOMIC_COUNT_INCREMENTS(2 * (num_samples / 4) + 1)
         for(int j = 0; j < num_samples; j++){
             switch(j){
@@ -109,10 +110,9 @@ void main(){
                 hitXY = unpack1to2(_hitXY.a);
                 hitW = _hitW.a; break;
             }
-            hitpos = vec2(hitXY) / vec2(width, height);
-            float hit_weight = max(hitW, 0.5) * r_weight;
             if(hitW > 0.5){
                 ATOMIC_COUNT_INCREMENTS(2)
+                hitpos = vec2(hitXY) / vec2(width, height);
                 texPos = texture(positionTex, hitpos).xyz;
                 H = normalize(normalize(texPos - position) - view);
                 pdf = min(DistributionGGX(max(dot(H, N_mixed), 0.0), a2), 10.0);

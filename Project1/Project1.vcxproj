@@ -156,11 +156,13 @@
     <ClInclude Include="Framework.h" />
     <ClInclude Include="utils\antialiasing.h" />
     <ClInclude Include="utils\camera.h" />
+    <ClInclude Include="utils\constants.h" />
     <ClInclude Include="utils\DDSReader.h" />
     <ClInclude Include="utils\defines.h" />
     <ClInclude Include="utils\framebuffer.h" />
     <ClInclude Include="utils\glfwEnv.h" />
     <ClInclude Include="utils\ibl.h" />
+    <ClInclude Include="utils\includes.h" />
     <ClInclude Include="utils\light.h" />
     <ClInclude Include="utils\mesh.h" />
     <ClInclude Include="utils\model.h" />
@@ -170,6 +172,7 @@
     <ClInclude Include="utils\scene.h" />
     <ClInclude Include="utils\shader.h" />
     <ClInclude Include="utils\texture.h" />
+    <ClInclude Include="utils\utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\include\MyIncludePath\glad.c" />

@@ -13,8 +13,9 @@ public:
     Camera* camera;
     vector<Camera*> cameras;
     vector<Model*> models;
-    vector<PointLight*> ptLights;
     vector<DirectionalLight*> dirLights;
+    vector<PointLight*> ptLights;
+    vector<RadioactiveLight*> radioLights;
     vector<IBL*> light_probes;
     float ssao_range, ssao_bias, ssao_threshold, ssr_threshold;
 
@@ -33,6 +34,7 @@ public:
     void setCamera(Camera* newCamera) { camera = newCamera; };
     void addLight(PointLight* nLight) { ptLights.push_back(nLight); };
     void addLight(DirectionalLight* nLight) { dirLights.push_back(nLight); };
+    void addLight(RadioactiveLight* nLight) { radioLights.push_back(nLight); };
     void addModel(Model* nModel) { models.push_back(nModel); };
     void loadModel(string const& path, const string name) { addModel(new Model(path, name)); };
     void setModelMat(uint idx, glm::mat4 &nMat) {
@@ -79,7 +81,6 @@ public:
     }
     void update(uint gen_shadow = 1, bool filtering = false) {
         camera->update();
-
         const bool cull_front = false;
         if(cull_front) glCullFace(GL_FRONT);
         for (int i = 0; i < dirLights.size(); i++)
@@ -87,37 +88,40 @@ public:
                 dirLights[i]->prepareShadow();
                 DrawMesh(*dirLights[i]->smShader);
                 if (filtering)dirLights[i]->filterShadow();
-                //dirLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->genMipmap();
             }
         for (int i = 0; i < ptLights.size(); i++)
             if (ptLights[i]->update(gen_shadow)) {
                 ptLights[i]->prepareShadow();
                 DrawMesh(*ptLights[i]->smShader);
                 if (filtering)ptLights[i]->filterShadow();
-                //ptLights[i]->shadowMap->smBuffer->colorAttachs[0].texture->genMipmap();
+            }
+        for (int i = 0; i < radioLights.size(); i++)
+            if (radioLights[i]->update(gen_shadow)) {
+                radioLights[i]->prepareShadow();
+                DrawMesh(*radioLights[i]->smShader);
+                if (filtering)radioLights[i]->filterShadow();
             }
         if (cull_front) glCullFace(GL_BACK);
     }
     void setLightUniforms(Shader& shader, bool eval_ibl = true) {
         shader.setInt("dirLtCount", dirLights.size());
         shader.setInt("ptLtCount", ptLights.size());
+        shader.setInt("radioLtCount", radioLights.size());
         uint t_index = GBUFFER_TARGETS;
         for (uint i = 0; i < dirLights.size(); i++)
             dirLights[i]->setUniforms(shader, i, t_index);
         for (uint i = 0; i < ptLights.size(); i++)
             ptLights[i]->setUniforms(shader, i, t_index);
+        for (uint i = 0; i < radioLights.size(); i++)
+            radioLights[i]->setUniforms(shader, i, t_index);
+        /* All samplerCube must be initialized, or some errors occured */
+        for (uint i = radioLights.size(); i < MAX_RADIOACTIVE_LIGHT; i++) {
+            if(i == radioLights.size()) shader.setTextureSource(getStrFormat("radioLights[%d].shadowMap", i), t_index, 0, GL_TEXTURE_CUBE_MAP);
+            else shader.setInt(getStrFormat("radioLights[%d].shadowMap", i), t_index);
+        }
+        /***************************************************************/
 
         if (eval_ibl) {
-            /* All samplerCube must be initialized, or some errors occured */
-            shader.setTextureSource("ibls[0].prefilterMap", t_index, 0, GL_TEXTURE_CUBE_MAP);
-            shader.setInt("ibls[1].prefilterMap", t_index);
-            shader.setInt("ibls[2].prefilterMap", t_index);
-            shader.setInt("ibls[3].prefilterMap", t_index);
-            shader.setInt("ibls[4].prefilterMap", t_index);
-            shader.setInt("ibls[5].prefilterMap", t_index);
-            shader.setInt("ibls[6].prefilterMap", t_index);
-            shader.setInt("ibls[7].prefilterMap", t_index);
-            /***************************************************************/
             uint lp_count = 0;
             shader.setTextureSource("brdfLUT", t_index++, tManager.getTex(TID_BRDFLUT)->id, tManager.getTex(TID_BRDFLUT)->target);
             for (uint i = 0; i < light_probes.size(); i++) {
@@ -127,6 +131,12 @@ public:
                 }
             }
             shader.setInt("iblCount", lp_count);
+            /* All samplerCube must be initialized, or some errors occured */
+            for (uint i = lp_count; i < MAX_IBL_LIGHT; i++) {
+                if(i == lp_count) shader.setTextureSource(getStrFormat("ibls[%d].prefilterMap", i), t_index, 0, GL_TEXTURE_CUBE_MAP);
+                else shader.setInt(getStrFormat("ibls[%d].prefilterMap", i), t_index);
+            }
+            /***************************************************************/
         }
     }
     void setCameraUniforms(Shader& shader, bool remove_trans = false) {
@@ -226,13 +236,13 @@ public:
             std::string name = lights[i]["name"].as_string();
             std::string type = lights[i]["type"].as_string();
             auto intensity = lights[i]["intensity"].as_array();
-            auto direction = lights[i]["direction"].as_array();
             auto pos = lights[i]["pos"].as_array();
             float ambient = lights[i]["ambient"].as_float();
             float light_size = lights[i]["light_size"].as_float();
             auto shadow = lights[i]["shadow"];
             bool shadow_enable = shadow["enable"].as_bool();
             if (type == "dir_light") {
+                auto direction = lights[i]["direction"].as_array();
                 DirectionalLight* nLight = new DirectionalLight(
                     name,
                     glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
@@ -249,9 +259,11 @@ public:
                 addLight(nLight);
             }
             else if (type == "point_light") {
+                auto direction = lights[i]["direction"].as_array();
                 float range = lights[i]["range"].as_float();
                 float opening_angle = lights[i]["opening_angle"].as_float();
                 float penumbra_angle = lights[i]["penumbra_angle"].as_float();
+
                 PointLight* nLight = new PointLight(
                     name,
                     glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
@@ -264,6 +276,21 @@ public:
                     float nearz = shadow["nearz"].as_float();
                     float farz = shadow["farz"].as_float();
                     nLight->enableShadow(fovy, nearz, farz, { 512, 1024, 2048 });
+                }
+                addLight(nLight);
+            }
+            else if (type == "radio_light") {
+                float range = lights[i]["range"].as_float();
+                RadioactiveLight *nLight = new RadioactiveLight(
+                    name,
+                    glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
+                    glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
+                    ambient, range, light_size
+                );
+                if (shadow_enable) {
+                    float nearz = shadow["nearz"].as_float();
+                    float farz = shadow["farz"].as_float();
+                    nLight->enableShadow(nearz, farz, { 256, 512, 1024 });
                 }
                 addLight(nLight);
             }
@@ -299,6 +326,7 @@ public:
             sceneWindow->setVisible(!sceneWindow->visible());
         })->setIcon(ENTYPO_ICON_MENU);
         sceneWindow = gui->addWindow(Eigen::Vector2i(250, 0), name);
+        sceneWindow->setWidth(250);
         sceneWindow->setVisible(false);
         gui->addGroup("Models");
         for (uint i = 0; i < models.size(); i++)
@@ -308,6 +336,8 @@ public:
             dirLights[i]->addGui(gui, sceneWindow);
         for (uint i = 0; i < ptLights.size(); i++)
             ptLights[i]->addGui(gui, sceneWindow);
+        for (uint i = 0; i < radioLights.size(); i++)
+            radioLights[i]->addGui(gui, sceneWindow);
         gui->addGroup("Camera");
         camera->addGui(gui, sceneWindow);
         gui->addGroup("Close");

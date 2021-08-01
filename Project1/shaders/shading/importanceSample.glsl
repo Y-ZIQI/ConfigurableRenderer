@@ -38,7 +38,7 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
     return normalize(sampleVec);
 }
 
-/* N = mix(N', N, roughness), this functino returns H*/
+/* N = mix(N', N, roughness), this function returns H*/
 vec3 visibleImportanceSampling(vec2 Xi, mat3 TBN, float roughness, out float pdf){
     float a = max(0.0064, roughness*roughness);
 

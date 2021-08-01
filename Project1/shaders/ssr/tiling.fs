@@ -2,14 +2,8 @@
 //++`shaders/shading/importanceSample.glsl`
 //++`shaders/shading/noise.glsl`
 
-#ifndef SSR_LEVEL
-#define SSR_LEVEL 2
-#endif
-
-layout (location = 0) out uvec4 hitPt1234;
-layout (location = 1) out uvec4 hitPt5678;
-layout (location = 2) out vec4 weight1234;
-layout (location = 3) out vec4 weight5678;
+//out float rayAmount;
+out vec3 outColor;
 
 in vec2 TexCoords;
 
@@ -17,33 +11,20 @@ uniform vec3 camera_pos;
 uniform vec4 camera_params;
 uniform mat4 camera_vp;
 
-uniform int width;
-uniform int height;
 uniform float threshold;
 
-uniform sampler2D rayamountTex;
+uniform sampler2D albedoTex;
 uniform sampler2D specularTex;
 uniform sampler2D positionTex;
 uniform sampler2D normalTex;
-uniform sampler2D depthTex;
 uniform sampler2D lineardepthTex;
+uniform sampler2D colorTex;
 
-#if SSR_LEVEL == 1
-#define MAX_SAMPLES 6
-const float init_steps[] = {
-    5, 10, 30, 50, 70, 90, 110, 130, 160, 200
-};
-#else // SSR_LEVEL == 2
+#define MAX_AMOUNT 8
 #define MAX_SAMPLES 8
 const float init_steps[] = {
-    5, 10, 20, 30, 40, 50, 60, 70, 80, 100
+    1, 1, 2, 3, 4, 5, 6, 7, 8, 10
 };
-#endif
-
-/*const float thresholds[] = {
-    0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0
-};*/
-//#define ELONGATION 2.0
 
 uniform vec2 samples[MAX_SAMPLES];
 mat3 rotateM;
@@ -52,6 +33,11 @@ float Linearize(float depth)
 {
     float z = depth * 2.0 - 1.0;
     return 2.0 / (camera_params.z - z * camera_params.w);    
+}
+
+vec3 fresnelSchlick(vec3 f0, vec3 f90, float u)
+{
+    return f0 + (f90 - f0) * pow(1 - u, 5);
 }
 
 // From world pos to [screen.xy, depth]
@@ -101,21 +87,17 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 h
     return dist_w;
 }
 
-uint pack2to1(uvec2 uv){
-    return ((uv.x << 16) & (0xffff0000u)) | (uv.y & 0x0000ffffu);
-}
-
 void main(){
     vec3 normal = texture(normalTex, TexCoords).rgb;
-    weight1234 = vec4(0.0);
-    weight5678 = vec4(0.0);
     if(dot(normal, normal) == 0.0){
+        //rayAmount = 0.0;
+        outColor = vec3(0.0);
         return;
     }
     vec3 position = texture(positionTex, TexCoords).xyz;
     vec3 specular = texture(specularTex, TexCoords).rgb;
     vec3 view = normalize(position - camera_pos);
-    float roughness = specular.g;
+    float roughness = specular.g, ggxAlpha = max(0.0064, roughness * roughness), a2 = ggxAlpha * ggxAlpha;
     vec3 planeN = cross(normal, -view); // normal of incidence plane
     vec3 planeV = normalize(cross(planeN, normal)); // Vector of incidence plane
     vec3 N_revised = normalize(normalize(-view + planeV) + normalize(-view - planeV));
@@ -135,44 +117,35 @@ void main(){
     TBN = TBN * rotateM;
 
     int level = int(roughness * 9.9);
-    float init_step = init_steps[level] / 1000.0, pdf;
-    float rayAmount = max(texture(rayamountTex, TexCoords).r - 0.02, 0.0);
-    int num_samples = int(ceil(max(sqrt(roughness) * MAX_SAMPLES, 1.0) * rayAmount));
+    float init_step = init_steps[level] / 100.0, pdf;
+    int num_samples = int(ceil(max(sqrt(roughness) * MAX_SAMPLES, 1.0)));
     //int num_samples = int(min(roughness, 0.99) * MAX_SAMPLES) + 1;
     vec2 hitpos;
     vec3 texPos = getScreenUV(position);
+
+    float weight_sum = 0.0;
+    vec3 reflect_color = vec3(0.0);
     for(int i = 0; i < num_samples; i++){
         vec2 nXi = samples[i];
         nXi.x += move;
         vec3 H = visibleImportanceSampling(nXi, TBN, roughness, pdf);
-        #ifdef ELONGATION
-        float vertical = dot(planeV, H);
-        vec3 Hvertical = planeV * vertical;
-        H = normalize(H + (ELONGATION - 1.0) * Hvertical);
-        #endif
         vec3 refv = reflect(view, H);
         vec3 texDir = getScreenUV(position + refv * 0.1) - texPos;
         texDir *= 1.0 / length(vec2(texDir.xy));
         float inter = rayTrace_screenspace(texPos, texDir, init_step, hitpos);
-        uvec2 hitXY = uvec2(vec2(width, height) * hitpos);
-        uint packXY = pack2to1(hitXY);
-        switch(i){
-        case 0: hitPt1234.r = packXY; weight1234.r = inter; break;
-        case 1: hitPt1234.g = packXY; weight1234.g = inter; break;
-        case 2: hitPt1234.b = packXY; weight1234.b = inter; break;
-        case 3: hitPt1234.a = packXY; weight1234.a = inter; break;
-        case 4: hitPt5678.r = packXY; weight5678.r = inter; break;
-        case 5: hitPt5678.g = packXY; weight5678.g = inter; break;
-        case 6: hitPt5678.b = packXY; weight5678.b = inter; break;
-        case 7: hitPt5678.a = packXY; weight5678.a = inter; break;
-        }
+        reflect_color += texture(colorTex, hitpos).rgb * inter;
     }
+
+    vec3 albedo = texture(albedoTex, TexCoords).xyz;
+    vec3 diffTerm = mix(albedo.rgb, vec3(0), specular.b);
+    vec3 specTerm = mix(vec3(0.04), albedo, specular.b);
+    float NdotV = max(dot(normal, -view), 0.0), G = NdotV / (NdotV * (1.0 - ggxAlpha) + ggxAlpha);
+    vec3 reflectTerm = diffTerm + fresnelSchlick(specTerm, vec3(1.0), NdotV) * G;
+    
+    reflect_color *= reflectTerm * M_1_PI / float(num_samples);
+    vec3 color = texture(colorTex, TexCoords).rgb;
+    float weight = min(length(reflect_color) / max(length(color), 0.01), 1.0);
+    outColor = vec3(weight, 0.0, 0.0);
     ATOMIC_COUNT_INCREMENTS(3)
     ATOMIC_COUNT_CALCULATE
 }
-
-                /*vec3 backPos = texPos - one_step * d2 / (abs(d1) + d2);
-                linearz = Linearize(backPos.z);
-                lineard = texture(lineardepthTex, hitPos).r;
-                if(abs(linearz - lineard) > d2) hitPos = texPos.xy;
-                else hitPos = backPos.xy;*/

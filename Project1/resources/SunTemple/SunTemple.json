@@ -200,7 +200,7 @@
                 -4.959444999694824
             ],
             "ambient": 0.01,
-            "light_size": 1.0,
+            "light_size": 0.6,
             "shadow": {
                 "enable": true,
                 "rangeX": 40.0,
@@ -210,7 +210,7 @@
         },
         {
             "name": "FirePitBackHall1",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -221,26 +221,18 @@
                 2.450000047683716,
                 70.8550033569336
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitBackHall2",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -251,26 +243,18 @@
                 2.450000047683716,
                 70.8550033569336
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitBackHall3",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -281,21 +265,13 @@
                 2.450000047683716,
                 50.80758285522461
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
@@ -320,17 +296,17 @@
             "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.003,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
+                "fovy": 120.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitBackHallEntrance1",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -341,26 +317,18 @@
                 2.450000047683716,
                 43.18354034423828
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitBackHallEntrance2",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -371,26 +339,18 @@
                 2.450000047683716,
                 43.288002014160159
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitMiddleRoomStatue",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -401,26 +361,18 @@
                 2.450000047683716,
                 28.55856704711914
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitMiddleRoom1",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -431,26 +383,18 @@
                 4.4150004386901859,
                 18.061458587646486
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitFront1",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -461,26 +405,18 @@
                 4.414999961853027,
                 -2.1510772705078127
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitFront2",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -491,26 +427,18 @@
                 4.414999961853027,
                 -7.972902297973633
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitFront3",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -526,21 +454,18 @@
                 -1.0,
                 0.0
             ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FirePitFront4",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.23529411852359773,
@@ -551,26 +476,18 @@
                 4.414999961853027,
                 7.863924026489258
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         },
         {
             "name": "FireBowlMiddleRoomStatue",
-            "type": "point_light",
+            "type": "radio_light",
             "intensity": [
                 1.0,
                 0.0784313753247261,
@@ -581,21 +498,13 @@
                 1.624000072479248,
                 31.539669036865236
             ],
-            "direction": [
-                0.0,
-                -1.0,
-                0.0
-            ],
-            "opening_angle": 180.0,
-            "penumbra_angle": 0.0,
             "ambient": 0.0,
             "range": 20.0,
-            "light_size": 0.3,
+            "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "fovy": 150.0,
                 "nearz": 0.01,
-                "farz": 10.0
+                "farz": 20.0
             }
         }
     ],

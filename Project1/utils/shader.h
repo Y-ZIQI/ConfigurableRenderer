@@ -1,6 +1,6 @@
 #pragma once
 
-#include "defines.h"
+#include "utils.h"
 
 class DefineList : public std::map<std::string, std::string>
 {
@@ -55,15 +55,11 @@ public:
         UniformType type;
         void* value;
     };
-    mutable std::unordered_map<std::string, GLint> uLocations;
     mutable std::unordered_map<std::string, UniformBuffer> uBuffers;
-    mutable std::vector<uchar> uUniforms;
 
     Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr)
     {
         uBuffers.clear();
-        uLocations.clear();
-        uUniforms.resize(2048);
         has_gshader = geometryPath ? true : false;
         if (has_gshader) {
             paths.resize(3);
@@ -159,7 +155,6 @@ public:
     }
     void reload() {
         uBuffers.clear();
-        uLocations.clear();
         readFile(vertexCode, paths[VSHADER].c_str());
         readFile(fragmentCode, paths[FSHADER].c_str());
         vertDefs = defs[VSHADER].toDefineString();
@@ -221,12 +216,6 @@ public:
     }
     // utility uniform functions
     // ------------------------------------------------------------------------
-    GLint getUniformLocation(const std::string& name) const {
-        if (uLocations.find(name) != uLocations.end())
-            return uLocations[name];
-        uLocations[name] = glGetUniformLocation(ID, name.c_str());
-        return uLocations[name];
-    }
     UniformBuffer& getUniform(const std::string& name) const {
         if(uBuffers.find(name) != uBuffers.end())
             return uBuffers[name];
@@ -234,11 +223,6 @@ public:
         return uBuffers[name];
     }
     void setBool(const std::string& name, bool value) const{
-        /*GLuint location = getUniformLocation(name);
-        if (*((bool*)&uUniforms[location]) != value) {
-            glUniform1i(location, (int)value);
-            *((bool*)&uUniforms[location]) = value;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Bool)
             uniform.value = new bool;
@@ -249,12 +233,6 @@ public:
         glUniform1i(uniform.location, (int)value);
     }
     void setInt(const std::string& name, int value) const{
-        //glUniform1i(getUniformLocation(name), value);
-        /*GLuint location = getUniformLocation(name);
-        if (*((int*)&uUniforms[location]) != value) {
-            glUniform1i(location, (int)value);
-            *((int*)&uUniforms[location]) = value;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Int)
             uniform.value = new int;
@@ -265,12 +243,6 @@ public:
         glUniform1i(uniform.location, value);
     }
     void setFloat(const std::string& name, float value) const{
-        //glUniform1f(getUniformLocation(name), value);
-        /*GLuint location = getUniformLocation(name);
-        if (*((float*)&uUniforms[location]) != value) {
-            glUniform1f(location, (float)value);
-            *((float*)&uUniforms[location]) = value;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Float)
             uniform.value = new float;
@@ -281,12 +253,6 @@ public:
         glUniform1f(uniform.location, value);
     }
     void setVec2(const std::string& name, const glm::vec2& value) const{
-        //glUniform2fv(getUniformLocation(name), 1, &value[0]);
-        /*GLuint location = getUniformLocation(name);
-        if (*((glm::vec2*)&uUniforms[location]) != value) {
-            glUniform2fv(location, 1, &value[0]);
-            *((glm::vec2*)&uUniforms[location]) = value;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Vec2)
             uniform.value = new glm::vec2;
@@ -296,16 +262,7 @@ public:
         *((glm::vec2*)uniform.value) = value;
         glUniform2fv(uniform.location, 1, &value[0]);
     }
-    void setVec2(const std::string& name, float x, float y) const{
-        glUniform2f(getUniformLocation(name), x, y);
-    }
     void setVec3(const std::string& name, const glm::vec3& value) const{
-        //glUniform3fv(getUniformLocation(name), 1, &value[0]);
-        /*GLuint location = getUniformLocation(name);
-        if (*((glm::vec3*)&uUniforms[location]) != value) {
-            glUniform3fv(location, 1, &value[0]);
-            *((glm::vec3*)&uUniforms[location]) = value;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Vec3)
             uniform.value = new glm::vec3;
@@ -315,16 +272,7 @@ public:
         *((glm::vec3*)uniform.value) = value;
         glUniform3fv(uniform.location, 1, &value[0]);
     }
-    void setVec3(const std::string& name, float x, float y, float z) const{
-        glUniform3f(getUniformLocation(name), x, y, z);
-    }
     void setVec4(const std::string& name, const glm::vec4& value) const{
-        //glUniform4fv(getUniformLocation(name), 1, &value[0]);
-        /*GLuint location = getUniformLocation(name);
-        if (*((glm::vec4*)&uUniforms[location]) != value) {
-            glUniform4fv(location, 1, &value[0]);
-            *((glm::vec4*)&uUniforms[location]) = value;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Vec4)
             uniform.value = new glm::vec4;
@@ -334,16 +282,7 @@ public:
         *((glm::vec4*)uniform.value) = value;
         glUniform4fv(uniform.location, 1, &value[0]);
     }
-    void setVec4(const std::string& name, float x, float y, float z, float w){
-        glUniform4f(getUniformLocation(name), x, y, z, w);
-    }
     void setMat2(const std::string& name, const glm::mat2& mat) const{
-        //glUniformMatrix2fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
-        /*GLuint location = getUniformLocation(name);
-        if (*((glm::mat2*)&uUniforms[location]) != mat) {
-            glUniformMatrix2fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
-            *((glm::mat2*)&uUniforms[location]) = mat;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Mat2)
             uniform.value = new glm::mat2;
@@ -354,12 +293,6 @@ public:
         glUniformMatrix2fv(uniform.location, 1, GL_FALSE, &mat[0][0]);
     }
     void setMat3(const std::string& name, const glm::mat3& mat) const{
-        //glUniformMatrix3fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
-        /*GLuint location = getUniformLocation(name);
-        if (*((glm::mat3*)&uUniforms[location]) != mat) {
-            glUniformMatrix3fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
-            *((glm::mat3*)&uUniforms[location]) = mat;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Mat3)
             uniform.value = new glm::mat3;
@@ -370,12 +303,6 @@ public:
         glUniformMatrix3fv(uniform.location, 1, GL_FALSE, &mat[0][0]);
     }
     void setMat4(const std::string& name, const glm::mat4& mat) const{
-        //glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
-        /*GLuint location = getUniformLocation(name);
-        if (*((glm::mat4*)&uUniforms[location]) != mat) {
-            glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
-            *((glm::mat4*)&uUniforms[location]) = mat;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Mat4)
             uniform.value = new glm::mat4;
@@ -389,12 +316,6 @@ public:
         glActiveTexture(GL_TEXTURE0 + index);
         glBindTexture(target, texture_id);
         glActiveTexture(GL_TEXTURE0);
-        //glUniform1i(getUniformLocation(name), index);
-        /*GLuint location = getUniformLocation(name);
-        if (*((int*)&uUniforms[location]) != index) {
-            glUniform1i(location, (int)index);
-            *((int*)&uUniforms[location]) = index;
-        }*/
         UniformBuffer& uniform = getUniform(name);
         if (uniform.type != UniformType::Texture)
             uniform.value = new int;
@@ -422,9 +343,6 @@ public:
         status.resize(shader_amount);
         for (uint i = 0; i < shader_amount; i++) {
             shaders[i] = new Shader(_shader_paths[i * 3], _shader_paths[i * 3 + 1], _shader_paths[i * 3 + 2]);
-            //shaders[i]->setDefineList(VSHADER, DefineList(_shader_defs[i * 3]));
-            //shaders[i]->setDefineList(FSHADER, DefineList(_shader_defs[i * 3 + 1]));
-            //shaders[i]->setDefineList(GSHADER, DefineList(_shader_defs[i * 3 + 2]));
             status[i] = Status::Loaded;
         }
     }
