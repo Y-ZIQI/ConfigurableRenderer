@@ -89,7 +89,6 @@ struct IBL{
     samplerCube prefilterMap;
 };
 uniform IBL ibls[MAX_IBL_LIGHT];
-float center_distance[MAX_IBL_LIGHT];
 
 /********************************************Config********************************************/
 // Shadow map related variables
@@ -440,12 +439,13 @@ vec3 fixDirection(vec3 L, vec3 R, float range2){
     return normalize(L + a * R);
 }
 
-vec3 evalIBL(int index, ShadingData sd, float weight){
-    if(center_distance[index] >= 1.0)
-        return vec3(0.0);
+vec3 evalIBL(int index, ShadingData sd){
     vec3 L = sd.posW - ibls[index].position;
     float r2 = ibls[index].range * ibls[index].range;
-    vec3 intensity = ibls[index].intensity * (1.0 - center_distance[index]) * weight;
+    float center_dist = dot(L, L) / r2;
+    if(center_dist >= 1.0)
+        return vec3(0.0);
+    vec3 intensity = ibls[index].intensity * (1.0 - center_dist);
     vec3 fixN = fixDirection(L, sd.N, r2);
     vec3 irradiance = textureLod(ibls[index].prefilterMap, fixN, ibls[index].miplevel).rgb;
     #ifdef IBL_GAMMACORRECTION
@@ -462,6 +462,10 @@ vec3 evalIBL(int index, ShadingData sd, float weight){
     vec3 specular = prefilteredColor * (sd.kS * envBRDF.x + envBRDF.y);
     ATOMIC_COUNT_INCREMENTS(3)
     return (diffuse + specular) * intensity/* * sd.ao*/;
+}
+
+float IBLweight(vec3 ray, float range){
+    return dot(ray, ray) * log(range) / range;
 }
 
 vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, vec3 position, float linearDepth, float ao){
@@ -511,36 +515,51 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
     }
     #ifdef EVAL_IBL
     count = min(iblCount, MAX_IBL_LIGHT);
-    if(count > 0){
-        int min1 = 0, min2 = 0;
-        for (int i = 0; i < count; i++){
-            vec3 L = sd.posW - ibls[i].position;
-            float r2 = ibls[i].range * ibls[i].range;
-            center_distance[i] = dot(L, L) / r2;
-            if(center_distance[i] < center_distance[min1])
-                min1 = i;
-        }
-        if(count == 1)
-            color += evalIBL(min1, sd, 1.0); 
-        else{
-            min2 = min1 == 0? 1:0;
-            for(int i = 1; i < min1; i++){
-                if(center_distance[i] < center_distance[min2])
-                    min2 = i;
+    switch(count){
+    case 0: break;
+    case 1: 
+        color += evalIBL(0, sd); 
+        break;
+    case 2: 
+        vec3 L = sd.posW - ibls[0].position;
+        float dist1 = IBLweight(L, ibls[0].range);
+        L = sd.posW - ibls[1].position;
+        float dist2 = IBLweight(L, ibls[1].range);
+        float d_sum = 1.0 / (dist1 + dist2);
+        color += evalIBL(0, sd) * dist2 * d_sum; 
+        color += evalIBL(1, sd) * dist1 * d_sum; 
+        break;
+    default:
+        int min1 = 0, min2 = 1;
+        L = sd.posW - ibls[0].position;
+        dist1 = IBLweight(L, ibls[0].range);
+        L = sd.posW - ibls[1].position;
+        dist2 = IBLweight(L, ibls[1].range);
+        for (int i = 2; i < count; i++){
+            L = sd.posW - ibls[i].position;
+            float ndist = IBLweight(L, ibls[i].range);
+            if(ndist < dist1){
+                if(dist1 < dist2){
+                    dist2 = ndist;
+                    min2 = i;                    
+                }else{
+                    dist1 = ndist;
+                    min1 = i;                    
+                }
+            }else if(ndist < dist2){
+                dist2 = ndist;
+                min2 = i;                
             }
-            for(int i = min1 + 1; i < count; i++){
-                if(center_distance[i] < center_distance[min2])
-                    min2 = i;
-            }
-            float weight1 = center_distance[min2] / (center_distance[min1] + center_distance[min2]);
-            float weight2 = center_distance[min1] / (center_distance[min1] + center_distance[min2]);
-            color += evalIBL(min1, sd, weight1); 
-            color += evalIBL(min2, sd, weight2); 
         }
+        d_sum = 1.0 / (dist1 + dist2);
+        //color = vec3(float(min1) / 10.0, float(min2) / 10.0, 0.0);
+        color += evalIBL(min1, sd) * dist2 * d_sum; 
+        color += evalIBL(min2, sd) * dist1 * d_sum; 
+        break;
     }
     #endif
-    color += emissColor;
     //color += emissColor;
+    color += emissColor;
     return color * sd.ao;
 }
 //sd.metallic = specColor.b;
