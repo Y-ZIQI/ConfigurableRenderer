@@ -17,7 +17,7 @@ void main()
     hdrColor += texture(colorTex, TexCoords).rgb;
     if(join) {
         ATOMIC_COUNT_INCREMENT
-        if(substract) hdrColor += texture(joinTex, TexCoords).rgb * 0.2;
+        if(substract) hdrColor += texture(joinTex, TexCoords).rgb * 0.3;
         else hdrColor += texture(joinTex, TexCoords).rgb;
     }
     

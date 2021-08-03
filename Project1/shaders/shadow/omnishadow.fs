@@ -6,7 +6,7 @@ out vec4 depth;
 in vec4 FragPos;
 
 const float posi_c = 40.0;
-const float nega_c = 5.0;
+const float nega_c = 40.0;
 
 void main(){
     float z = 0.5 * FragPos.z / FragPos.w + 0.5;

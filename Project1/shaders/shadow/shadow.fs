@@ -5,7 +5,7 @@
 out vec4 depth;
 
 const float posi_c = 40.0;
-const float nega_c = 5.0;
+const float nega_c = 40.0;
 
 void main(){
     /*depth.r = gl_FragCoord.z; // VSM

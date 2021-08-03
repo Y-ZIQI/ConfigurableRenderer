@@ -8,7 +8,7 @@ typedef unsigned char uchar;
 #define M_2PI               6.2831853072f  // 2pi
 #define M_1_PI              0.3183098862f // 1/pi
 // For Gbuffer
-#define GBUFFER_TARGETS         7
+#define GBUFFER_TARGETS         8
 #define MAX_DIRECTIONAL_LIGHT   4
 #define MAX_POINT_LIGHT         15
 #define MAX_RADIOACTIVE_LIGHT   15

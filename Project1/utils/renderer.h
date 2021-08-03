@@ -50,13 +50,7 @@ public:
         gBuffer1->attachDepthTarget(Texture::create(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_LINEAR));
         gBuffer2 = new FrameBuffer;
         gBuffer2->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 0);
-        Texture* ntex = Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT, GL_NEAREST);
-        /*ntex->setTexParami(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-        ntex->setTexParami(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        ntex->setTexParami(GL_TEXTURE_REDUCTION_MODE_ARB, GL_MAX);
-        ntex->setTexParami(GL_TEXTURE_BASE_LEVEL, 0);
-        ntex->setTexParami(GL_TEXTURE_MAX_LEVEL, 4);*/
-        gBuffer2->attachColorTarget(ntex, 1);
+        gBuffer2->attachColorTarget(Texture::create(width, height, GL_R32F, GL_RED, GL_FLOAT, GL_NEAREST), 1);
         gBuffer2->attachColorTarget(Texture::create(width, height, GL_R16F, GL_RED, GL_FLOAT), 2);
         aoBuffer = new FrameBuffer;
         aoBuffer->attachColorTarget(Texture::create(width, height, GL_R16F, GL_RED, GL_FLOAT), 0);
@@ -123,7 +117,6 @@ public:
         preShader->setTextureSource("depthTex", 3, gBuffer1->depthAttach.texture->id);
         gBuffer2->prepare();
         renderScreen();
-        //gBuffer2->colorAttachs[1].texture->genMipmap();
 
         if (ssao) {
             ssaoblurShader->use();
@@ -139,6 +132,7 @@ public:
         }
     }
     void renderShading(Scene& scene) {
+        glViewport(0, 0, width, height);
         shadingShader->use();
         scene.setCameraUniforms(*shadingShader);
         scene.setLightUniforms(*shadingShader, ibl != 0);

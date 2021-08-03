@@ -127,7 +127,7 @@ private:
     * 2: Bistro Interior
     * 3: SunTemple
     */
-    uint test_scene = 1;
+    uint test_scene = 3;
     float fps, duration;
     TimeRecord record[2]; // All, SMAA+resolve
     float time_ratio[5]; // Shadow, Draw, AO, Shading, Post

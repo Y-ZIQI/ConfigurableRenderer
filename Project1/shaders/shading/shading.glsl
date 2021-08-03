@@ -97,7 +97,9 @@ uniform IBL ibls[MAX_IBL_LIGHT];
 //#define SHADOW_SOFT_EVSM
 #define SM_ESM_LOD 2
 #define SM_PCF_FILTER 0.002
+#define NUM_BLOCKER_SAMPLES 20
 #define NUM_SAMPLES 40
+#define NUM_DIR_SAMPLES 40
 #define NUM_PT_SAMPLES 10
 
 #define EPS 1e-5
@@ -110,8 +112,31 @@ uniform IBL ibls[MAX_IBL_LIGHT];
 #ifndef SHADING_MODEL
 #define SHADING_MODEL 1
 #endif
-/***************************************Shadow Making******************************************/
 
+uniform vec2 samples[NUM_SAMPLES];
+vec2 rot_samples[NUM_SAMPLES];
+
+void setRandomRotate(vec2 uv){
+    float angle = random(uv) * M_2PI;
+    mat2 rotateM = mat2(
+        cos(angle), sin(angle),
+        -sin(angle), cos(angle)
+    );
+    for(int i = 0; i < NUM_SAMPLES; i++){
+        rot_samples[i] = rotateM * samples[i];
+    }
+}
+
+/***************************************Shadow Making******************************************/
+const float posi_c = 40.0;
+const float nega_c = 40.0;
+#ifdef SHADOW_SOFT_EVSM
+const float remap_m = 0.4;
+#elif defined(SHADOW_SOFT_PCSS)
+const float remap_m = 0.1;
+#else
+const float remap_m = 0.0;
+#endif
 float Linearize(float depth, float inv_n, float inv_f)
 {
     float z = depth * 2.0 - 1.0;
@@ -122,7 +147,6 @@ float invLinearize(float depth, float inv_n, float inv_f)
     float d = (-2.0 / depth + inv_n + inv_f) / (inv_n - inv_f);
     return d * 0.5 + 0.5;    
 }
-
 bool posFromLight(mat4 viewProj, vec3 position, out vec3 ndc){
     vec4 fromLight = viewProj * vec4(position, 1.0);
     ndc = fromLight.xyz / fromLight.w;
@@ -132,8 +156,16 @@ bool posFromLight(mat4 viewProj, vec3 position, out vec3 ndc){
     ndc = ndc * 0.5 + 0.5;
     return true;
 }
-const float posi_c = 40.0;
-const float nega_c = 5.0;
+vec3 dirOffset(vec3 dir, vec2 uv){
+    vec3 absdir = abs(dir);
+    if(absdir.x > absdir.y)
+        if(absdir.x > absdir.z) return dir + vec3(0.0, uv);
+        else return dir + vec3(uv, 0.0);
+    else
+        if(absdir.y > absdir.z) return dir + vec3(uv.x, 0.0, uv.y);
+        else return dir + vec3(uv, 0.0);
+}
+
 float EVSM_dir_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
@@ -145,7 +177,7 @@ float EVSM_dir_visible(int index, vec3 position, float bias){
     float e2 = e.g - e.r * e.r, _e2 = e.a - e.b * e.b;
     float max1 = e2 / (e2 + (expz - e.r) * (expz - e.r));
     float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
-    return min(max1, max2);
+    return max(min(max1, max2) - remap_m, 0.0) / (1.0 - remap_m);
 }
 float EVSM_pt_visible(int index, vec3 position, float bias){
     vec3 ndc;
@@ -158,7 +190,7 @@ float EVSM_pt_visible(int index, vec3 position, float bias){
     float e2 = e.g - e.r * e.r, _e2 = e.a - e.b * e.b;
     float max1 = e2 / (e2 + (expz - e.r) * (expz - e.r));
     float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
-    return min(max1, max2);
+    return max(min(max1, max2) - remap_m, 0.0) / (1.0 - remap_m);
 }
 float EVSM_radio_visible(int index, vec3 L, float bias){
     vec3 absl = abs(L);
@@ -173,30 +205,16 @@ float EVSM_radio_visible(int index, vec3 L, float bias){
     float e2 = e.g - e.r * e.r, _e2 = e.a - e.b * e.b;
     float max1 = e2 / (e2 + (expz - e.r) * (expz - e.r));
     float max2 = _e2 / (_e2 + (_expz - e.b) * (_expz - e.b));
-    return min(max1, max2);
+    return max(min(max1, max2) - remap_m, 0.0) / (1.0 - remap_m);
 }
 
-uniform vec2 samples[NUM_SAMPLES];
-mat2 rotateM;
-vec2 rot_samples[NUM_SAMPLES];
-
-void setRandomRotate(vec2 uv){
-    float angle = random(uv) * M_2PI;
-    rotateM = mat2(
-        cos(angle), sin(angle),
-        -sin(angle), cos(angle)
-    );
-    for(int i = 0; i < NUM_SAMPLES; i++){
-        rot_samples[i] = rotateM * samples[i];
-    }
-}
 float findBlocker(sampler2D sm, vec2 uv, float zReceiver, float searchRadius, float bias, int num_samples){
     float depthSum = 0.0;
+    float abias = bias * 2048.0 * searchRadius / float(num_samples);
     int blockers = 0;
     ATOMIC_COUNT_INCREMENTS(num_samples)
     int _step = NUM_SAMPLES/num_samples;
     for(int i = 0; i < NUM_SAMPLES; i += _step){
-        //ivec2 offset = ivec2(rot_samples[i] * searchRadius);
         float smDepth = texture(sm, uv + rot_samples[i] * searchRadius).r;
         if(zReceiver >= smDepth + bias){
             depthSum += smDepth;
@@ -211,8 +229,7 @@ float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver, float filterRadius, flo
     ATOMIC_COUNT_INCREMENTS(num_samples)
     int _step = NUM_SAMPLES/num_samples;
     for (int i = 0; i < NUM_SAMPLES; i += _step) {
-        vec2 os = -rot_samples[i].yx * filterRadius;
-        float depth = texture(sm, uv + os).r;
+        float depth = texture(sm, uv + -rot_samples[i].yx * filterRadius).r;
         if (zReceiver <= depth + bias) sum += 1.0;
     }
     return sum / float(num_samples);
@@ -222,11 +239,12 @@ float PCSS_dir_visible(int index, vec3 position, float bias){
     if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
 
     float searchRadius = dirLights[index].light_size;
-    float avgDep = findBlocker(dirLights[index].shadowMap, ndc.xy, ndc.z, searchRadius, bias, NUM_SAMPLES);
+    float avgDep = findBlocker(dirLights[index].shadowMap, ndc.xy, ndc.z, searchRadius, bias, NUM_BLOCKER_SAMPLES);
     if(avgDep <= 0.0) return 1.0;
     float penumbraRatio = (ndc.z - avgDep) / avgDep;
     float filterSize = max(penumbraRatio * dirLights[index].light_size, 1.0 / dirLights[index].resolution);
-    return PCF_Filter(dirLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias, NUM_SAMPLES);
+    float vis = PCF_Filter(dirLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias, NUM_DIR_SAMPLES);
+    return min(vis / (1.0 - remap_m), 1.0);
 }
 float PCSS_pt_visible(int index, vec3 position, float bias){
     vec3 ndc;
@@ -240,15 +258,6 @@ float PCSS_pt_visible(int index, vec3 position, float bias){
     float penumbraRatio = (linearz - lineard) / lineard;
     float filterSize = max(penumbraRatio * ptLights[index].light_size, 1.0 / ptLights[index].resolution);
     return PCF_Filter(ptLights[index].shadowMap, ndc.xy, ndc.z, filterSize, bias, NUM_PT_SAMPLES);
-}
-vec3 dirOffset(vec3 dir, vec2 uv){
-    vec3 absdir = abs(dir);
-    if(absdir.x > absdir.y)
-        if(absdir.x > absdir.z) return dir + vec3(0.0, uv);
-        else return dir + vec3(uv, 0.0);
-    else
-        if(absdir.y > absdir.z) return dir + vec3(uv.x, 0.0, uv.y);
-        else return dir + vec3(uv, 0.0);
 }
 float PCSS_radio_visible(int index, vec3 L, float bias){
     vec3 absl = abs(L);
