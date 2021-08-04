@@ -63,14 +63,15 @@ public:
     float range;
     float nearz, farz;
     float miplevel;
-
+    // Lighting images
     bool processed;
     Texture* tex2D = nullptr;
     Texture* texCube = nullptr;
     Texture* depthCube = nullptr;
     Texture* texCubeFiltered = nullptr;
-    //Texture* texCubeFiltered2;
     FrameBuffer* targetFbo = nullptr;
+    // For GUI
+    nanogui::ref<nanogui::Window> lightWindow;
 
     IBL(
         std::string Name, 
@@ -103,9 +104,6 @@ public:
             texCube->setTexParami(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
             depthCube = Texture::createCubeMap(512, 512, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_LINEAR);
         }
-        //texCubeFiltered = filterCubeMap(texCube, targetFbo, 512, 5);
-        //texCubeFiltered2 = filterCubeMap(texCube, targetFbo, 32);
-        //miplevel = 4.0f;
     }
     void filter(uint level = 5) {
         if(texCubeFiltered == nullptr){
@@ -124,5 +122,29 @@ public:
         shader.setFloat(getStrFormat("ibls[%d].range", index), range);
         shader.setFloat(getStrFormat("ibls[%d].miplevel", index), miplevel);
         shader.setTextureSource(getStrFormat("ibls[%d].prefilterMap", index), tex_index++, texCubeFiltered->id, texCubeFiltered->target);
+    }
+    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
+        gui->addButton(name, [this]() {
+            lightWindow->setFocused(!lightWindow->visible());
+            lightWindow->setVisible(!lightWindow->visible());
+        })->setIcon(ENTYPO_ICON_IMAGE);
+        lightWindow = gui->addWindow(Eigen::Vector2i(500, 0), name);
+        lightWindow->setWidth(250);
+        lightWindow->setVisible(false);
+        gui->addGroup("Intensity");
+        gui->addVariable("Intensity.r", intensity[0])->setSpinnable(true);
+        gui->addVariable("Intensity.g", intensity[1])->setSpinnable(true);
+        gui->addVariable("Intensity.b", intensity[2])->setSpinnable(true);
+        gui->addGroup("Position");
+        gui->addVariable("Position.x", position[0], false);
+        gui->addVariable("Position.y", position[1], false);
+        gui->addVariable("Position.z", position[2], false);
+        gui->addGroup("Paramaters");
+        gui->addVariable("Range", range)->setSpinnable(true);
+        gui->addVariable("Near", nearz, false);
+        gui->addVariable("Far", farz, false);
+        gui->addGroup("Close");
+        gui->addButton("Close", [this]() { lightWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
+        gui->setWindow(sceneWindow);
     }
 };

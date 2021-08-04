@@ -146,6 +146,6 @@ void main(){
     vec3 color = texture(colorTex, TexCoords).rgb;
     float weight = min(length(reflect_color) / max(length(color), 0.01), 1.0);
     outColor = vec3(weight, 0.0, 0.0);
-    ATOMIC_COUNT_INCREMENTS(3)
+    ATOMIC_COUNT_INCREMENTS(5 + num_samples)
     ATOMIC_COUNT_CALCULATE
 }

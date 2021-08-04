@@ -77,6 +77,7 @@ public:
     float light_size;
     // For GUI
     nanogui::ref<nanogui::Window> lightWindow;
+
     BaseLight() {};
     void addGui(nanogui::FormHelper* gui) {
         gui->addButton(name, [this]() {

@@ -38,7 +38,10 @@ void atomic_calculate(){
     if((tCount & 0x00000010) != 0) atomicCounterIncrement(counter[4]);
     if((tCount & 0x00000020) != 0) atomicCounterIncrement(counter[5]);
     if((tCount & 0x00000040) != 0) atomicCounterIncrement(counter[6]);
-    if((tCount & 0x00000080) != 0) atomicCounterIncrement(counter[7]);
+    uint t8 = tCount >> 7;
+    for(uint i = 0; i < t8; i++){
+        atomicCounterIncrement(counter[7]);
+    }
 }
 #else
 #define ATOMIC_COUNT_INCREMENT

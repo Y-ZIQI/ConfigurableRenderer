@@ -22,7 +22,9 @@ vec2 edgeDetection(){
 	vec4 left2color = textureOffset(Texture, TexCoords, ivec2(-2, 0));
 	vec4 bottomcolor = textureOffset(Texture, TexCoords, ivec2(0, -1));
 	vec4 rightcolor = textureOffset(Texture, TexCoords, ivec2(1, 0));
-    ATOMIC_COUNT_INCREMENTS(7)
+    ATOMIC_COUNTER_I_INCREMENT(0)
+    ATOMIC_COUNTER_I_INCREMENT(1)
+    ATOMIC_COUNTER_I_INCREMENT(2)
 
 	float L = lumia(color);
 	float Lleft = lumia(leftcolor);
@@ -36,7 +38,7 @@ vec2 edgeDetection(){
 	vec2 edges = step(threshold, delta1);
 
     if(dot(edges, ones) == 0.0){
-       discard;
+    	discard;
     }
 
     vec4 delta2 = abs(vec4(L, L, Lleft2, Ltop2) - vec4(Lright, Lbottom, Lleft, Ltop));
@@ -50,5 +52,4 @@ vec2 edgeDetection(){
 void main()
 {
 	FragColor = edgeDetection();
-	ATOMIC_COUNT_CALCULATE
 }

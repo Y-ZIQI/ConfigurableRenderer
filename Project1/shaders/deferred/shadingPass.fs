@@ -25,7 +25,6 @@ void main()
         FragColor = texture(albedoTex, TexCoords).rgb;
         BloomColor = vec3(0.0);
     }else{
-        ATOMIC_COUNT_INCREMENTS(6)
         vec3 diffuse = texture(albedoTex, TexCoords).rgb;
         vec3 specular = texture(specularTex, TexCoords).rgb;
         vec3 emissive = texture(emissiveTex, TexCoords).rgb * M_PI;
@@ -33,9 +32,10 @@ void main()
         float lineardepth = texture(depthTex, TexCoords).r;
 
         #ifdef SSAO
-        ATOMIC_COUNT_INCREMENT
+        ATOMIC_COUNT_INCREMENTS(7)
         float ao = texture(aoTex, TexCoords).r;
         #else
+        ATOMIC_COUNT_INCREMENTS(6)
         float ao = 0.0;
         #endif
 

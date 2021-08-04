@@ -167,7 +167,7 @@ void main(){
         case 7: hitPt5678.a = packXY; weight5678.a = inter; break;
         }
     }
-    ATOMIC_COUNT_INCREMENTS(3)
+    ATOMIC_COUNT_INCREMENTS(4)
     ATOMIC_COUNT_CALCULATE
 }
 

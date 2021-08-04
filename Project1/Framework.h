@@ -98,7 +98,7 @@ public:
 
 private:
     int width, height;
-    float resolution = 1.0f;
+    GLubyte* image_data;
 
     GLFWENV* glfw;
     Scene* scene;
@@ -129,13 +129,12 @@ private:
     */
     uint test_scene = 3;
     float fps, duration;
-    TimeRecord record[2]; // All, SMAA+resolve
-    float time_ratio[5]; // Shadow, Draw, AO, Shading, Post
 };
 
 RenderFrame::RenderFrame(int width, int height, const char* title) {
     this->width = width;
     this->height = height;
+    image_data = new GLubyte[width * height * 3];
     glfw = new GLFWENV(width, height, title, true);
 
     frame_record.init();
@@ -198,15 +197,15 @@ void RenderFrame::onLoad() {
         gui->addGroup("Config");
         gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
         gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "25%", "50%", "100%" });
-        gui->addVariable("Shading", settings.shading, enabled)->setItems({ "PBR", "PBR+IBL", "3" });
-        gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "1", "2" });
-        gui->addVariable("SSR Level", settings.ssr_level, enabled)->setItems({ "Disable", "1", "2" });
-        gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "1", "2" });
+        gui->addVariable("Shading", settings.shading, enabled)->setItems({ "PBR", "PBR+IBL" });
+        gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "Low", "High" });
+        gui->addVariable("SSR Level", settings.ssr_level, enabled)->setItems({ "Disable", "Low", "High" });
+        gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "Low", "High" });
         gui->addGroup("Render Setting");
         gui->addVariable("Recording", settings.recording, enabled);
         gui->addVariable("Update Shadow", settings.update_shadow, enabled)->setItems({ "Not update", "As need", "Every frame" });
         gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "EVSM", "PCSS", "Hard"});
-        gui->addVariable("Effect", settings.effect_level, enabled)->setItems({ "Off", "On", "2" });
+        gui->addVariable("Effect", settings.effect_level, enabled)->setItems({ "Off", "On" });
         gui->addGroup("Scenes");
         scene->addGui(gui, mainWindow);
         screen->setVisible(true);
@@ -253,6 +252,11 @@ void RenderFrame::onFrameRender() {
     targetFbo->clear();
     renderScreen();
 
+    if (settings.recording) {
+        if(glfw->frame_count > 1) 
+            frame_record.get();
+        frame_record.copy();
+    }
     screen->drawContents();
     screen->drawWidgets();
     gui->refresh();
@@ -261,11 +265,11 @@ void RenderFrame::onFrameRender() {
 
 void RenderFrame::update(){
     frame_record.clear(settings.recording);
+    glfw->updateTime();
     duration = glfw->lastFrame - glfw->recordTime;
     if (duration >= 0.25f) {
         fps = (float)(glfw->frame_count - glfw->record_frame) / duration;
         glfw->record();
-        time_ratio[0] = record[0].getTime() / duration;
     }
 }
 
@@ -274,7 +278,6 @@ uint RenderFrame::config(bool force_update) {
     if (settings.resolution != stHistory.resolution || force_update) {
         flag |= 0x1;
         stHistory.resolution = settings.resolution;
-        resolution = values[0][settings.resolution];
         dRenderer = dRdrList[settings.resolution];
         screenFbo = dRenderer->screenBuffer;
         smaaPass = smaaList[settings.resolution];
@@ -425,24 +428,28 @@ void RenderFrame::processInput() {
     if (glfw->getKey(GLFW_KEY_E))
         camera->ProcessKeyboard(DROP, glfw->deltaTime);
     if (glfw->getKey(GLFW_KEY_C)) {
+        // Reload all shaders (update changes)
         sManager.reload();
+    }
+    if (glfw->getKey(GLFW_KEY_X)) {
+        // Print screen into `img/newimage`, then you can run `img/genImage.py` to generate .png image
+        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, image_data);
+        std::ofstream ofs;
+        ofs.open("img/newimage", std::ios_base::out | std::ios_base::binary);
+        char wh[4] = { width / 100, width % 100, height / 100, height % 100 };
+        ofs.write((const char*)wh, 4);
+        ofs.write((const char*)image_data, width * height * 3);
+        ofs.close();
     }
 }
 
 void RenderFrame::run() {
     while (!glfwWindowShouldClose(glfw->window))
     {
-        record[0].stop();
-        record[0].start();
-        glfw->updateTime();
         glfw->processInput();
         processInput();
         onFrameRender();
 
-        if (settings.recording) {
-            frame_record.copy();
-            frame_record.get();
-        }
         glfwSwapBuffers(glfw->window);
         glfwPollEvents();
     }

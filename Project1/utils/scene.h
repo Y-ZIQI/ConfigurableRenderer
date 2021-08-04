@@ -27,8 +27,6 @@ public:
 
     jsonxx::json jscene;
 
-    TimeRecord record[2]; // GenShadow, Draw
-
     Scene() {};
     void addCamera(Camera* newCamera) { cameras.push_back(newCamera); }
     void setCamera(Camera* newCamera) { camera = newCamera; };
@@ -338,6 +336,8 @@ public:
             ptLights[i]->addGui(gui, sceneWindow);
         for (uint i = 0; i < radioLights.size(); i++)
             radioLights[i]->addGui(gui, sceneWindow);
+        for (uint i = 0; i < light_probes.size(); i++)
+            light_probes[i]->addGui(gui, sceneWindow);
         gui->addGroup("Camera");
         camera->addGui(gui, sceneWindow);
         gui->addGroup("Close");

@@ -63,5 +63,5 @@ void main()
         fTangent = vec4(TBN[0], 0.5);
         fNormal = vec4(TBN[2], 0.5);
     }
-    ATOMIC_COUNTER_I_INCREMENT(2)
+    //ATOMIC_COUNTER_I_INCREMENT(2)
 }

@@ -47,7 +47,6 @@ float SearchLength(vec2 e, float offset){
     bias *= 1.0 / SMAA_SEARCHTEX_PACKED_SIZE;
 
     // Lookup the search texture:
-    ATOMIC_COUNT_INCREMENT
     return texture(searchTex, fma(scale, e ,bias)).r;
 }
 
@@ -115,7 +114,6 @@ vec2 SMAAArea(vec2 dist, float e1, float e2, float offset) {
     // Move to proper place, according to the subpixel offset:
     texcoord.y = fma(SMAA_AREATEX_SUBTEX_SIZE, offset, texcoord.y);
 
-    ATOMIC_COUNT_INCREMENT
     return texture(areaTex, texcoord).rg;
 }
 
@@ -133,7 +131,6 @@ void SMAADetectHorizontalCornerPattern(inout vec2 weights, vec4 texcoord, vec2 d
     factor.x -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(1,  -1)).r;
     factor.y -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2(0, 2)).r;
     factor.y -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(1, 2)).r;
-    ATOMIC_COUNT_INCREMENTS(4)
 
     weights *= clamp(factor, 0.0, 1.0);
 }
@@ -149,7 +146,6 @@ void SMAADetectVerticalCornerPattern(inout vec2 weights, vec4 texcoord, vec2 d) 
     factor.x -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2( 1, -1)).g;
     factor.y -= rounding.x * textureOffset(edgeTex_linear, texcoord.xy, ivec2(-2, 0)).g;
     factor.y -= rounding.y * textureOffset(edgeTex_linear, texcoord.zw, ivec2(-2, -1)).g;
-    ATOMIC_COUNT_INCREMENTS(4)
 
     weights *= clamp(factor, 0.0, 1.0);
 }
@@ -233,7 +229,6 @@ vec2 SMAAAreaDiag(vec2 dist, vec2 e, float offset) {
     // Move to proper place, according to the subpixel offset:
     texcoord.y += SMAA_AREATEX_SUBTEX_SIZE * offset;
 
-    ATOMIC_COUNT_INCREMENT
     return texture(areaTex, texcoord).rg;
 }
 
@@ -267,7 +262,6 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
         vec4 c;
         c.xy = textureOffset(edgeTex_linear, coords.xy, ivec2(-1,  0)).rg;
         c.zw = textureOffset(edgeTex_linear, coords.zw, ivec2( 1,  0)).rg;
-        ATOMIC_COUNT_INCREMENTS(2)
         c.yxwz = SMAADecodeDiagBilinearAccess(c.xyzw);
 
         // Merge crossing edges at each side into a single value:
@@ -278,6 +272,7 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
 
         // Fetch the areas for this line:
         weights += SMAAAreaDiag(d.xy, cc, subsampleIndices.z);
+        ATOMIC_COUNT_INCREMENTS(3)
     }
 
     // Search for the line ends:
@@ -296,7 +291,6 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
         c.x  = textureOffset(edgeTex_linear, coords.xy, ivec2(-1,  0)).g;
         c.y  = textureOffset(edgeTex_linear, coords.xy, ivec2( 0, 1)).r;
         c.zw = textureOffset(edgeTex_linear, coords.zw, ivec2( 1,  0)).gr;
-        ATOMIC_COUNT_INCREMENTS(3)
         vec2 cc = fma(vec2(2.0, 2.0), c.xz, c.yw);
 
         // Remove the crossing edge if we didn't found the end of the line:
@@ -304,6 +298,7 @@ vec2 SMAACalculateDiagWeights(vec2 texcoord, vec2 e) {
 
         // Fetch the areas for this line:
         weights += SMAAAreaDiag(d.xy, cc, subsampleIndices.w).gr;
+        ATOMIC_COUNT_INCREMENTS(4)
     }
 
     return weights;
@@ -347,7 +342,6 @@ vec4 blendingWeightCalculation(){
 
         // Fetch the right crossing edges:
         float e2 = textureOffset(edgeTex_linear, coords.zy, ivec2(1, 0)).r;
-        ATOMIC_COUNT_INCREMENTS(2)
 
         // Ok, we know how this pattern looks like, now it is time for getting
         // the actual area:
@@ -357,6 +351,7 @@ vec4 blendingWeightCalculation(){
         // Fix corners:
         coords.y = TexCoords.y;
         SMAADetectHorizontalCornerPattern(weights.rg, coords.xyzy, d);
+        ATOMIC_COUNT_INCREMENTS(9)
         
         #if !defined(SMAA_DISABLE_DIAG_DETECTION)
         } else
@@ -385,7 +380,6 @@ vec4 blendingWeightCalculation(){
         vec2 sqrt_d = sqrt(d);
 
         float e2 = textureOffset(edgeTex_linear, coords.xz, ivec2(0, -1)).g;
-        ATOMIC_COUNT_INCREMENTS(2)
 
         // Ok, we know how this pattern looks like, now it is time for getting
         // the actual area:
@@ -395,6 +389,7 @@ vec4 blendingWeightCalculation(){
         // Fix corners:
         coords.x = TexCoords.x;
         SMAADetectVerticalCornerPattern(weights.ba, coords.xyxz, d);
+        ATOMIC_COUNT_INCREMENTS(9)
     }
 	return weights;
 }

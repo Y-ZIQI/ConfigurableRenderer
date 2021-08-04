@@ -35,8 +35,6 @@ public:
 
     uint ssao = 0, ssr = 0, ibl = 0, effect = 0;
 
-    TimeRecord record[2]; // Shading, AO
-
     DeferredRenderer(uint Width, uint Height) {
         width = Width; height = Height;
         pixel_size = glm::vec2(1.0 / (float)Width, 1.0 / (float)Height);

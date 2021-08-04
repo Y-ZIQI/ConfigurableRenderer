@@ -32,7 +32,7 @@ vec4 neighborhoodBlending(){
     a.x = texture(blendTex, offset.xy).a; // blend with Right
     a.y = texture(blendTex, offset.zw).g; // blend with Bottom
     a.wz = texture(blendTex, TexCoords).xz; // blend with Top / Left
-    ATOMIC_COUNT_INCREMENTS(4)
+    ATOMIC_COUNTER_I_INCREMENT(2)
 
     if(dot(a, ones) < 1e-5){
         vec4 color = texture(screenTex, TexCoords);
@@ -54,7 +54,7 @@ vec4 neighborhoodBlending(){
         // neighbor:
         vec4 color = blendingWeight.x * texture(screenTex, blendingCoord.xy);
         color += blendingWeight.y * texture(screenTex, blendingCoord.zw);
-        ATOMIC_COUNT_INCREMENT
+        ATOMIC_COUNTER_I_INCREMENT(0)
         
         return color;
     }
@@ -64,5 +64,4 @@ void main()
 {
 	FragColor = neighborhoodBlending();
 	//FragColor = texture(blendTex, TexCoords);
-    ATOMIC_COUNT_CALCULATE
 }

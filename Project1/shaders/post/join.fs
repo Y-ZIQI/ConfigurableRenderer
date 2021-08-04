@@ -13,12 +13,14 @@ uniform sampler2D joinTex;
 void main()
 {
     vec3 hdrColor = vec3(0.0);
-    ATOMIC_COUNT_INCREMENT
-    hdrColor += texture(colorTex, TexCoords).rgb;
     if(join) {
-        ATOMIC_COUNT_INCREMENT
+        hdrColor += texture(colorTex, TexCoords).rgb;
         if(substract) hdrColor += texture(joinTex, TexCoords).rgb * 0.3;
         else hdrColor += texture(joinTex, TexCoords).rgb;
+        ATOMIC_COUNTER_I_INCREMENT(1)
+    }else{
+        hdrColor += texture(colorTex, TexCoords).rgb;
+        ATOMIC_COUNTER_I_INCREMENT(0)
     }
     
     if(tone_mapping){
@@ -30,5 +32,4 @@ void main()
         outColor = mapped;
     }else
         outColor = hdrColor;
-    ATOMIC_COUNT_CALCULATE
 }
