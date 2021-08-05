@@ -127,7 +127,7 @@ private:
     * 2: Bistro Interior
     * 3: SunTemple
     */
-    uint test_scene = 3;
+    uint test_scene = 4;
     float fps, duration;
 };
 
@@ -175,6 +175,10 @@ void RenderFrame::onLoad() {
         else if (test_scene == 3) {
             /***************************SunTemple*********************************/
             scene->loadScene("resources/SunTemple/SunTemple.json", "SunTemple");
+        }
+        else if (test_scene == 4) {
+            /****************************Arcade**********************************/
+            scene->loadScene("resources/Arcade/Arcade.json", "Arcade");
         }
         camera = scene->camera;
         camera->setAspect((float)width / (float)height);

@@ -41,10 +41,10 @@ public:
     nanogui::ref<nanogui::Window> modelWindow;
     vector<nanogui::ref<nanogui::Window>> matWindows;
 
-    Model(string const &path, const string name)
+    Model(string const &path, const string name, bool vflip = true)
     {
         this->name = name;
-        loadModel(path);
+        loadModel(path, vflip);
         setupModel();
     }
 
@@ -115,7 +115,7 @@ public:
     
 private:
     // loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
-    void loadModel(string const &path)
+    void loadModel(string const &path, bool vflip = true)
     {
         Assimp::Importer importer;
         const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices);
@@ -130,7 +130,7 @@ private:
         for (uint i = 0; i < scene->mNumMaterials; i++) {
             aiMaterial* mat = scene->mMaterials[i];
             materials[i] = new Material;
-            materials[i]->loadMaterialTextures(mat, directory, true);
+            materials[i]->loadMaterialTextures(mat, directory, vflip);
         }
         // Add Meshes
         meshes.resize(scene->mNumMeshes);

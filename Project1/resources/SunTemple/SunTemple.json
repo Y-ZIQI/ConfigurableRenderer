@@ -11,6 +11,8 @@
         {
             "file": "SunTemple.fbx",
             "name": "SunTemple",
+            "texture_filp_vertically": true,
+            "texture_sampler": "DirectX",
             "instances": [
                 {
                     "name": "SunTemple0",

@@ -11,6 +11,8 @@
         {
             "file": "BistroExterior.fbx",
             "name": "BistroExterior",
+            "texture_filp_vertically": true,
+            "texture_sampler": "DirectX",
             "instances": [
                 {
                     "name": "BistroExterior",

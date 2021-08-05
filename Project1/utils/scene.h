@@ -34,7 +34,7 @@ public:
     void addLight(DirectionalLight* nLight) { dirLights.push_back(nLight); };
     void addLight(RadioactiveLight* nLight) { radioLights.push_back(nLight); };
     void addModel(Model* nModel) { models.push_back(nModel); };
-    void loadModel(string const& path, const string name) { addModel(new Model(path, name)); };
+    void loadModel(string const& path, const string name, bool vflip = true) { addModel(new Model(path, name, vflip)); };
     void setModelMat(uint idx, glm::mat4 &nMat) {
         if (idx < models.size())
             models[idx]->setModelMat(nMat);
@@ -170,10 +170,12 @@ public:
         for (uint i = 0; i < models.size(); i++) {
             std::string mpath = models[i]["file"].as_string();
             std::string mname = models[i]["name"].as_string();
+            bool texture_filp_vertically = models[i]["texture_filp_vertically"].as_bool();
+            std::string texture_sampler = models[i]["texture_sampler"].as_string();
             mpath = directory + mpath;
             auto instances = models[i]["instances"].as_array();
             for (uint j = 0; j < instances.size(); j++) {
-                loadModel(mpath, mname);
+                loadModel(mpath, mname, texture_filp_vertically);
                 auto translation = instances[j]["translation"].as_array();
                 auto scaling = instances[j]["scaling"].as_array();
                 auto rotation = instances[j]["rotation"].as_array();

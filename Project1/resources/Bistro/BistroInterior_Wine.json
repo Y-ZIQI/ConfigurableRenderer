@@ -8,6 +8,8 @@
         {
             "file": "BistroInterior_Wine.fbx",
             "name": "BistroInterior_Wine",
+            "texture_filp_vertically": true,
+            "texture_sampler": "DirectX",
             "instances": [
                 {
                     "name": "BistroInterior_Wine",

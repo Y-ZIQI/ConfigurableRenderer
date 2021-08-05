@@ -207,7 +207,6 @@ public:
         glViewport(0, 0, width, height);
         joinShader->use();
         joinShader->setBool("join", true);
-        joinShader->setBool("substract", false);
         joinShader->setBool("tone_mapping", false);
         joinShader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[0].texture->id);
         joinShader->setTextureSource("joinTex", 1, reflectionBuffer->colorAttachs[2].texture->id);
@@ -230,7 +229,6 @@ public:
     void joinEffects(Texture *colorTex) {
         joinShader->use();
         joinShader->setBool("join", effect != 0);
-        joinShader->setBool("substract", effect != 0);
         joinShader->setBool("tone_mapping", true);
         joinShader->setTextureSource("colorTex", 0, colorTex->id);
         joinShader->setTextureSource("joinTex", 1, effectBuffer->colorAttachs[1].texture->id);

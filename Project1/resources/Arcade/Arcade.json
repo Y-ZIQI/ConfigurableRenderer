@@ -1,0 +1,127 @@
+{
+    "ssao_range": 0.4,
+    "ssao_bias": 0.05,
+    "ssao_threshold": 1.0,
+    "ssr_threshold": 0.1,
+    "active_camera": "Camera0",
+    "models": [
+        {
+            "file": "Arcade.fbx",
+            "name": "Arcade",
+            "texture_filp_vertically": false,
+            "texture_sampler": "DirectX",
+            "instances": [
+                {
+                    "name": "Falcor-Sample0",
+                    "translation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scaling": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                }
+            ]
+        }
+    ],
+    "environment_maps": [
+        {
+            "files": "BlueSky.png"
+        }
+    ],
+    "light_probes": [],
+    "lights": [
+        {
+            "name": "DirLight0",
+            "type": "dir_light",
+            "intensity": [
+                3.0,
+                2.894117593765259,
+                3.0
+            ],
+            "direction": [
+                0.6245101094245911,
+                -0.7170000076293945,
+                -0.3096744418144226
+            ],
+            "pos": [
+                -18.0,
+                21.0,
+                9.0
+            ],
+            "ambient": 0.02,
+            "light_size": 0.5,
+            "shadow": {
+                "enable": true,
+                "rangeX": 20.0,
+                "rangeY": 20.0,
+                "rangeZ": 200.0
+            }
+        },
+        {
+            "name": "PointLight0",
+            "type": "point_light",
+            "intensity": [
+                15.0,
+                15.0,
+                15.0
+            ],
+            "pos": [
+                -2.8681933879852297,
+                2.0,
+                2.9874155521392824
+            ],
+            "direction": [
+                0.6,
+                -0.3,
+                -0.7
+            ],
+            "opening_angle": 120.32113647460938,
+            "penumbra_angle": 0.0,
+            "ambient": 0.00,
+            "range": 10.0,
+            "light_size": 0.01,
+            "shadow": {
+                "enable": true,
+                "fovy": 90.0,
+                "nearz": 0.01,
+                "farz": 10.0
+            }
+        }
+    ],
+    "cameras": [
+        {
+            "name": "Camera0",
+            "pos": [
+                -1.143306016921997,
+                1.8430896997451783,
+                2.4423341751098635
+            ],
+            "target": [
+                -0.7014234066009522,
+                1.4863656759262086,
+                1.6192376613616944
+            ],
+            "up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "focal_length": 21.0,
+            "depth_range": [
+                0.1,
+                500.0
+            ],
+            "aspect_ratio": 1.0,
+            "camera_speed": 5.0
+        }
+    ]
+}
