@@ -12,6 +12,7 @@ struct DirectionalLight{
 
     bool has_shadow;
     mat4 viewProj;
+    float frustum, range_z;
     sampler2D shadowMap;
     float resolution;
     float light_size;
@@ -95,16 +96,13 @@ uniform IBL ibls[MAX_IBL_LIGHT];
 //#define SHADOW_HARD
 //#define SHADOW_SOFT_PCSS
 //#define SHADOW_SOFT_EVSM
-#define SM_ESM_LOD 2
-#define SM_PCF_FILTER 0.002
-#define NUM_BLOCKER_SAMPLES 20
 #define NUM_SAMPLES 40
+#define NUM_BLOCKER_DIR_SAMPLES 20
+#define NUM_BLOCKER_PT_SAMPLES 10
 #define NUM_DIR_SAMPLES 40
-#define NUM_PT_SAMPLES 10
+#define NUM_PT_SAMPLES 20
 
 #define EPS 1e-5
-#define MAX_BIAS 2.0
-#define MIN_BIAS 0.2
 
 #define EVAL_DIFFUSE
 #define EVAL_SPECULAR
@@ -137,6 +135,10 @@ const float remap_m = 0.1;
 #else
 const float remap_m = 0.0;
 #endif
+float Linearize(float depth, float rangez)
+{
+    return depth * rangez;    
+}
 float Linearize(float depth, float inv_n, float inv_f)
 {
     float z = depth * 2.0 - 1.0;
@@ -210,7 +212,6 @@ float EVSM_radio_visible(int index, vec3 L, float bias){
 
 float findBlocker(sampler2D sm, vec2 uv, float zReceiver, float searchRadius, float bias, int num_samples){
     float depthSum = 0.0;
-    float abias = bias * 2048.0 * searchRadius / float(num_samples);
     int blockers = 0;
     ATOMIC_COUNT_INCREMENTS(num_samples)
     int _step = NUM_SAMPLES/num_samples;
@@ -228,9 +229,10 @@ float PCF_Filter(sampler2D sm, vec2 uv, float zReceiver, float filterRadius, flo
     float sum = 0.0;
     ATOMIC_COUNT_INCREMENTS(num_samples)
     int _step = NUM_SAMPLES/num_samples;
+    float bscale = filterRadius * 2048.0 / float(num_samples);
     for (int i = 0; i < NUM_SAMPLES; i += _step) {
         float depth = texture(sm, uv + -rot_samples[i].yx * filterRadius).r;
-        if (zReceiver <= depth + bias) sum += 1.0;
+        if (zReceiver <= depth + bias * max(bscale * float(i + 1), 1.0)) sum += 1.0;
     }
     return sum / float(num_samples);
 }
@@ -239,7 +241,7 @@ float PCSS_dir_visible(int index, vec3 position, float bias){
     if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
 
     float searchRadius = dirLights[index].light_size;
-    float avgDep = findBlocker(dirLights[index].shadowMap, ndc.xy, ndc.z, searchRadius, bias, NUM_BLOCKER_SAMPLES);
+    float avgDep = findBlocker(dirLights[index].shadowMap, ndc.xy, ndc.z, searchRadius, bias, NUM_BLOCKER_DIR_SAMPLES);
     if(avgDep <= 0.0) return 1.0;
     float penumbraRatio = (ndc.z - avgDep) / avgDep;
     float filterSize = max(penumbraRatio * dirLights[index].light_size, 1.0 / dirLights[index].resolution);
@@ -251,7 +253,7 @@ float PCSS_pt_visible(int index, vec3 position, float bias){
     if(!posFromLight(ptLights[index].viewProj, position, ndc)) return 1.0;
 
     float searchRadius = ptLights[index].light_size;
-    float avgDep = findBlocker(ptLights[index].shadowMap, ndc.xy, ndc.z, searchRadius, bias, NUM_PT_SAMPLES);
+    float avgDep = findBlocker(ptLights[index].shadowMap, ndc.xy, ndc.z, searchRadius, bias, NUM_BLOCKER_PT_SAMPLES);
     if(avgDep <= 0.0) return 1.0;
     float lineard = Linearize(avgDep, ptLights[index].inv_n, ptLights[index].inv_f);
     float linearz = Linearize(ndc.z, ptLights[index].inv_n, ptLights[index].inv_f);
@@ -266,7 +268,7 @@ float PCSS_radio_visible(int index, vec3 L, float bias){
     float searchRadius = radioLights[index].light_size;
 
     float depthSum = 0.0, avgDep;
-    int blockers = 0, num_samples = NUM_PT_SAMPLES;
+    int blockers = 0, num_samples = NUM_BLOCKER_PT_SAMPLES;
 
     ATOMIC_COUNT_INCREMENTS(num_samples)
     int _step = NUM_SAMPLES/num_samples;
@@ -287,6 +289,8 @@ float PCSS_radio_visible(int index, vec3 L, float bias){
 
     float sum = 0.0;
     ATOMIC_COUNT_INCREMENTS(num_samples)
+    num_samples = NUM_PT_SAMPLES;
+    _step = NUM_SAMPLES/num_samples;
     for (int i = 0; i < NUM_SAMPLES; i += _step) {
         vec3 smdir = dirOffset(dir, 2.0 * -rot_samples[i].yx * filterSize);
         float smDepth = texture(radioLights[index].shadowMap, smdir).r;
@@ -301,8 +305,9 @@ float HARD_dir_visible(int index, vec3 position, float bias){
     vec3 ndc;
     if(!posFromLight(dirLights[index].viewProj, position, ndc)) return 1.0;
     float mindep = texture(dirLights[index].shadowMap, ndc.xy).r;
+    float zReceiver = ndc.z;
     ATOMIC_COUNT_INCREMENT
-    return step(ndc.z, mindep + bias);
+    return step(zReceiver, mindep + bias);
 }
 float HARD_pt_visible(int index, vec3 position, float bias){
     vec3 ndc;
@@ -342,7 +347,7 @@ vec3 evalDirLight(int index, ShadingData sd){
     if(ls.NdotL <= 0.0)
         visibility = 0.0;
     else if(dirLights[index].has_shadow){
-        float bias = mix(MAX_BIAS, MIN_BIAS, ls.NdotL) / dirLights[index].resolution;
+        float bias = dirLights[index].frustum / (dirLights[index].resolution * (ls.NdotL + 0.01) * dirLights[index].range_z);
         #ifdef SHADOW_SOFT_EVSM
         visibility = EVSM_dir_visible(index, sd.posW, bias);
         #elif defined(SHADOW_SOFT_PCSS)
@@ -359,7 +364,7 @@ vec3 evalDirLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = dirLights[index].intensity;
-    vec3 ambient = dirLights[index].ambient * ls.color * sd.baseColor * sd.kD/* * sd.ao*/;
+    vec3 ambient = dirLights[index].ambient * ls.color * sd.baseColor * sd.kD;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
@@ -383,7 +388,7 @@ vec3 evalPtLight(int index, ShadingData sd){
     if(ls.NdotL <= 0.0)
         visibility = 0.0;
     else if(ptLights[index].has_shadow){
-        float bias = mix(MAX_BIAS, MIN_BIAS, ls.NdotL) / ptLights[index].resolution;
+        float bias = 0.25 / (ptLights[index].resolution * (ls.NdotL + 0.01));
         #ifdef SHADOW_SOFT_EVSM
         visibility = EVSM_pt_visible(index, sd.posW, bias);
         #elif defined(SHADOW_SOFT_PCSS)
@@ -400,7 +405,7 @@ vec3 evalPtLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = ptLights[index].intensity * falloff;
-    vec3 ambient = ptLights[index].ambient * ls.color * sd.baseColor * sd.kD/* * sd.ao*/;
+    vec3 ambient = ptLights[index].ambient * ls.color * sd.baseColor * sd.kD;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
@@ -419,7 +424,7 @@ vec3 evalRadioLight(int index, ShadingData sd){
     if(ls.NdotL <= 0.0)
         visibility = 0.0;
     else if(radioLights[index].has_shadow){
-        float bias = mix(MAX_BIAS, MIN_BIAS, ls.NdotL) * 0.05 / radioLights[index].resolution;
+        float bias = 0.25 / (radioLights[index].resolution * (ls.NdotL + 0.01));
         #ifdef SHADOW_SOFT_EVSM
         visibility = EVSM_radio_visible(index, sd.posW - ls.posW, bias);
         #elif defined(SHADOW_SOFT_PCSS)
@@ -436,7 +441,7 @@ vec3 evalRadioLight(int index, ShadingData sd){
     ls.NdotH = dot(sd.N, H);
     ls.LdotH = dot(ls.L, H);
     ls.color = radioLights[index].intensity * falloff;
-    vec3 ambient = radioLights[index].ambient * ls.color * sd.baseColor * sd.kD/* * sd.ao*/;
+    vec3 ambient = radioLights[index].ambient * ls.color * sd.baseColor * sd.kD;
     if(visibility < EPS)
         return ambient;
     return visibility * evalColor(sd, ls) + ambient;
@@ -470,7 +475,7 @@ vec3 evalIBL(int index, ShadingData sd){
     vec2 envBRDF = texture(brdfLUT, vec2(min(sd.NdotV, 0.99), sd.linearRoughness)).rg;
     vec3 specular = prefilteredColor * (sd.kS * envBRDF.x + envBRDF.y);
     ATOMIC_COUNT_INCREMENTS(3)
-    return (diffuse + specular) * intensity/* * sd.ao*/;
+    return (diffuse + specular) * intensity;
 }
 
 float IBLweight(vec3 ray, float range){
@@ -561,22 +566,11 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
             }
         }
         d_sum = 1.0 / (dist1 + dist2);
-        //color = vec3(float(min1) / 10.0, float(min2) / 10.0, 0.0);
         color += evalIBL(min1, sd) * dist2 * d_sum; 
         color += evalIBL(min2, sd) * dist1 * d_sum; 
         break;
     }
     #endif
-    //color += emissColor;
     color += emissColor;
     return color * sd.ao;
 }
-//sd.metallic = specColor.b;
-//sd.linearRoughness = 1 - specColor.a;
-//sd.ggxAlpha = max(0.0064, specColor.g * specColor.g);
-
-    /*vec2 e = textureLod(dirLights[index].shadowMap, uv, 2).rg;
-    if(ndc.z <= e.r + bias) return 1.0;
-    float e2 = e.g - e.r * e.r;
-    float pmax = e2 / (e2 + (ndc.z - e.r) * (ndc.z - e.r));
-    return pmax;// VSM */

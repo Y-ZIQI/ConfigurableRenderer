@@ -71,11 +71,3 @@ void main()
     }
     ATOMIC_COUNT_CALCULATE
 }
-//FragColor = vec4(vec3(1.0 - ao), 1.0);
-//FragColor = vec4(normal, 1.0);
-/*if(TexCoords.x<0.5 && TexCoords.y<0.5){
-    FragColor = sqrt(vec4(texture(dirLights[0].shadowMap, TexCoords * 2.0).rrr, 1.0));
-}*/
-//vec3 mapped = color / (color + vec3(1.0));
-//vec3 mapped = 1.0 - exp(-color * exposure);
-//mapped = pow(mapped, vec3(1.0 / gamma));

@@ -67,16 +67,3 @@ void main()
     ATOMIC_COUNT_INCREMENTS(4)
     ATOMIC_COUNT_CALCULATE
 }
-
-/*out vec4 FragColor;
-
-in vec4 FragPos;
-in vec2 TexCoords;
-
-uniform sampler2D texture_diffuse1;
-
-void main()
-{
-    ATOMIC_COUNTER_I_INCREMENT(0)
-    FragColor = texture(texture_diffuse1, TexCoords);
-}*/

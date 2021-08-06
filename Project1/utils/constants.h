@@ -11,6 +11,7 @@ const GLuint _color_attachments[] = {
 // For Clear
 const GLfloat _clear_color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 const GLfloat _clear_color_1[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+const GLfloat _clear_color_evsm[4] = { 3.4028e38f, 3.4028e38f, 0.0f, 0.0f };
 const GLuint _atomic_counter_clear_data[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 // For Shaders
 const std::vector<const char*> _shader_paths

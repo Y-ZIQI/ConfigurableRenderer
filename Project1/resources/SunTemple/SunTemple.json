@@ -228,7 +228,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -250,7 +250,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -272,7 +272,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -302,7 +302,7 @@
             "shadow": {
                 "enable": true,
                 "fovy": 120.0,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -324,7 +324,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -346,7 +346,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -368,7 +368,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -390,7 +390,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -412,7 +412,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -434,7 +434,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -461,7 +461,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -483,7 +483,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         },
@@ -505,7 +505,7 @@
             "light_size": 0.02,
             "shadow": {
                 "enable": true,
-                "nearz": 0.01,
+                "nearz": 0.05,
                 "farz": 20.0
             }
         }

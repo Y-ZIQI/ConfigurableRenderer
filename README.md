@@ -21,6 +21,14 @@ OpenGL实现的一个渲染管线，仿照Nvidia的Falcor。并添加了一些�
 
 ![](src/demo4.png)
 
+![](src/demo5.png)
+
+![](src/demo6.png)
+
+![](src/demo7.png)
+
+![](src/demo8.png)
+
 ## Dependency
 
 - glfw3

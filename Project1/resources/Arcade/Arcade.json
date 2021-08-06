@@ -1,8 +1,8 @@
 {
-    "ssao_range": 0.4,
-    "ssao_bias": 0.05,
-    "ssao_threshold": 1.0,
-    "ssr_threshold": 0.1,
+    "ssao_range": 0.2,
+    "ssao_bias": 0.02,
+    "ssao_threshold": 0.5,
+    "ssr_threshold": 0.05,
     "active_camera": "Camera0",
     "models": [
         {
@@ -13,6 +13,32 @@
             "instances": [
                 {
                     "name": "Falcor-Sample0",
+                    "translation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scaling": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "Light.fbx",
+            "name": "Light",
+            "texture_filp_vertically": false,
+            "texture_sampler": "DirectX",
+            "instances": [
+                {
+                    "name": "Light0",
                     "translation": [
                         0.0,
                         0.0,
@@ -58,11 +84,11 @@
                 9.0
             ],
             "ambient": 0.02,
-            "light_size": 0.5,
+            "light_size": 1.0,
             "shadow": {
                 "enable": true,
-                "rangeX": 20.0,
-                "rangeY": 20.0,
+                "rangeX": 10.0,
+                "rangeY": 10.0,
                 "rangeZ": 200.0
             }
         },
@@ -92,8 +118,30 @@
             "shadow": {
                 "enable": true,
                 "fovy": 90.0,
-                "nearz": 0.01,
+                "nearz": 0.3,
                 "farz": 10.0
+            }
+        },
+        {
+            "name": "RadioLight0",
+            "type": "radio_light",
+            "intensity": [
+                5.0,
+                5.0,
+                5.0
+            ],
+            "pos": [
+                0.0,
+                0.01,
+                0.0
+            ],
+            "ambient": 0.0,
+            "range": 10.0,
+            "light_size": 0.01,
+            "shadow": {
+                "enable": true,
+                "nearz": 0.05,
+                "farz": 5.0
             }
         }
     ],

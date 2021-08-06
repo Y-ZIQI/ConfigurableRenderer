@@ -24,18 +24,3 @@ void main()
     vs_out.vWorldPos = _WorldPos.xyz / _WorldPos.w;
     gl_Position = vec4(vs_out.vWorldPos, 1.0);
 }
-
-/*layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 aNormal;
-layout (location = 2) in vec2 avTexCoords;
-
-out vec2 vTexCoords;
-
-uniform mat3 normal_model;
-uniform mat4 model;
-
-void main()
-{
-    vTexCoords = avTexCoords;
-    gl_Position = model * vec4(position, 1.0);
-}*/

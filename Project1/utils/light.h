@@ -128,7 +128,8 @@ public:
         smShader->use();
         smShader->setMat4("viewProj", viewProj);
         shadowMap->smBuffer->prepare(0);
-        shadowMap->smBuffer->clear();
+        if(shadowMap->texId == 0) shadowMap->smBuffer->clear(ALL_TARGETS, _clear_color_1);
+        else shadowMap->smBuffer->clear(ALL_TARGETS, _clear_color_evsm);
     }
     void filterShadow() {
         filterShader->use();
@@ -233,6 +234,8 @@ public:
         shader.setBool(getStrFormat("dirLights[%d].has_shadow", index), shadow_enabled);
         if (shadow_enabled) {
             shader.setMat4(getStrFormat("dirLights[%d].viewProj", index), viewProj);
+            shader.setFloat(getStrFormat("dirLights[%d].frustum", index), rangeX);
+            shader.setFloat(getStrFormat("dirLights[%d].range_z", index), rangeZ);
             shader.setTextureSource(getStrFormat("dirLights[%d].shadowMap", index), sm_index++, shadowMap->smBuffer->colorAttachs[0].texture->id);
             shader.setFloat(getStrFormat("dirLights[%d].resolution", index), (float)shadowMap->width);
             shader.setFloat(getStrFormat("dirLights[%d].light_size", index), light_size / rangeX);
@@ -386,7 +389,8 @@ public:
         smShader->setMat4("transforms[4]", transforms[4]);
         smShader->setMat4("transforms[5]", transforms[5]);
         shadowMap->smBuffer->prepare(0);
-        shadowMap->smBuffer->clear();
+        if (shadowMap->texId == 0) shadowMap->smBuffer->clear(ALL_TARGETS, _clear_color_1);
+        else shadowMap->smBuffer->clear(ALL_TARGETS, _clear_color_evsm);
     }
     void filterShadow() {
         filterShader->use();

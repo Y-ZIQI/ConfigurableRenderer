@@ -126,8 +126,9 @@ private:
     * 1: Bistro
     * 2: Bistro Interior
     * 3: SunTemple
+    * 4: Arcade
     */
-    uint test_scene = 4;
+    uint test_scene = 1;
     float fps, duration;
 };
 

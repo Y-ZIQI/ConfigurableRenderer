@@ -40,9 +40,6 @@ const float init_steps[] = {
 };
 #endif
 
-/*const float thresholds[] = {
-    0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0
-};*/
 //#define ELONGATION 2.0
 
 uniform vec2 samples[MAX_SAMPLES];
@@ -170,9 +167,3 @@ void main(){
     ATOMIC_COUNT_INCREMENTS(4)
     ATOMIC_COUNT_CALCULATE
 }
-
-                /*vec3 backPos = texPos - one_step * d2 / (abs(d1) + d2);
-                linearz = Linearize(backPos.z);
-                lineard = texture(lineardepthTex, hitPos).r;
-                if(abs(linearz - lineard) > d2) hitPos = texPos.xy;
-                else hitPos = backPos.xy;*/
