@@ -3,6 +3,9 @@
 
 typedef unsigned int uint;
 typedef unsigned char uchar;
+
+#define UINT_MAX 0xFFFFFFFF
+#define FLOAT_MAX 3.4028e38f
 // Math Defines
 #define M_PI                3.1415926536f  // pi
 #define M_2PI               6.2831853072f  // 2pi

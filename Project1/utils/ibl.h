@@ -105,6 +105,13 @@ public:
             depthCube = Texture::createCubeMap(512, 512, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_LINEAR);
         }
     }
+    ~IBL() {
+        if (tex2D) delete tex2D;
+        if (texCube) delete texCube;
+        if (depthCube) delete depthCube;
+        if (texCubeFiltered) delete texCubeFiltered;
+        if (targetFbo) delete targetFbo;
+    }
     void filter(uint level = 5) {
         if(texCubeFiltered == nullptr){
             texCubeFiltered = Texture::createCubeMap(512, 512, GL_RGB32F, GL_RGB, GL_FLOAT, GL_LINEAR);

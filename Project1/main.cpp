@@ -6,5 +6,6 @@ int main(int argc, char* argv[])
     RenderFrame demo(1600, 1024, "Demo");
     demo.onLoad();
     demo.run();
+    demo.onDestroy();
     return 0;
 }

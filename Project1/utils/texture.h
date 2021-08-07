@@ -8,13 +8,16 @@
 
 class Texture {
 public:
-    uint id;
+    uint id = UINT_MAX;
     std::string type;
     std::string path;
     uint width, height;
     GLenum target, format;
 
     Texture() {};
+    ~Texture() {
+        if (glIsTexture(id)) glDeleteTextures(1, &id);
+    };
     static Texture* create(
         uint width,
         uint height,

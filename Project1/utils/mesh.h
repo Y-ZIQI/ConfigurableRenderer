@@ -41,6 +41,13 @@ struct Material {
     glm::vec3 specular;
     glm::vec3 emissive;
 
+    Material() {};
+    ~Material() {
+        if (baseColorMap) delete baseColorMap;
+        if (specularMap) delete specularMap;
+        if (normalMap) delete normalMap;
+        if (emissiveMap) delete emissiveMap;
+    };
     void loadTexture(aiMaterial* mat, aiTextureType type, const std::string& directory = "", bool genMipmap = true, bool gammaCorrection = false, bool vfilp = true) {
         int tCount = mat->GetTextureCount(type);
         if (tCount <= 0) return;
@@ -113,6 +120,7 @@ public:
         this->n_triangles = n_indices / 3;
         this->material = material;
     }
+    ~Mesh() {};
 
     // render the mesh
     bool Draw(Shader &shader, bool pre_cut_off = false, glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))

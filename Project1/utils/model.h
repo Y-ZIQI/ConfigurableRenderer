@@ -11,7 +11,7 @@ public:
     string name;
     string directory;
     // model data 
-    uint VAO, VBO, EBO;
+    uint VAO = UINT_MAX, VBO = UINT_MAX, EBO = UINT_MAX;
     uint n_vertices, n_indices;
     vector<Vertex> vertices;
     vector<uint> indices;
@@ -47,6 +47,13 @@ public:
         loadModel(path, vflip);
         setupModel();
     }
+    ~Model() {
+        if (glIsVertexArray(VAO))glDeleteVertexArrays(1, &VAO);
+        if (glIsBuffer(VBO))glDeleteBuffers(1, &VBO);
+        if (glIsBuffer(EBO))glDeleteBuffers(1, &EBO);
+        for (uint i = 0; i < materials.size(); i++) if (materials[i])delete materials[i];
+        for (uint i = 0; i < meshes.size(); i++) if (meshes[i])delete meshes[i];
+    };
 
     void Draw(Shader &shader, bool pre_cut_off = false, glm::vec3 camera_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 camera_front = glm::vec3(0.0, 0.0, 0.0))
     {
@@ -67,12 +74,6 @@ public:
             frame_record.draw_calls += 1;
         }
         glBindVertexArray(0);
-        /*shader.setMat4("model", meshes[0]->model_mat);
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, n_indices, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-        frame_record.triangles += n_indices / 3;
-        frame_record.draw_calls += 1;*/
     }
     void DrawOpaque(Shader& shader) {
         glDisable(GL_BLEND);
@@ -271,6 +272,9 @@ public:
             gui->addVariable("BaseColor.b", materials[i]->baseColor[2])->setSpinnable(true);
             gui->addVariable("Roughness", materials[i]->specular[1])->setSpinnable(true);
             gui->addVariable("Metallic", materials[i]->specular[2])->setSpinnable(true);
+            gui->addVariable("Emissive.r", materials[i]->emissive[0])->setSpinnable(true);
+            gui->addVariable("Emissive.g", materials[i]->emissive[1])->setSpinnable(true);
+            gui->addVariable("Emissive.b", materials[i]->emissive[2])->setSpinnable(true);
             gui->addButton("Close", [this, i]() { matWindows[i]->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
             matWindows[i]->setVisible(false);
             btn = new nanogui::Button(wd, materials[i]->name);

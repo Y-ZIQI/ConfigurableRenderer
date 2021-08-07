@@ -6,11 +6,19 @@
 class BaseShadowMap {
 public:
     bool initialized = false;
-    FrameBuffer* smBuffer;
-    Texture* smTex[2];
+    FrameBuffer* smBuffer = nullptr;
+    Texture* smTex[2] = { nullptr, nullptr };
     uint texId;
     uint width, height;
     BaseShadowMap() {};
+    ~BaseShadowMap() {
+        if (smBuffer) {
+            delete smBuffer->colorAttachs[1].texture;
+            delete smBuffer;
+        }
+        if (smTex[0]) delete smTex[0];
+        if (smTex[1]) delete smTex[1];
+    };
 };
 
 class ShadowMap : public BaseShadowMap {
@@ -26,6 +34,7 @@ public:
         smBuffer->attachColorTarget(smTex[texId], 0);
         smBuffer->attachColorTarget(Texture::create(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT, GL_LINEAR), 1); // Buffer for filter
     };
+    ~ShadowMap() {};
     void setTex(uint id) {
         if (texId != id) {
             texId = id;
@@ -50,6 +59,7 @@ public:
         smBuffer->attachCubeTarget(smTex[texId], 0);
         smBuffer->attachCubeTarget(Texture::createCubeMap(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT, GL_LINEAR), 1); // Buffer for filter
     };
+    ~OmniShadowMap() {};
     void setTex(uint id) {
         if (texId != id) {
             texId = id;
@@ -79,6 +89,7 @@ public:
     nanogui::ref<nanogui::Window> lightWindow;
 
     BaseLight() {};
+    ~BaseLight() {};
     void addGui(nanogui::FormHelper* gui) {
         gui->addButton(name, [this]() {
             lightWindow->setFocused(!lightWindow->visible());
@@ -112,6 +123,10 @@ public:
     Shader* smShader, *filterShader;
     glm::mat4 viewProj, viewMat, projMat, previousMat;
 
+    Light() {};
+    ~Light() {
+        for (uint i = 0; i < smList.size(); i++) if (smList[i])delete smList[i];
+    };
     void setShadowMap(uint idx) {
         if (shadow_enabled)
             shadowMap = smList[idx];
@@ -177,6 +192,7 @@ public:
         target = Position + Direction;
         light_size = Light_size;
     }
+    ~DirectionalLight() {};
     bool update(uint gen_shadow = 1, glm::vec3 cam_pos = glm::vec3(0.0, 0.0, 0.0), glm::vec3 cam_front = glm::vec3(0.0, 0.0, 0.0)) {
         const float threshold = 10.0f;
         bool genShadow = false;
@@ -278,6 +294,7 @@ public:
         quadratic = 70.0f / (Range * Range);
         light_size = Light_size;
     }
+    ~PointLight() {};
     bool update(uint gen_shadow = 1) {
         bool genShadow = false;
         if (shadow_enabled) {
@@ -368,6 +385,9 @@ public:
         quadratic = 70.0f / (Range * Range);
         light_size = Light_size;
     }
+    ~RadioactiveLight() {
+        for (uint i = 0; i < smList.size(); i++) if (smList[i])delete smList[i];
+    };
     void setShadowMap(uint idx) {
         if (shadow_enabled);
             shadowMap = smList[idx];

@@ -4,17 +4,20 @@
 
 class FrameBuffer {
 public:
-    uint id = 0;
+    uint id = UINT_MAX;
     struct Attachment
     {
-        Texture* texture;
+        Texture* texture = nullptr;
         int mipLevel = 0;
         int arraySize = 1;
         int firstArraySlice = 0;
     };
     struct RenderBuffer
     {
-        uint id = 0;
+        uint id = UINT_MAX;
+        ~RenderBuffer() {
+            if (glIsRenderbuffer(id)) glDeleteRenderbuffers(1, &id);
+        };
     };
     std::vector<Attachment> colorAttachs;
     Attachment depthAttach;
@@ -28,10 +31,15 @@ public:
             glGenFramebuffers(1, &id);
             attachs = 0;
         }
-        else
+        else {
+            id = 0;
             attachs = 1;
+        }
         colorAttachs.resize(MAX_TARGETS);
     };
+    ~FrameBuffer() {
+        if (id != 0 && glIsFramebuffer(id)) glDeleteFramebuffers(1, &id);
+    }
     void attachColorTarget(Texture* tex, uint index, GLenum texTarget = GL_TEXTURE_2D, GLint miplevel = 0) {
         if (index >= MAX_TARGETS) return;
         if (index >= attachs) attachs = index + 1;

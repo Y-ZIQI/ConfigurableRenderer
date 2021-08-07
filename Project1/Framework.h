@@ -86,8 +86,11 @@ public:
 class RenderFrame {
 public:
     RenderFrame(int width, int height, const char* title);
+    ~RenderFrame() {};
     void onLoad();
     void onFrameRender();
+    void onDestroy();
+    void loadScene(string const& path, const string name = "scene");
     void processInput();
     uint config(bool force_update = false);
     void initResources();
@@ -101,7 +104,7 @@ private:
     GLubyte* image_data;
 
     GLFWENV* glfw;
-    Scene* scene;
+    Scene* scene = nullptr;
     Camera* camera;
 
     std::vector<DeferredRenderer*> dRdrList;
@@ -128,7 +131,7 @@ private:
     * 3: SunTemple
     * 4: Arcade
     */
-    uint test_scene = 1;
+    uint test_scene = 3;
     float fps, duration;
 };
 
@@ -144,6 +147,13 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
 
     screen = new nanogui::Screen();
     screen->initialize(glfw->window, true);
+}
+
+void RenderFrame::loadScene(string const& path, const string name) {
+    scene->loadScene(path, name);
+    camera = scene->camera;
+    camera->setAspect((float)width / (float)height);
+    initResources();
 }
 
 void RenderFrame::onLoad() {
@@ -167,24 +177,20 @@ void RenderFrame::onLoad() {
         scene = new Scene;
         if (test_scene == 1) {
             /***************************Bistro*********************************/
-            scene->loadScene("resources/Bistro/BistroExterior.json", "Bistro");
+            loadScene("resources/Bistro/BistroExterior.json", "Bistro");
         }
         else if (test_scene == 2) {
             /************************BistroInterior******************************/
-            scene->loadScene("resources/Bistro/BistroInterior_Wine.json", "BistroInterior");
+            loadScene("resources/Bistro/BistroInterior_Wine.json", "BistroInterior");
         }
         else if (test_scene == 3) {
             /***************************SunTemple*********************************/
-            scene->loadScene("resources/SunTemple/SunTemple.json", "SunTemple");
+            loadScene("resources/SunTemple/SunTemple.json", "SunTemple");
         }
         else if (test_scene == 4) {
             /****************************Arcade**********************************/
-            scene->loadScene("resources/Arcade/Arcade.json", "Arcade");
+            loadScene("resources/Arcade/Arcade.json", "Arcade");
         }
-        camera = scene->camera;
-        camera->setAspect((float)width / (float)height);
-
-        initResources();
     }
     {
         gui = new nanogui::FormHelper(screen);
@@ -212,6 +218,7 @@ void RenderFrame::onLoad() {
         gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "EVSM", "PCSS", "Hard"});
         gui->addVariable("Effect", settings.effect_level, enabled)->setItems({ "Off", "On" });
         gui->addGroup("Scenes");
+        //gui->addButton("Reload Scene", [this]() { loadScene("resources/Arcade/Arcade.json", "Arcade"); });
         scene->addGui(gui, mainWindow);
         screen->setVisible(true);
         screen->performLayout();
@@ -233,30 +240,30 @@ void RenderFrame::initResources() {
 
 void RenderFrame::onFrameRender() {
     update();
-
-    glDisable(GL_BLEND); 
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-
-    uint flag = config(glfw->frame_count <= 1);
-
-    scene->update((flag & 0x2) ? 2 : settings.update_shadow, settings.shadow_type == mode1);
-
-    dRenderer->renderScene(*scene);
-
-    if(settings.smaa_level != level1)
-        smaaPass->Draw(screenFbo->colorAttachs[0].texture);
-    glViewport(0, 0, width, height);
-    resolveShader->use();
-    if (settings.smaa_level == level1)
-        resolveShader->setTextureSource("screenTex", 0, screenFbo->colorAttachs[0].texture->id);
-    else
-        resolveShader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
-    targetFbo->prepare();
-    targetFbo->clear();
-    renderScreen();
-
+    if (scene) {
+        glDisable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+        uint flag = config(scene->getLoadedStatue());
+        scene->update((flag & 0x2) ? 2 : settings.update_shadow, settings.shadow_type == mode1);
+        dRenderer->renderScene(*scene);
+        if (settings.smaa_level != level1)
+            smaaPass->Draw(screenFbo->colorAttachs[0].texture);
+        glViewport(0, 0, width, height);
+        resolveShader->use();
+        if (settings.smaa_level == level1)
+            resolveShader->setTextureSource("screenTex", 0, screenFbo->colorAttachs[0].texture->id);
+        else
+            resolveShader->setTextureSource("screenTex", 0, smaaPass->screenBuffer->colorAttachs[0].texture->id);
+        targetFbo->prepare();
+        targetFbo->clear();
+        renderScreen();
+    }
+    else {
+        targetFbo->prepare();
+        targetFbo->clear(ALL_TARGETS, _clear_color_blue);
+    }
     if (settings.recording) {
         if(glfw->frame_count > 1) 
             frame_record.get();
@@ -459,4 +466,9 @@ void RenderFrame::run() {
         glfwPollEvents();
     }
     glfwTerminate();
+}
+
+void RenderFrame::onDestroy() {
+    if (gui)delete gui;
+    if (scene)delete scene;
 }
