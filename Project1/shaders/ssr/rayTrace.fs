@@ -8,8 +8,6 @@
 
 layout (location = 0) out uvec4 hitPt1234;
 layout (location = 1) out uvec4 hitPt5678;
-layout (location = 2) out vec4 weight1234;
-layout (location = 3) out vec4 weight5678;
 
 in vec2 TexCoords;
 
@@ -25,7 +23,6 @@ uniform sampler2D rayamountTex;
 uniform sampler2D specularTex;
 uniform sampler2D positionTex;
 uniform sampler2D normalTex;
-uniform sampler2D depthTex;
 uniform sampler2D lineardepthTex;
 
 #if SSR_LEVEL == 1
@@ -58,14 +55,14 @@ vec3 getScreenUV(vec3 posW){
 }
 
 // Need Optimize
-float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 hitPos){
+bool rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 hitPos){
     vec3 one_step = texDir * init_step;
     float linearz = Linearize(texPos.z), lineard, distz, d1, d2;
     uint max_step = uint(min(min(
         max(-texPos.x / one_step.x, (1.0 - texPos.x) / one_step.x), 
         max(-texPos.y / one_step.y, (1.0 - texPos.y) / one_step.y)
     ),  max(-texPos.z / one_step.z, (1.0 - texPos.z) / one_step.z)
-    ));
+    )) + 1;
     
     texPos += one_step * random(texDir.yx);
     distz = Linearize(texPos.z) - linearz;
@@ -78,7 +75,7 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 h
             d2 = linearz - lineard;
             if(d2 < threshold + max(distz, 0.0)){
                 hitPos = texPos.xy - one_step.xy * d2 / (abs(d1) + d2);
-                return 1.0;
+                return true;
             }
         }
         d1 = lineard - linearz;
@@ -88,14 +85,7 @@ float rayTrace_screenspace(vec3 texPos, vec3 texDir, float init_step, out vec2 h
         ATOMIC_COUNT_INCREMENT
         lineard = texture(lineardepthTex, texPos.xy).r;
     }
-    texPos = clamp(texPos, 0.0, 1.0);
-    linearz = Linearize(texPos.z);
-    ATOMIC_COUNT_INCREMENT
-    lineard = texture(lineardepthTex, texPos.xy).r;
-    if(lineard >= Linearize(1.0) - 0.1) return 0.0;
-    hitPos = texPos.xy;
-    float dist_w = abs(distz) / (abs(lineard - linearz) + abs(distz));
-    return dist_w;
+    return false;
 }
 
 uint pack2to1(uvec2 uv){
@@ -104,8 +94,8 @@ uint pack2to1(uvec2 uv){
 
 void main(){
     vec3 normal = texture(normalTex, TexCoords).rgb;
-    weight1234 = vec4(0.0);
-    weight5678 = vec4(0.0);
+    hitPt1234 = uvec4(0);
+    hitPt5678 = uvec4(0);
     if(dot(normal, normal) == 0.0){
         return;
     }
@@ -113,15 +103,11 @@ void main(){
     vec3 specular = texture(specularTex, TexCoords).rgb;
     vec3 view = normalize(position - camera_pos);
     float roughness = specular.g;
-    vec3 planeN = cross(normal, -view); // normal of incidence plane
-    vec3 planeV = normalize(cross(planeN, normal)); // Vector of incidence plane
-    vec3 N_revised = normalize(normalize(-view + planeV) + normalize(-view - planeV));
-    vec3 N_mixed = normalize(mix(normal, N_revised, roughness * roughness));
     mat3 TBN;
-    TBN[2] = N_mixed;
-    vec3 up = abs(N_mixed.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    TBN[0] = normalize(cross(up, N_mixed));
-    TBN[1] = cross(N_mixed, TBN[0]);
+    TBN[2] = normal;
+    vec3 up = abs(normal.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    TBN[0] = normalize(cross(up, normal));
+    TBN[1] = cross(normal, TBN[0]);
     
     float angle = random(TexCoords) * M_2PI, move = random(TexCoords.yx) * 0.12;
     rotateM = mat3(
@@ -133,7 +119,10 @@ void main(){
 
     int level = int(roughness * 9.9);
     float init_step = init_steps[level] / 1000.0, pdf;
-    float rayAmount = max(texture(rayamountTex, TexCoords).r - 0.02, 0.0);
+    float rayAmount1 = max(textureOffset(rayamountTex, TexCoords, ivec2(-1, 0)).r, textureOffset(rayamountTex, TexCoords, ivec2(1, 0)).r);
+    float rayAmount2 = max(textureOffset(rayamountTex, TexCoords, ivec2(0, -1)).r, textureOffset(rayamountTex, TexCoords, ivec2(0, 1)).r);
+    float rayAmount = max(max(rayAmount1, rayAmount2), texture(rayamountTex, TexCoords).r);
+    rayAmount = max(rayAmount - 0.15, 0.0);
     int num_samples = int(ceil(max(sqrt(roughness) * MAX_SAMPLES, 1.0) * rayAmount));
     //int num_samples = int(min(roughness, 0.99) * MAX_SAMPLES) + 1;
     vec2 hitpos;
@@ -150,20 +139,19 @@ void main(){
         vec3 refv = reflect(view, H);
         vec3 texDir = getScreenUV(position + refv * 0.1) - texPos;
         texDir *= 1.0 / length(vec2(texDir.xy));
-        float inter = rayTrace_screenspace(texPos, texDir, init_step, hitpos);
-        uvec2 hitXY = uvec2(vec2(width, height) * hitpos);
-        uint packXY = pack2to1(hitXY);
+        bool intersect = rayTrace_screenspace(texPos, texDir, init_step, hitpos);
+        uint packXY = intersect? pack2to1(uvec2(vec2(width, height) * hitpos) + 1) : 0;
         switch(i){
-        case 0: hitPt1234.r = packXY; weight1234.r = inter; break;
-        case 1: hitPt1234.g = packXY; weight1234.g = inter; break;
-        case 2: hitPt1234.b = packXY; weight1234.b = inter; break;
-        case 3: hitPt1234.a = packXY; weight1234.a = inter; break;
-        case 4: hitPt5678.r = packXY; weight5678.r = inter; break;
-        case 5: hitPt5678.g = packXY; weight5678.g = inter; break;
-        case 6: hitPt5678.b = packXY; weight5678.b = inter; break;
-        case 7: hitPt5678.a = packXY; weight5678.a = inter; break;
+        case 0: hitPt1234.r = packXY; break;
+        case 1: hitPt1234.g = packXY; break;
+        case 2: hitPt1234.b = packXY; break;
+        case 3: hitPt1234.a = packXY; break;
+        case 4: hitPt5678.r = packXY; break;
+        case 5: hitPt5678.g = packXY; break;
+        case 6: hitPt5678.b = packXY; break;
+        case 7: hitPt5678.a = packXY; break;
         }
     }
-    ATOMIC_COUNT_INCREMENTS(4)
+    ATOMIC_COUNT_INCREMENTS(8)
     ATOMIC_COUNT_CALCULATE
 }

@@ -98,15 +98,11 @@ void main(){
     vec3 specular = texture(specularTex, TexCoords).rgb;
     vec3 view = normalize(position - camera_pos);
     float roughness = specular.g, ggxAlpha = max(0.0064, roughness * roughness), a2 = ggxAlpha * ggxAlpha;
-    vec3 planeN = cross(normal, -view); // normal of incidence plane
-    vec3 planeV = normalize(cross(planeN, normal)); // Vector of incidence plane
-    vec3 N_revised = normalize(normalize(-view + planeV) + normalize(-view - planeV));
-    vec3 N_mixed = normalize(mix(normal, N_revised, roughness * roughness));
     mat3 TBN;
-    TBN[2] = N_mixed;
-    vec3 up = abs(N_mixed.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    TBN[0] = normalize(cross(up, N_mixed));
-    TBN[1] = cross(N_mixed, TBN[0]);
+    TBN[2] = normal;
+    vec3 up = abs(normal.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    TBN[0] = normalize(cross(up, normal));
+    TBN[1] = cross(normal, TBN[0]);
     
     float angle = random(TexCoords) * M_2PI, move = random(TexCoords.yx) * 0.12;
     rotateM = mat3(

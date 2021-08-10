@@ -55,16 +55,18 @@ public:
         shadingBuffer = new FrameBuffer;
         shadingBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 0);
         shadingBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 1);
+        shadingBuffer->colorAttachs[1].texture->setTexParami(GL_TEXTURE_BASE_LEVEL, 0);
+        shadingBuffer->colorAttachs[1].texture->setTexParami(GL_TEXTURE_MAX_LEVEL, 1);
         effectBuffer = new FrameBuffer;
-        effectBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 0);
-        effectBuffer->attachColorTarget(Texture::create(width, height, GL_RGB16F, GL_RGB, GL_FLOAT), 1);
+        effectBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGB16F, GL_RGB, GL_FLOAT, GL_LINEAR), 0);
+        effectBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGB16F, GL_RGB, GL_FLOAT, GL_LINEAR), 1);
         tilingBuffer = new FrameBuffer;
         tilingBuffer->attachColorTarget(Texture::create(width / 8, height / 8, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, GL_LINEAR), 0);
         rayTraceBuffer = new FrameBuffer;
         rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA32UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT, GL_NEAREST), 0);
         rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA32UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT, GL_NEAREST), 1);
-        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST), 2);
-        rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST), 3);
+        //rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST), 2);
+        //rayTraceBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST), 3);
         reflectionBuffer = new FrameBuffer;
         reflectionBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGB16F, GL_RGB, GL_FLOAT), 0);
         reflectionBuffer->attachColorTarget(Texture::create(width / 2, height / 2, GL_RGB16F, GL_RGB, GL_FLOAT), 1);
@@ -172,7 +174,6 @@ public:
         ssrShader->setTextureSource("positionTex", 2, gBuffer1->colorAttachs[3].texture->id);
         ssrShader->setTextureSource("normalTex", 3, gBuffer2->colorAttachs[0].texture->id);
         ssrShader->setTextureSource("lineardepthTex", 4, gBuffer2->colorAttachs[1].texture->id);
-        ssrShader->setTextureSource("depthTex", 5, gBuffer1->depthAttach.texture->id);
         rayTraceBuffer->prepare();
         renderScreen();
 
@@ -188,8 +189,6 @@ public:
         resolveShader->setTextureSource("normalTex", 4, gBuffer2->colorAttachs[0].texture->id);
         resolveShader->setTextureSource("hitPt1234", 5, rayTraceBuffer->colorAttachs[0].texture->id);
         resolveShader->setTextureSource("hitPt5678", 6, rayTraceBuffer->colorAttachs[1].texture->id);
-        resolveShader->setTextureSource("weight1234", 7, rayTraceBuffer->colorAttachs[2].texture->id);
-        resolveShader->setTextureSource("weight5678", 8, rayTraceBuffer->colorAttachs[3].texture->id);
         reflectionBuffer->prepare(0);
         renderScreen();
 
@@ -214,8 +213,10 @@ public:
         renderScreen();
     }
     void renderEffects() {
+        shadingBuffer->colorAttachs[1].texture->genMipmap();
+        glViewport(0, 0, width / 2, height / 2);
         bloomShader->use();
-        bloomShader->setVec2("pixel_size", pixel_size);
+        bloomShader->setVec2("pixel_size", pixel_size * 2.0f);
         bloomShader->setTextureSource("colorTex", 0, shadingBuffer->colorAttachs[1].texture->id);
         bloomShader->setTextureSource("horizontalTex", 1, effectBuffer->colorAttachs[0].texture->id);
         bloomShader->setBool("horizontal", true);
@@ -227,6 +228,7 @@ public:
         renderScreen();
     }
     void joinEffects(Texture *colorTex) {
+        glViewport(0, 0, width, height);
         joinShader->use();
         joinShader->setBool("join", effect != 0);
         joinShader->setBool("tone_mapping", true);

@@ -529,45 +529,57 @@ vec3 evalShading(vec3 baseColor, vec3 specColor, vec3 emissColor, vec3 normal, v
     }
     #ifdef EVAL_IBL
     count = min(iblCount, MAX_IBL_LIGHT);
+    vec3 L;
+    float dist1, dist2, d_sum, tmp1, tmp2, ndist;
+    int min1, min2, tmp3;
     switch(count){
     case 0: break;
     case 1: 
         color += evalIBL(0, sd); 
         break;
     case 2: 
-        vec3 L = sd.posW - ibls[0].position;
-        float dist1 = IBLweight(L, ibls[0].range);
-        L = sd.posW - ibls[1].position;
-        float dist2 = IBLweight(L, ibls[1].range);
-        float d_sum = 1.0 / (dist1 + dist2);
-        color += evalIBL(0, sd) * dist2 * d_sum; 
-        color += evalIBL(1, sd) * dist1 * d_sum; 
-        break;
-    default:
-        int min1 = 0, min2 = 1;
         L = sd.posW - ibls[0].position;
         dist1 = IBLweight(L, ibls[0].range);
         L = sd.posW - ibls[1].position;
         dist2 = IBLweight(L, ibls[1].range);
+        d_sum = 1.0 / (dist1 + dist2);
+        color += evalIBL(0, sd) * dist2 * d_sum; 
+        color += evalIBL(1, sd) * dist1 * d_sum; 
+        break;
+    default:
+        L = sd.posW - ibls[0].position;
+        dist1 = IBLweight(L, ibls[0].range);
+        L = sd.posW - ibls[1].position;
+        dist2 = IBLweight(L, ibls[1].range);
+        tmp1 = step(dist2, dist1);
+        tmp2 = tmp1 * (dist1 - dist2);
+        dist1 -= tmp2;
+        dist2 += tmp2;
+        min1 = int(tmp1);
+        min2 = 1 - min1;
+        // maintain dist1 -> min dist, dist2 -> 2st min dist, min1 and min2 are indexes of dist1 and dist2
         for (int i = 2; i < count; i++){
             L = sd.posW - ibls[i].position;
-            float ndist = IBLweight(L, ibls[i].range);
-            if(ndist < dist1){
-                if(dist1 < dist2){
-                    dist2 = ndist;
-                    min2 = i;                    
-                }else{
-                    dist1 = ndist;
-                    min1 = i;                    
-                }
-            }else if(ndist < dist2){
-                dist2 = ndist;
-                min2 = i;                
-            }
+            ndist = IBLweight(L, ibls[i].range);
+            // if ndist < dist2, swap ndist and dist2 and update min2
+            tmp1 = step(ndist, dist2);
+            tmp2 = tmp1 * (dist2 - ndist);
+            dist2 -= tmp2;
+            min2 += int(tmp1) * (i - min2);
+            // if dist2 < dist1(only if ndist < dist2), swap dist1 and dist2 and update min1 and min2
+            tmp1 = step(dist2, dist1);
+            tmp2 = tmp1 * (dist1 - dist2);
+            dist1 -= tmp2;
+            dist2 += tmp2;
+            tmp3 = int(tmp1) * (min2 - min1);
+            min1 += tmp3;
+            min2 -= tmp3;
         }
         d_sum = 1.0 / (dist1 + dist2);
         color += evalIBL(min1, sd) * dist2 * d_sum; 
         color += evalIBL(min2, sd) * dist1 * d_sum; 
+        //int k1 = min(min1, min2), k2 = max(min1, min2);
+        //color = vec3(float(k1) / 10.0, float(k2) / 10.0, 0.0);
         break;
     }
     #endif

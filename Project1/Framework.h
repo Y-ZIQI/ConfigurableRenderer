@@ -469,6 +469,5 @@ void RenderFrame::run() {
 }
 
 void RenderFrame::onDestroy() {
-    if (gui)delete gui;
     if (scene)delete scene;
 }

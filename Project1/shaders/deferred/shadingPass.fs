@@ -48,13 +48,14 @@ void main()
         const float bloom_ratio = 0.3;
         const vec3 Lumia = vec3(0.2126, 0.7152, 0.0722);
         float rate = dot(color, Lumia);
+        vec3 clip_color;
         if(rate > 1.0){
-            vec3 clip_color = color - color / rate;
-            BloomColor = clip_color * bloom_ratio;
+            clip_color = (color - color / rate) * bloom_ratio;
         }else{
-            BloomColor = emissive * bloom_ratio;
+            clip_color = emissive * bloom_ratio;
         }
-        FragColor = color - BloomColor;
+        BloomColor = 25.0 * log(0.04 * clip_color + 1.0);
+        FragColor = color - clip_color;
         #else
         BloomColor = vec3(0.0);
         FragColor = color;
