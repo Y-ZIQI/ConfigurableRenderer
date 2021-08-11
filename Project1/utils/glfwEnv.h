@@ -136,6 +136,11 @@ private:
         if (mouse_enable)
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
+        // Default settings
+        glDisable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
         // default anisotropy number
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &_max_anisotropy);
         /* Set default texture sources */

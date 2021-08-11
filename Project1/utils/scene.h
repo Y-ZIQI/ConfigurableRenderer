@@ -147,7 +147,10 @@ public:
         shader.setVec4("camera_params", glm::vec4(camera->Zoom, camera->Aspect, inv_n + inv_f, inv_n - inv_f));
         shader.setMat4("camera_vp", projectionMat * viewMat);
     }
-    void loadScene(string const& path, const string name = "scene") {
+    void loadScene(string const& path, const string name = "") {
+#ifdef SHOW_LOADING_PROGRESS
+        std::cout << "Start Loading " << path << "...\n";
+#endif
         try{
             std::ifstream ifs(path);
             ifs >> jscene;
@@ -156,8 +159,9 @@ public:
             std::cout << "ERROR::SCENE::FILE_NOT_SUCCESFULLY_READ" << std::endl;
             return;
         }
-        this->name = name;
         clearScene();
+        if (name == "") this->name = path.substr(path.find_last_of('/') + 1);
+        else this->name = name;
 
         try {
             ssao_range = jscene["ssao_range"].as_float();
@@ -191,6 +195,9 @@ public:
                 }
             }
 
+#ifdef SHOW_LOADING_PROGRESS
+            std::cout << "Loading Lights...";
+#endif
             auto env_maps = jscene["environment_maps"].as_array();
             for (uint i = 0; i < env_maps.size(); i++) {
                 auto files = env_maps[i]["files"];
@@ -214,23 +221,6 @@ public:
                 addEnvMap(skybox);
             }
             setEnvMap(0);
-
-            auto light_probes = jscene["light_probes"].as_array();
-            for (uint i = 0; i < light_probes.size(); i++) {
-                auto name = light_probes[i]["name"].as_string();
-                auto file = light_probes[i]["file"].as_string();
-                if (file != "") file = directory + file;
-                auto intensity = light_probes[i]["intensity"].as_array();
-                auto pos = light_probes[i]["pos"].as_array();
-                auto range = light_probes[i]["range"].as_float();
-                auto depth_range = light_probes[i]["depth_range"].as_array();
-                addLightProbe(new IBL(
-                    name, file,
-                    glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
-                    glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
-                    range, depth_range[0].as_float(), depth_range[1].as_float()
-                ));
-            }
 
             auto lights = jscene["lights"].as_array();
             for (uint i = 0; i < lights.size(); i++) {
@@ -297,6 +287,26 @@ public:
                 }
             }
 
+            auto light_probes = jscene["light_probes"].as_array();
+            for (uint i = 0; i < light_probes.size(); i++) {
+                auto name = light_probes[i]["name"].as_string();
+                auto file = light_probes[i]["file"].as_string();
+                if (file != "") file = directory + file;
+                auto intensity = light_probes[i]["intensity"].as_array();
+                auto pos = light_probes[i]["pos"].as_array();
+                auto range = light_probes[i]["range"].as_float();
+                auto depth_range = light_probes[i]["depth_range"].as_array();
+                addLightProbe(new IBL(
+                    name, file,
+                    glm::vec3(intensity[0].as_float(), intensity[1].as_float(), intensity[2].as_float()),
+                    glm::vec3(pos[0].as_float(), pos[1].as_float(), pos[2].as_float()),
+                    range, depth_range[0].as_float(), depth_range[1].as_float()
+                ));
+            }
+#ifdef SHOW_LOADING_PROGRESS
+            std::cout << "End\n";
+#endif
+
             auto cameras = jscene["cameras"].as_array();
             for (uint i = 0; i < cameras.size(); i++) {
                 //std::string name = cameras[i]["name"].as_string();
@@ -322,6 +332,9 @@ public:
             std::cout << e.what() << std::endl;
             return;
         }
+#ifdef SHOW_LOADING_PROGRESS
+        std::cout << "Finished\n";
+#endif
     }
     void clearScene() {
         for (uint i = 0; i < cameras.size(); i++) 

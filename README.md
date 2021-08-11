@@ -10,6 +10,7 @@ OpenGL实现的一个渲染管线，仿照Nvidia的Falcor。并添加了一些�
 | Shading    | 着色模型       | GGX-based PBR, PBR+IBL |
 | 反射       | SSR            | Off, Low, High         |
 | SMAA抗锯齿 | 查询步数       | 0, 4, 32               |
+| 特效       | 泛光           | Off, Low, High         |
 
 ## Demo
 
@@ -33,7 +34,8 @@ OpenGL实现的一个渲染管线，仿照Nvidia的Falcor。并添加了一些�
 
 - glfw3
 - assimp
-- nanogui
+- stb_image
+- imgui
 - jsonxx
 
 ## Test Scenes
@@ -41,6 +43,10 @@ OpenGL实现的一个渲染管线，仿照Nvidia的Falcor。并添加了一些�
 - SunTemple: 
   - 从nvidia官网上下载SunTemple模型数据包[下载地址](https://developer.nvidia.com/sun-temple)
   - 将resources下的SunTemple文件夹与模型文件夹合并
+  - 加载resources/SunTemple/SunTemple.json
 - Bistro:
   - 从nvidia官网上下载Bistro模型数据包[下载地址](https://developer.nvidia.com/bistro)
   - 将resources下的Bistro文件夹与模型文件夹合并
+  - 加载resources/Bistro/BistroExterior.json或resources/Bistro/BistroInterior_Wine.json
+- Arcade:
+  - 直接加载resources/Arcade/Arcade.json

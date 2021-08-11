@@ -131,11 +131,9 @@ public:
     void renderGui() {
         if (ImGui::TreeNode(name.c_str())) {
             ImGui::DragFloat3("Intensity", (float*)&intensity[0], 0.01f, 0.0f, 10000.0f);
-            ImGui::DragFloat3("Position", (float*)&position[0], 0.0f, -10000.0f, 10000.0f);
             ImGui::DragFloat("Range", &range, 0.01f, 0.0f, 10000.0f);
-            ImGui::Text("Near Z: %f", nearz);
-            ImGui::SameLine();
-            ImGui::Text("Far Z: %f", farz);
+            ImGui::Text("Position : ( %f, %f, %f )", position[0], position[1], position[2]);
+            ImGui::Text("Near Z: %f, Far Z: %f", nearz, farz);
             ImGui::TreePop();
         }
     }

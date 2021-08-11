@@ -1,6 +1,13 @@
 #pragma once
 #include "AllInclude.h"
 
+const char* demo_scene_paths[] = {
+    "resources/Bistro/BistroExterior.json",
+    "resources/Bistro/BistroInterior_Wine.json",
+    "resources/SunTemple/SunTemple.json",
+    "resources/Arcade/Arcade.json"
+};
+
 const float values[][3] = {
     {0.6f, 0.8f, 1.0f},
     {0.25f, 0.5f, 1.0f}
@@ -91,7 +98,7 @@ public:
     void onFrameRender();
     void onGuiRender();
     void onDestroy();
-    void loadScene(string const& path, const string name = "scene");
+    void loadScene(string const& path, const string name = "");
     void processInput();
     uint config(bool force_update = false);
     void initResources();
@@ -121,12 +128,12 @@ private:
     bool moving = false;
 
     /**
-    * 1: Bistro
-    * 2: Bistro Interior
-    * 3: SunTemple
-    * 4: Arcade
+    * 0: Bistro
+    * 1: Bistro Interior
+    * 2: SunTemple
+    * 3: Arcade
     */
-    uint test_scene = 4;
+    uint test_scene = 3;
     float fps, duration;
 };
 
@@ -165,32 +172,15 @@ void RenderFrame::onLoad() {
 
         resolveShader = sManager.getShader(SID_UPSAMPLING);
     }
-    {
-        scene = new Scene;
-        if (test_scene == 1) {
-            /***************************Bistro*********************************/
-            loadScene("resources/Bistro/BistroExterior.json", "Bistro");
-        }
-        else if (test_scene == 2) {
-            /************************BistroInterior******************************/
-            loadScene("resources/Bistro/BistroInterior_Wine.json", "BistroInterior");
-        }
-        else if (test_scene == 3) {
-            /***************************SunTemple*********************************/
-            loadScene("resources/SunTemple/SunTemple.json", "SunTemple");
-        }
-        else if (test_scene == 4) {
-            /****************************Arcade**********************************/
-            loadScene("resources/Arcade/Arcade.json", "Arcade");
-        }
-    }
+    scene = new Scene;
+    loadScene(demo_scene_paths[test_scene]);
     {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         //ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
         //ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-        //ImGui::StyleColorsDark();
-        ImGui::StyleColorsClassic();
+        ImGui::StyleColorsDark();
+        //ImGui::StyleColorsClassic();
         ImGui_ImplGlfw_InitForOpenGL(glfw->window, true);
         ImGui_ImplOpenGL3_Init("#version 130");
     }
@@ -212,10 +202,6 @@ void RenderFrame::initResources() {
 void RenderFrame::onFrameRender() {
     update();
     if (scene) {
-        glDisable(GL_BLEND);
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glFrontFace(GL_CCW);
         uint flag = config(scene->getLoadedStatue());
         scene->update((flag & 0x2) ? 2 : settings.update_shadow, settings.shadow_type == mode1);
         dRenderer->renderScene(*scene);
@@ -254,25 +240,14 @@ void RenderFrame::update(){
 }
 
 void RenderFrame::onGuiRender() {
-    static bool show_demo_window = false;
-    static bool show_another_window = false;
-    static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    if (show_demo_window)
-        ImGui::ShowDemoWindow(&show_demo_window);
-
+    static bool show_demo_window = false;
+    if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
     {
-        static float f = 0.0f;
-        static int counter = 0;
-
-        static float f1 = 0.0f, f2 = 0.0f;
-
         ImGui::Begin("Demo");
-
         if(glfw->frame_count <= 1) ImGui::SetNextItemOpen(true);
         if (ImGui::CollapsingHeader("Status")) {
             ImGui::Text("Average time %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -281,7 +256,6 @@ void RenderFrame::onGuiRender() {
             ImGui::Text("Texture Samples: %d", frame_record.texture_samples);
             ImGui::Checkbox("Recording", &settings.recording);
         }
-
         if (glfw->frame_count <= 1) ImGui::SetNextItemOpen(true);
         if (ImGui::CollapsingHeader("Config")) {
             static const char* elems_names1[] = { "PBR", "PBR+IBL" };
@@ -296,7 +270,6 @@ void RenderFrame::onGuiRender() {
             ImGui::SliderInt("SMAA Level", (int*)&settings.smaa_level, 0, 2, elems_names4[settings.smaa_level]);
             ImGui::SliderInt("Effect", (int*)&settings.effect_level, 0, 2, elems_names4[settings.effect_level]);
         }
-
         if (glfw->frame_count <= 1) ImGui::SetNextItemOpen(true);
         if (ImGui::CollapsingHeader("Render Setting")) {
             static const char* elems_names5[] = { "Not update", "As need", "Every frame" };
@@ -304,50 +277,17 @@ void RenderFrame::onGuiRender() {
             ImGui::Combo("Update Shadow", (int*)&settings.update_shadow, elems_names5, 3);
             ImGui::Combo("Shadow Type", (int*)&settings.shadow_type, elems_names6, 3);
         }
-
         if (ImGui::CollapsingHeader("Scene")) {
+            static const char* elems_names7[] = { "Bistro", "Bistro Interior", "SunTemple", "Arcade" };
+            ImGui::Combo("Demo Scenes", (int*)&test_scene, elems_names7, 4);
             if (ImGui::Button("Load Scene")) {
-                std::cout << "Load scene\n";
+                loadScene(demo_scene_paths[test_scene]);
             }
             scene->renderGui();
         }
-
-        ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-        ImGui::Checkbox("Another Window", &show_another_window);
-
-        /*ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-        if (ImGui::Button("Button")) {
-            f1 = f2 = 0.0f;
-            counter++;
-        }// Buttons return true when clicked (most widgets return true when edited/activated)
-        ImGui::SameLine();
-        ImGui::Text("counter = %d", counter);
-        if (ImGui::GetIO().MouseWheel > f1) f1 = ImGui::GetIO().MouseWheel;
-        if (ImGui::GetIO().MouseWheel < f2) f2 = ImGui::GetIO().MouseWheel;
-        ImGui::Text("state = %f", f1);
-        ImGui::Text("state = %f", f2);
-        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[0] ? 1 : 0);
-        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[1] ? 1 : 0);
-        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[2] ? 1 : 0);
-        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[3] ? 1 : 0);
-        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[4] ? 1 : 0);
-
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);*/
+        ImGui::Checkbox("Demo Window", &show_demo_window);
         ImGui::End();
     }
-
-    // 3. Show another simple window.
-    if (show_another_window)
-    {
-        ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-        ImGui::Text("Hello from another window!");
-        if (ImGui::Button("Close Me"))
-            show_another_window = false;
-        ImGui::End();
-    }
-
     ImGui::Render();
     glViewport(0, 0, width, height);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -486,20 +426,18 @@ uint RenderFrame::config(bool force_update) {
 void RenderFrame::processInput() {
     if (glfw->mouse_enable) {
         if (glfw->checkCursor()) {
-            if (moving && !ImGui::GetIO().MouseDownOwned[0])
+            if (moving && !ImGui::GetIO().WantCaptureMouse)
                 camera->ProcessMouseMovement(inputs.mouse_xoffset, inputs.mouse_yoffset);
         }
         if (glfw->checkMouseButton()) {
-            if (inputs.mouse_button == GLFW_MOUSE_BUTTON_LEFT &&
-                inputs.mouse_action == GLFW_PRESS) moving = true;
-            else if (inputs.mouse_button == GLFW_MOUSE_BUTTON_LEFT && inputs.mouse_action == GLFW_RELEASE) moving = false;
+            if (inputs.mouse_button == GLFW_MOUSE_BUTTON_LEFT && inputs.mouse_action == GLFW_PRESS) 
+                moving = true;
+            else if (inputs.mouse_button == GLFW_MOUSE_BUTTON_LEFT && inputs.mouse_action == GLFW_RELEASE) 
+                moving = false;
         }
     }
-    if (glfw->checkKey());
-    if (glfw->checkChar());
-    if (glfw->checkDrop());
     if (glfw->checkScroll()) {
-        if (!ImGui::GetIO().MouseDownOwned[0])
+        if (!ImGui::GetIO().WantCaptureMouse)
             camera->ProcessMouseScroll(inputs.scroll_yoffset);
     }
     if (glfw->getKey(GLFW_KEY_W))

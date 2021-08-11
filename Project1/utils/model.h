@@ -115,22 +115,34 @@ private:
     // loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
     void loadModel(string const &path, bool vflip = true)
     {
+#ifdef SHOW_LOADING_PROGRESS
+        std::cout << "Read File...";
+#endif
         Assimp::Importer importer;
         const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices);
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode){
             cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << endl;
             return;
         }
+#ifdef SHOW_LOADING_PROGRESS
+        std::cout << "End\n";
+#endif
         directory = path.substr(0, path.find_last_of('/'));
 
         // Add Materials
         materials.resize(scene->mNumMaterials);
         for (uint i = 0; i < scene->mNumMaterials; i++) {
+#ifdef SHOW_LOADING_PROGRESS
+        std::cout << "\rLoading Materials...(" << i + 1 << "/" << scene->mNumMaterials << ")";
+#endif
             aiMaterial* mat = scene->mMaterials[i];
             materials[i] = new Material;
             materials[i]->loadMaterialTextures(mat, directory, vflip);
         }
         // Add Meshes
+#ifdef SHOW_LOADING_PROGRESS
+        std::cout << "\nLoading Meshes...";
+#endif
         meshes.resize(scene->mNumMeshes);
         n_vertices = n_indices = 0;
         vertices.resize(0);
@@ -166,6 +178,9 @@ private:
             n_vertices += vertices_i;
             n_indices += indices_i;
         }
+#ifdef SHOW_LOADING_PROGRESS
+        std::cout << "End\n";
+#endif
         // process ASSIMP's root node recursively
         graph.resize(1);
         processNode(scene->mRootNode, scene, 0, 0, glm::mat4(1.0f));
@@ -231,6 +246,28 @@ private:
 
 public:
     void renderGui() {
+        const float region_sz = 16.0f, zoom = 16.0f;
+        auto addTexImageView = [&](Texture* tex) {
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            float region_x = ImGui::GetIO().MousePos.x - pos.x - region_sz * 0.5f;
+            float region_y = ImGui::GetIO().MousePos.y - pos.y - region_sz * 0.5f;
+            if (region_x < 0.0f) { region_x = 0.0f; }
+            else if (region_x > 64.0f - region_sz) { region_x = 64.0f - region_sz; }
+            if (region_y < 0.0f) { region_y = 0.0f; }
+            else if (region_y > 64.0f - region_sz) { region_y = 64.0f - region_sz; }
+            ImVec2 uv0 = ImVec2((region_x) / 64.0f, (region_y) / 64.0f);
+            ImVec2 uv1 = ImVec2((region_x + region_sz) / 64.0f, (region_y + region_sz) / 64.0f);
+            ImGui::Image((void *)tex->id, ImVec2(64, 64));
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text("Min: (%.0f, %.0f)", region_x * tex->width / 64.0f, region_y * tex->height / 64.0f);
+                ImGui::Text("Max: (%.0f, %.0f)", (region_x + region_sz) * tex->width / 64.0f, (region_y + region_sz) * tex->height / 64.0f);
+                ImGui::Image((void*)tex->id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1);
+                ImGui::EndTooltip();
+            }
+            ImGui::SameLine();
+            ImGui::Text("%dx%d", tex->width, tex->height);
+        };
         if (ImGui::TreeNode(name.c_str())) {
             if (ImGui::TreeNode("Materials")) {
                 for (uint i = 0; i < materials.size(); i++) {
@@ -241,6 +278,9 @@ public:
                         }
                         if (!materials[i]->baseColorTex)
                             ImGui::ColorEdit4("BaseColor", (float*)&materials[i]->baseColor[0]);
+                        else if(materials[i]->has_tex & BASECOLOR_BIT){
+                            addTexImageView(materials[i]->baseColorMap);
+                        }
                         // Specular setting
                         if (ImGui::Checkbox("Specular Tex", &materials[i]->specularTex)) {
                             materials[i]->use_tex = materials[i]->specularTex ? (materials[i]->use_tex | SPECULAR_BIT) : (materials[i]->use_tex & ~SPECULAR_BIT);
@@ -252,16 +292,25 @@ public:
                             ImGui::DragFloat("Metallic", &materials[i]->specular[2], 0.001f, 0.0f, 1.0f);
                             ImGui::PopItemWidth();
                         }
+                        else if (materials[i]->has_tex & SPECULAR_BIT) {
+                            addTexImageView(materials[i]->specularMap);
+                        }
                         // Normal setting
                         if (ImGui::Checkbox("Normal Tex", &materials[i]->normalTex)) {
                             materials[i]->use_tex = materials[i]->normalTex ? (materials[i]->use_tex | NORMAL_BIT) : (materials[i]->use_tex & ~NORMAL_BIT);
+                        }
+                        if (materials[i]->normalTex && (materials[i]->has_tex & NORMAL_BIT)) {
+                            addTexImageView(materials[i]->normalMap);
                         }
                         // Emissive setting
                         if (ImGui::Checkbox("Emissive Tex", &materials[i]->emissiveTex)) {
                             materials[i]->use_tex = materials[i]->emissiveTex ? (materials[i]->use_tex | EMISSIVE_BIT) : (materials[i]->use_tex & ~EMISSIVE_BIT);
                         }
                         if (!materials[i]->emissiveTex)
-                            ImGui::ColorEdit3("Emissive", (float*)&materials[i]->emissive[0]);                        
+                            ImGui::ColorEdit3("Emissive", (float*)&materials[i]->emissive[0]);
+                        else if (materials[i]->has_tex & EMISSIVE_BIT) {
+                            addTexImageView(materials[i]->emissiveMap);
+                        }
                         ImGui::TreePop();
                     }
                 }

@@ -1,6 +1,8 @@
 #pragma once
 #include "includes.h"
 
+#define SHOW_LOADING_PROGRESS
+
 typedef unsigned int uint;
 typedef unsigned char uchar;
 
