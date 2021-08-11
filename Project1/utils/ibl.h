@@ -70,8 +70,6 @@ public:
     Texture* depthCube = nullptr;
     Texture* texCubeFiltered = nullptr;
     FrameBuffer* targetFbo = nullptr;
-    // For GUI
-    nanogui::ref<nanogui::Window> lightWindow;
 
     IBL(
         std::string Name, 
@@ -130,28 +128,15 @@ public:
         shader.setFloat(getStrFormat("ibls[%d].miplevel", index), miplevel);
         shader.setTextureSource(getStrFormat("ibls[%d].prefilterMap", index), tex_index++, texCubeFiltered->id, texCubeFiltered->target);
     }
-    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
-        gui->addButton(name, [this]() {
-            lightWindow->setFocused(!lightWindow->visible());
-            lightWindow->setVisible(!lightWindow->visible());
-        })->setIcon(ENTYPO_ICON_IMAGE);
-        lightWindow = gui->addWindow(Eigen::Vector2i(500, 0), name);
-        lightWindow->setWidth(250);
-        lightWindow->setVisible(false);
-        gui->addGroup("Intensity");
-        gui->addVariable("Intensity.r", intensity[0])->setSpinnable(true);
-        gui->addVariable("Intensity.g", intensity[1])->setSpinnable(true);
-        gui->addVariable("Intensity.b", intensity[2])->setSpinnable(true);
-        gui->addGroup("Position");
-        gui->addVariable("Position.x", position[0], false);
-        gui->addVariable("Position.y", position[1], false);
-        gui->addVariable("Position.z", position[2], false);
-        gui->addGroup("Paramaters");
-        gui->addVariable("Range", range)->setSpinnable(true);
-        gui->addVariable("Near", nearz, false);
-        gui->addVariable("Far", farz, false);
-        gui->addGroup("Close");
-        gui->addButton("Close", [this]() { lightWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
-        gui->setWindow(sceneWindow);
+    void renderGui() {
+        if (ImGui::TreeNode(name.c_str())) {
+            ImGui::DragFloat3("Intensity", (float*)&intensity[0], 0.01f, 0.0f, 10000.0f);
+            ImGui::DragFloat3("Position", (float*)&position[0], 0.0f, -10000.0f, 10000.0f);
+            ImGui::DragFloat("Range", &range, 0.01f, 0.0f, 10000.0f);
+            ImGui::Text("Near Z: %f", nearz);
+            ImGui::SameLine();
+            ImGui::Text("Far Z: %f", farz);
+            ImGui::TreePop();
+        }
     }
 };

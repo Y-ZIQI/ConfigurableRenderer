@@ -38,9 +38,6 @@ public:
     };
     vector<T_Ptr>    tOrder;
 
-    nanogui::ref<nanogui::Window> modelWindow;
-    vector<nanogui::ref<nanogui::Window>> matWindows;
-
     Model(string const &path, const string name, bool vflip = true)
     {
         this->name = name;
@@ -233,66 +230,44 @@ private:
     }
 
 public:
-    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
-        gui->addButton(name, [this]() {
-            modelWindow->setFocused(!modelWindow->visible());
-            modelWindow->setVisible(!modelWindow->visible()); 
-        });
-        modelWindow = gui->addWindow(Eigen::Vector2i(500, 0), name);
-        modelWindow->setWidth(250);
-        modelWindow->setVisible(false);
-        gui->addGroup("Transform");
-        //gui->addVariable("Direction.x", direction[0])->setSpinnable(true);
-        //gui->addVariable("Direction.y", direction[1])->setSpinnable(true);
-        //gui->addVariable("Direction.z", direction[2])->setSpinnable(true);
-        gui->addGroup("Materials");
-        nanogui::PopupButton* matBtn = new nanogui::PopupButton(modelWindow, "Materials");
-        nanogui::VScrollPanel* vscroll = new nanogui::VScrollPanel(matBtn->popup());
-        nanogui::Widget* wd = new nanogui::Widget(vscroll);
-        wd->setLayout(new nanogui::GroupLayout());
-        nanogui::Button* btn;
-        nanogui::CheckBox* cb;
-        matWindows.resize(materials.size());
-        for (uint i = 0; i < materials.size(); i++) {
-            matWindows[i] = gui->addWindow(Eigen::Vector2i(750, 0), materials[i]->name);
-            cb = new nanogui::CheckBox(matWindows[i], "BaseColor tex", [this, i](bool state) {
-                materials[i]->use_tex = state ? (materials[i]->use_tex | BASECOLOR_BIT) : (materials[i]->use_tex & ~BASECOLOR_BIT);
-            });
-            cb->setChecked(materials[i]->has_tex & BASECOLOR_BIT);
-            gui->addWidget("", cb);
-            cb = new nanogui::CheckBox(matWindows[i], "Specular tex", [this, i](bool state) {
-                materials[i]->use_tex = state ? (materials[i]->use_tex | SPECULAR_BIT) : (materials[i]->use_tex & ~SPECULAR_BIT);
-            });
-            cb->setChecked(materials[i]->has_tex & SPECULAR_BIT);
-            gui->addWidget("", cb);
-            cb = new nanogui::CheckBox(matWindows[i], "Normal tex", [this, i](bool state) {
-                materials[i]->use_tex = state ? (materials[i]->use_tex | NORMAL_BIT) : (materials[i]->use_tex & ~NORMAL_BIT);
-            });
-            cb->setChecked(materials[i]->has_tex & NORMAL_BIT);
-            gui->addWidget("", cb);
-            cb = new nanogui::CheckBox(matWindows[i], "Emissive tex", [this, i](bool state) {
-                materials[i]->use_tex = state ? (materials[i]->use_tex | EMISSIVE_BIT) : (materials[i]->use_tex & ~EMISSIVE_BIT);
-            });
-            cb->setChecked(materials[i]->has_tex & EMISSIVE_BIT);
-            gui->addWidget("", cb);
-            gui->addVariable("BaseColor.r", materials[i]->baseColor[0])->setSpinnable(true);
-            gui->addVariable("BaseColor.g", materials[i]->baseColor[1])->setSpinnable(true);
-            gui->addVariable("BaseColor.b", materials[i]->baseColor[2])->setSpinnable(true);
-            gui->addVariable("Roughness", materials[i]->specular[1])->setSpinnable(true);
-            gui->addVariable("Metallic", materials[i]->specular[2])->setSpinnable(true);
-            gui->addVariable("Emissive.r", materials[i]->emissive[0])->setSpinnable(true);
-            gui->addVariable("Emissive.g", materials[i]->emissive[1])->setSpinnable(true);
-            gui->addVariable("Emissive.b", materials[i]->emissive[2])->setSpinnable(true);
-            gui->addButton("Close", [this, i]() { matWindows[i]->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
-            matWindows[i]->setVisible(false);
-            btn = new nanogui::Button(wd, materials[i]->name);
-            btn->setCallback([this, i]() {matWindows[i]->setVisible(!matWindows[i]->visible()); });
-            gui->setWindow(modelWindow);
+    void renderGui() {
+        if (ImGui::TreeNode(name.c_str())) {
+            if (ImGui::TreeNode("Materials")) {
+                for (uint i = 0; i < materials.size(); i++) {
+                    if (ImGui::TreeNode(materials[i]->name.c_str())) {
+                        // Base color setting
+                        if (ImGui::Checkbox("BaseColor Tex", &materials[i]->baseColorTex)) {
+                            materials[i]->use_tex = materials[i]->baseColorTex ? (materials[i]->use_tex | BASECOLOR_BIT) : (materials[i]->use_tex & ~BASECOLOR_BIT);
+                        }
+                        if (!materials[i]->baseColorTex)
+                            ImGui::ColorEdit4("BaseColor", (float*)&materials[i]->baseColor[0]);
+                        // Specular setting
+                        if (ImGui::Checkbox("Specular Tex", &materials[i]->specularTex)) {
+                            materials[i]->use_tex = materials[i]->specularTex ? (materials[i]->use_tex | SPECULAR_BIT) : (materials[i]->use_tex & ~SPECULAR_BIT);
+                        }
+                        if (!materials[i]->specularTex) {
+                            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.3f);
+                            ImGui::DragFloat("Roughness", &materials[i]->specular[1], 0.001f, 0.0f, 1.0f);
+                            ImGui::SameLine();
+                            ImGui::DragFloat("Metallic", &materials[i]->specular[2], 0.001f, 0.0f, 1.0f);
+                            ImGui::PopItemWidth();
+                        }
+                        // Normal setting
+                        if (ImGui::Checkbox("Normal Tex", &materials[i]->normalTex)) {
+                            materials[i]->use_tex = materials[i]->normalTex ? (materials[i]->use_tex | NORMAL_BIT) : (materials[i]->use_tex & ~NORMAL_BIT);
+                        }
+                        // Emissive setting
+                        if (ImGui::Checkbox("Emissive Tex", &materials[i]->emissiveTex)) {
+                            materials[i]->use_tex = materials[i]->emissiveTex ? (materials[i]->use_tex | EMISSIVE_BIT) : (materials[i]->use_tex & ~EMISSIVE_BIT);
+                        }
+                        if (!materials[i]->emissiveTex)
+                            ImGui::ColorEdit3("Emissive", (float*)&materials[i]->emissive[0]);                        
+                        ImGui::TreePop();
+                    }
+                }
+                ImGui::TreePop();
+            }
+            ImGui::TreePop();
         }
-        matBtn->popup()->setFixedHeight(500);
-        gui->addWidget("", matBtn);
-        gui->addGroup("Close");
-        gui->addButton("Close", [this]() { modelWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
-        gui->setWindow(sceneWindow);
     }
 };

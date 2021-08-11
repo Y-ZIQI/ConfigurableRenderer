@@ -136,6 +136,15 @@ private:
         if (mouse_enable)
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
+        // default anisotropy number
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &_max_anisotropy);
+        /* Set default texture sources */
+        glActiveTexture(GL_TEXTURE0 + DEFAULT_2D_SOURCE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE0);
+        glActiveTexture(GL_TEXTURE0 + DEFAULT_CUBE_MAP_SOURCE);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+        glActiveTexture(GL_TEXTURE0);
+        /*******************************/
     }
 };

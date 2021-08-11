@@ -83,34 +83,13 @@ public:
     glm::vec3 intensity;
     glm::vec3 position;
     // For shadow
+    bool shadow_initialized = false;
     bool shadow_enabled = false;
+    bool dirty = false;
     float light_size;
-    // For GUI
-    nanogui::ref<nanogui::Window> lightWindow;
 
     BaseLight() {};
     ~BaseLight() {};
-    void addGui(nanogui::FormHelper* gui) {
-        gui->addButton(name, [this]() {
-            lightWindow->setFocused(!lightWindow->visible());
-            lightWindow->setVisible(!lightWindow->visible());
-        })->setIcon(type == LType::Directional ? ENTYPO_ICON_LIGHT_UP : ENTYPO_ICON_LIGHT_BULB);
-        lightWindow = gui->addWindow(Eigen::Vector2i(500, 0), name);
-        lightWindow->setWidth(250);
-        lightWindow->setVisible(false);
-        gui->addGroup("ambient");
-        auto tbox = gui->addVariable("ambient", ambient);
-        tbox->setSpinnable(true);
-        tbox->setValueIncrement(0.01);
-        gui->addGroup("Intensity");
-        gui->addVariable("Intensity.r", intensity[0])->setSpinnable(true);
-        gui->addVariable("Intensity.g", intensity[1])->setSpinnable(true);
-        gui->addVariable("Intensity.b", intensity[2])->setSpinnable(true);
-        gui->addGroup("Position");
-        gui->addVariable("Position.x", position[0])->setSpinnable(true);
-        gui->addVariable("Position.y", position[1])->setSpinnable(true);
-        gui->addVariable("Position.z", position[2])->setSpinnable(true);
-    }
 };
 class Light : public BaseLight {
 public:
@@ -128,11 +107,11 @@ public:
         for (uint i = 0; i < smList.size(); i++) if (smList[i])delete smList[i];
     };
     void setShadowMap(uint idx) {
-        if (shadow_enabled)
+        if (shadow_initialized)
             shadowMap = smList[idx];
     }
     void setShadowMapTex(uint idx) {
-        if (shadow_enabled)
+        if (shadow_initialized)
             for (uint i = 0; i < smList.size(); i++)
                 smList[i]->setTex(idx);
     }
@@ -158,22 +137,12 @@ public:
         shadowMap->smBuffer->prepare(0);
         renderScreen();
     }
-    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
-        BaseLight::addGui(gui);
-        gui->addGroup("Direction");
-        gui->addVariable("Direction.x", direction[0])->setSpinnable(true);
-        gui->addVariable("Direction.y", direction[1])->setSpinnable(true);
-        gui->addVariable("Direction.z", direction[2])->setSpinnable(true);
-        gui->addGroup("Close");
-        gui->addButton("Close", [this]() { lightWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
-        gui->setWindow(sceneWindow);
-    }
 };
 
 class DirectionalLight : public Light {
 public:
     // For shadow map
-    float rangeX, rangeY, rangeZ;
+    float rangeX, rangeZ;
 
     DirectionalLight(
         const std::string& Name, 
@@ -197,7 +166,13 @@ public:
         const float threshold = 10.0f;
         bool genShadow = false;
         if (shadow_enabled) {
-            if (gen_shadow == 1) {
+            if (dirty || gen_shadow == 2) {
+                glm::vec3 cam_target = cam_pos + cam_front * rangeX * 0.5f;
+                focus_on(cam_target);
+                genShadow = true;
+                dirty = false;
+            }
+            else if (gen_shadow == 1) {
                 glm::vec3 cam_target = cam_pos + cam_front * rangeX * 0.5f;
                 float dist = glm::length(target - cam_target);
                 if (dist > threshold) {
@@ -205,13 +180,8 @@ public:
                     genShadow = true;
                 }
             }
-            else if (gen_shadow == 2) {
-                glm::vec3 cam_target = cam_pos + cam_front * rangeX * 0.5f;
-                focus_on(cam_target);
-                genShadow = true;
-            }
             viewMat = glm::lookAt(position, position + direction, abs(direction[1]) > 0.999f ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f));
-            projMat = glm::ortho(-rangeX * 0.5f, rangeX * 0.5f, -rangeY * 0.5f, rangeY * 0.5f, 0.0f, rangeZ);
+            projMat = glm::ortho(-rangeX * 0.5f, rangeX * 0.5f, -rangeX * 0.5f, rangeX * 0.5f, 0.0f, rangeZ);
             viewProj = projMat * viewMat;
             if (previousMat != viewProj) {
                 previousMat = viewProj;
@@ -226,8 +196,8 @@ public:
         else position = target - direction * 1.0f;
     }
     void enableShadow(float rangeX, float rangeY, float rangeZ, std::vector<uint> width_list) {
-        if (!shadow_enabled) {
-            shadow_enabled = true;
+        if (!shadow_initialized) {
+            shadow_initialized = true;
             smList.resize(width_list.size());
             for(uint i = 0;i < width_list.size();i++)
                 smList[i] = new ShadowMap(width_list[i], width_list[i]);
@@ -236,11 +206,11 @@ public:
             filterShader = sManager.getShader(SID_SHADOWMAP_FILTER);
             previousMat = glm::mat4(0.0);
         }
+        shadow_enabled = true;
         this->rangeX = rangeX;
-        this->rangeY = rangeY;
         this->rangeZ = rangeZ;
         viewMat = glm::lookAt(position, position + direction, abs(direction[1]) > 0.999f ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f));
-        projMat = glm::ortho(-rangeX * 0.5f, rangeX * 0.5f, -rangeY * 0.5f, rangeY * 0.5f, 0.0f, rangeZ);
+        projMat = glm::ortho(-rangeX * 0.5f, rangeX * 0.5f, -rangeX * 0.5f, rangeX * 0.5f, 0.0f, rangeZ);
         viewProj = projMat * viewMat;
     }
     void setUniforms(Shader& shader, uint index, uint& sm_index) {
@@ -255,6 +225,33 @@ public:
             shader.setTextureSource(getStrFormat("dirLights[%d].shadowMap", index), sm_index++, shadowMap->smBuffer->colorAttachs[0].texture->id);
             shader.setFloat(getStrFormat("dirLights[%d].resolution", index), (float)shadowMap->width);
             shader.setFloat(getStrFormat("dirLights[%d].light_size", index), light_size / rangeX);
+        }
+        else {
+            shader.setInt(getStrFormat("dirLights[%d].shadowMap", index), DEFAULT_2D_SOURCE);
+        }
+    }
+    void renderGui() {
+        if (ImGui::TreeNode(name.c_str())) {
+            ImGui::DragFloat("Ambient", &ambient, 0.001f, 0.0f, 1.0f);
+            ImGui::DragFloat3("Intensity", (float*)&intensity[0], 0.01f, 0.0f, 10000.0f);
+            if (ImGui::DragFloat3("Direction", (float*)&direction[0], 0.001f, -1.0f, 1.0f))
+                dirty = true;
+            if (ImGui::DragFloat3("Position", (float*)&position[0], 0.01f, -10000.0f, 10000.0f))
+                dirty = true;
+            if (shadow_initialized) {
+                ImGui::Checkbox("Shadow", &shadow_enabled);
+                if (shadow_enabled) {
+                    ImGui::DragFloat("Light size", &light_size, 0.001f, 0.0f, 1000.0f);
+                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.3f);
+                    if (ImGui::DragFloat("Frustum", &rangeX, 0.01f, 0.0f, 1000.0f))
+                        dirty = true;
+                    ImGui::SameLine();
+                    if (ImGui::DragFloat("Range Z", &rangeZ, 0.01f, 0.0f, 1000.0f))
+                        dirty = true;
+                    ImGui::PopItemWidth();
+                }
+            }
+            ImGui::TreePop();
         }
     }
 };
@@ -298,7 +295,10 @@ public:
     bool update(uint gen_shadow = 1) {
         bool genShadow = false;
         if (shadow_enabled) {
-            if (gen_shadow == 2) genShadow = true;
+            if (dirty || gen_shadow == 2) {
+                genShadow = true;
+                dirty = false;
+            }
             viewMat = glm::lookAt(position, position + direction, abs(direction[1]) > 0.999f? glm::vec3(1.0f, 0.0f, 0.0f):glm::vec3(0.0f, 1.0f, 0.0f));
             projMat = glm::perspective(glm::radians(Zoom), Aspect, nearZ, farZ);
             viewProj = projMat * viewMat;
@@ -310,8 +310,8 @@ public:
         return genShadow;
     }
     void enableShadow(float Zoom, float nearZ, float farZ, std::vector<uint> width_list) {
-        if (!shadow_enabled) {
-            shadow_enabled = true;
+        if (!shadow_initialized) {
+            shadow_initialized = true;
             smList.resize(width_list.size());
             for (uint i = 0; i < width_list.size(); i++)
                 smList[i] = new ShadowMap(width_list[i], width_list[i]);
@@ -320,6 +320,7 @@ public:
             filterShader = sManager.getShader(SID_SHADOWMAP_FILTER);
             previousMat = glm::mat4(0.0);
         }
+        shadow_enabled = true;
         this->nearZ = nearZ;
         this->farZ = farZ;
         this->Zoom = Zoom;
@@ -349,6 +350,35 @@ public:
             shader.setTextureSource(getStrFormat("ptLights[%d].shadowMap", index), sm_index++, shadowMap->smBuffer->colorAttachs[0].texture->id);
             shader.setFloat(getStrFormat("ptLights[%d].resolution", index), (float)shadowMap->width);
             shader.setFloat(getStrFormat("ptLights[%d].light_size", index), light_size);
+        }
+        else {
+            shader.setInt(getStrFormat("ptLights[%d].shadowMap", index), DEFAULT_2D_SOURCE);
+        }
+    }
+    void renderGui() {
+        if (ImGui::TreeNode(name.c_str())) {
+            ImGui::DragFloat("Ambient", &ambient, 0.001f, 0.0f, 1.0f);
+            ImGui::DragFloat3("Intensity", (float*)&intensity[0], 0.01f, 0.0f, 10000.0f);
+            if (ImGui::DragFloat3("Direction", (float*)&direction[0], 0.001f, -1.0f, 1.0f))
+                dirty = true;
+            if (ImGui::DragFloat3("Position", (float*)&position[0], 0.01f, -10000.0f, 10000.0f))
+                dirty = true;
+            if (shadow_initialized) {
+                ImGui::Checkbox("Shadow", &shadow_enabled);
+                if (shadow_enabled) {
+                    ImGui::DragFloat("Light size", &light_size, 0.001f, 0.0f, 1.0f);
+                    if(ImGui::DragFloat("Zoom", &Zoom, 0.01f, 0.0f, 180.0f))
+                        dirty = true;
+                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.3f);
+                    if (ImGui::DragFloat("Near Z", &nearZ, 0.001f, 0.0f, 1000.0f))
+                        dirty = true;
+                    ImGui::SameLine();
+                    if (ImGui::DragFloat("Far Z", &farZ, 0.1f, 0.0f, 1000.0f))
+                        dirty = true;
+                    ImGui::PopItemWidth();
+                }
+            }
+            ImGui::TreePop();
         }
     }
 };
@@ -389,11 +419,11 @@ public:
         for (uint i = 0; i < smList.size(); i++) if (smList[i])delete smList[i];
     };
     void setShadowMap(uint idx) {
-        if (shadow_enabled);
+        if (shadow_initialized);
             shadowMap = smList[idx];
     }
     void setShadowMapTex(uint idx) {
-        if (shadow_enabled)
+        if (shadow_initialized)
             for (uint i = 0; i < smList.size(); i++)
                 smList[i]->setTex(idx);
     }
@@ -434,13 +464,16 @@ public:
     bool update(uint gen_shadow = 1) {
         bool genShadow = false;
         if (shadow_enabled) {
-            if (gen_shadow == 2) genShadow = true;
+            if (dirty || gen_shadow == 2) {
+                genShadow = true;
+                dirty = false;
+            }
         }
         return genShadow;
     }
     void enableShadow(float nearZ, float farZ, std::vector<uint> width_list) {
-        if (!shadow_enabled) {
-            shadow_enabled = true;
+        if (!shadow_initialized) {
+            shadow_initialized = true;
             smList.resize(width_list.size());
             for (uint i = 0; i < width_list.size(); i++)
                 smList[i] = new OmniShadowMap(width_list[i], width_list[i]);
@@ -448,6 +481,7 @@ public:
             smShader = sManager.getShader(SID_OMNISHADOWMAP);
             filterShader = sManager.getShader(SID_OMNISHADOWMAP_FILTER);
         }
+        shadow_enabled = true;
         this->nearZ = nearZ;
         this->farZ = farZ;
         transforms.resize(6);
@@ -478,11 +512,30 @@ public:
             shader.setFloat(getStrFormat("radioLights[%d].resolution", index), (float)shadowMap->width);
             shader.setFloat(getStrFormat("radioLights[%d].light_size", index), light_size);
         }
+        else {
+            shader.setInt(getStrFormat("radioLights[%d].shadowMap", index), DEFAULT_CUBE_MAP_SOURCE);
+        }
     }
-    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
-        BaseLight::addGui(gui);
-        gui->addGroup("Close");
-        gui->addButton("Close", [this]() { lightWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
-        gui->setWindow(sceneWindow);
+    void renderGui() {
+        if (ImGui::TreeNode(name.c_str())) {
+            ImGui::DragFloat("Ambient", &ambient, 0.001f, 0.0f, 1.0f);
+            ImGui::DragFloat3("Intensity", (float*)&intensity[0], 0.01f, 0.0f, 10000.0f);
+            if(ImGui::DragFloat3("Position", (float*)&position[0], 0.01f, -10000.0f, 10000.0f))
+                dirty = true;
+            if (shadow_initialized) {
+                ImGui::Checkbox("Shadow", &shadow_enabled);
+                if (shadow_enabled) {
+                    ImGui::DragFloat("Light size", &light_size, 0.001f, 0.0f, 1.0f);
+                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.3f);
+                    if(ImGui::DragFloat("Near Z", &nearZ, 0.001f, 0.0f, 1000.0f))
+                        dirty = true;
+                    ImGui::SameLine();
+                    if(ImGui::DragFloat("Far Z", &farZ, 0.1f, 0.0f, 1000.0f))
+                        dirty = true;
+                    ImGui::PopItemWidth();
+                }
+            }
+            ImGui::TreePop();
+        }
     }
 };

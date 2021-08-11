@@ -145,7 +145,9 @@ public:
         shadingShader->setTextureSource("depthTex", 5, gBuffer2->colorAttachs[1].texture->id);
         shadingShader->setTextureSource("aoTex", 6, gBuffer2->colorAttachs[2].texture->id);
         shadingBuffer->prepare();
+        CHECKERROR
         renderScreen();
+        CHECKERROR
     }
     void renderReflection(Scene& scene) {
         glViewport(0, 0, width / 8, height / 8);
@@ -249,5 +251,6 @@ public:
         else {
             joinEffects(shadingBuffer->colorAttachs[0].texture);
         }
+        CHECKERROR
     }
 };

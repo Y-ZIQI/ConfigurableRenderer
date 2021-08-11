@@ -16,6 +16,10 @@ typedef unsigned char uchar;
 #define MAX_POINT_LIGHT         15
 #define MAX_RADIOACTIVE_LIGHT   15
 #define MAX_IBL_LIGHT           10
+// For Texture Source in Shader
+// even if no tex source in shader, it is good to give a default source and bind tex target to 0
+#define DEFAULT_2D_SOURCE 30
+#define DEFAULT_CUBE_MAP_SOURCE 31
 // For Framebuffer
 #define MAX_TARGETS     8
 #define ALL_TARGETS     -2

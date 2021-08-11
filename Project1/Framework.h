@@ -89,6 +89,7 @@ public:
     ~RenderFrame() {};
     void onLoad();
     void onFrameRender();
+    void onGuiRender();
     void onDestroy();
     void loadScene(string const& path, const string name = "scene");
     void processInput();
@@ -116,13 +117,7 @@ private:
     FrameBuffer* targetFbo; // Respect for default FB
 
     OmnidirectionalPass* oPass;
-    
-    nanogui::Screen* screen = nullptr;
-    nanogui::FormHelper* gui;
-    nanogui::ref<nanogui::Window> mainWindow, hideWindow;
-    uint win_id = 0;
 
-    bool enabled = true;
     bool moving = false;
 
     /**
@@ -131,7 +126,7 @@ private:
     * 3: SunTemple
     * 4: Arcade
     */
-    uint test_scene = 3;
+    uint test_scene = 4;
     float fps, duration;
 };
 
@@ -144,9 +139,6 @@ RenderFrame::RenderFrame(int width, int height, const char* title) {
     frame_record.init();
     sManager.init();
     tManager.init();
-
-    screen = new nanogui::Screen();
-    screen->initialize(glfw->window, true);
 }
 
 void RenderFrame::loadScene(string const& path, const string name) {
@@ -193,35 +185,14 @@ void RenderFrame::onLoad() {
         }
     }
     {
-        gui = new nanogui::FormHelper(screen);
-        hideWindow = gui->addWindow(Eigen::Vector2i(0, 0), "Demo");
-        hideWindow->setVisible(false);
-        gui->addButton("Show Panel", [this]() { hideWindow->setVisible(false); mainWindow->setVisible(true); })->setIcon(ENTYPO_ICON_CHEVRON_DOWN);
-        mainWindow = gui->addWindow(Eigen::Vector2i(0, 0), "Demo");
-        mainWindow->setWidth(250);
-        gui->addButton("Hide Panel", [this]() { hideWindow->setVisible(true); mainWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CHEVRON_UP);
-        gui->addGroup("Status");
-        gui->addVariable("FPS", fps, false);
-        gui->addVariable("Triangles", frame_record.triangles, false);
-        gui->addVariable("Draw Calls", frame_record.draw_calls, false);
-        gui->addVariable("Texture Samples", frame_record.texture_samples, false);
-        gui->addGroup("Config");
-        gui->addVariable("Resolution", settings.resolution, enabled)->setItems({ "60%", "80%", "100%" });
-        gui->addVariable("Shadow Resolution", settings.shadow_resolution, enabled)->setItems({ "25%", "50%", "100%" });
-        gui->addVariable("Shading", settings.shading, enabled)->setItems({ "PBR", "PBR+IBL" });
-        gui->addVariable("SSAO Level", settings.ssao_level, enabled)->setItems({ "Disable", "Low", "High" });
-        gui->addVariable("SSR Level", settings.ssr_level, enabled)->setItems({ "Disable", "Low", "High" });
-        gui->addVariable("SMAA Level", settings.smaa_level, enabled)->setItems({ "Disable", "Low", "High" });
-        gui->addGroup("Render Setting");
-        gui->addVariable("Recording", settings.recording, enabled);
-        gui->addVariable("Update Shadow", settings.update_shadow, enabled)->setItems({ "Not update", "As need", "Every frame" });
-        gui->addVariable("Shadow Type", settings.shadow_type, enabled)->setItems({ "EVSM", "PCSS", "Hard"});
-        gui->addVariable("Effect", settings.effect_level, enabled)->setItems({ "Off", "On" });
-        gui->addGroup("Scenes");
-        //gui->addButton("Reload Scene", [this]() { loadScene("resources/Arcade/Arcade.json", "Arcade"); });
-        scene->addGui(gui, mainWindow);
-        screen->setVisible(true);
-        screen->performLayout();
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        //ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        //ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        //ImGui::StyleColorsDark();
+        ImGui::StyleColorsClassic();
+        ImGui_ImplGlfw_InitForOpenGL(glfw->window, true);
+        ImGui_ImplOpenGL3_Init("#version 130");
     }
 }
 
@@ -269,9 +240,6 @@ void RenderFrame::onFrameRender() {
             frame_record.get();
         frame_record.copy();
     }
-    screen->drawContents();
-    screen->drawWidgets();
-    gui->refresh();
     CHECKERROR
 }
 
@@ -283,6 +251,106 @@ void RenderFrame::update(){
         fps = (float)(glfw->frame_count - glfw->record_frame) / duration;
         glfw->record();
     }
+}
+
+void RenderFrame::onGuiRender() {
+    static bool show_demo_window = false;
+    static bool show_another_window = false;
+    static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    if (show_demo_window)
+        ImGui::ShowDemoWindow(&show_demo_window);
+
+    {
+        static float f = 0.0f;
+        static int counter = 0;
+
+        static float f1 = 0.0f, f2 = 0.0f;
+
+        ImGui::Begin("Demo");
+
+        if(glfw->frame_count <= 1) ImGui::SetNextItemOpen(true);
+        if (ImGui::CollapsingHeader("Status")) {
+            ImGui::Text("Average time %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::Text("Triangles amount: %d", frame_record.triangles);
+            ImGui::Text("Draw Calls amount: %d", frame_record.draw_calls);
+            ImGui::Text("Texture Samples: %d", frame_record.texture_samples);
+            ImGui::Checkbox("Recording", &settings.recording);
+        }
+
+        if (glfw->frame_count <= 1) ImGui::SetNextItemOpen(true);
+        if (ImGui::CollapsingHeader("Config")) {
+            static const char* elems_names1[] = { "PBR", "PBR+IBL" };
+            static const char* elems_names2[] = { "60%%", "80%%", "100%%" };
+            static const char* elems_names3[] = { "25%%", "50%%", "100%%" };
+            static const char* elems_names4[] = { "Disable", "Low", "High" };
+            ImGui::Combo("Shading", (int*)&settings.shading, elems_names1, 2);
+            ImGui::SliderInt("Resolution", (int*)&settings.resolution, 0, 2, elems_names2[settings.resolution]);
+            ImGui::SliderInt("Shadow Resolution", (int*)&settings.shadow_resolution, 0, 2, elems_names3[settings.shadow_resolution]);
+            ImGui::SliderInt("SSAO Level", (int*)&settings.ssao_level, 0, 2, elems_names4[settings.ssao_level]);
+            ImGui::SliderInt("SSR Level", (int*)&settings.ssr_level, 0, 2, elems_names4[settings.ssr_level]);
+            ImGui::SliderInt("SMAA Level", (int*)&settings.smaa_level, 0, 2, elems_names4[settings.smaa_level]);
+            ImGui::SliderInt("Effect", (int*)&settings.effect_level, 0, 2, elems_names4[settings.effect_level]);
+        }
+
+        if (glfw->frame_count <= 1) ImGui::SetNextItemOpen(true);
+        if (ImGui::CollapsingHeader("Render Setting")) {
+            static const char* elems_names5[] = { "Not update", "As need", "Every frame" };
+            static const char* elems_names6[] = { "EVSM", "PCSS", "Hard" };
+            ImGui::Combo("Update Shadow", (int*)&settings.update_shadow, elems_names5, 3);
+            ImGui::Combo("Shadow Type", (int*)&settings.shadow_type, elems_names6, 3);
+        }
+
+        if (ImGui::CollapsingHeader("Scene")) {
+            if (ImGui::Button("Load Scene")) {
+                std::cout << "Load scene\n";
+            }
+            scene->renderGui();
+        }
+
+        ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+        ImGui::Checkbox("Another Window", &show_another_window);
+
+        /*ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+        if (ImGui::Button("Button")) {
+            f1 = f2 = 0.0f;
+            counter++;
+        }// Buttons return true when clicked (most widgets return true when edited/activated)
+        ImGui::SameLine();
+        ImGui::Text("counter = %d", counter);
+        if (ImGui::GetIO().MouseWheel > f1) f1 = ImGui::GetIO().MouseWheel;
+        if (ImGui::GetIO().MouseWheel < f2) f2 = ImGui::GetIO().MouseWheel;
+        ImGui::Text("state = %f", f1);
+        ImGui::Text("state = %f", f2);
+        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[0] ? 1 : 0);
+        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[1] ? 1 : 0);
+        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[2] ? 1 : 0);
+        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[3] ? 1 : 0);
+        ImGui::Text("state = %d", ImGui::GetIO().MouseDownOwned[4] ? 1 : 0);
+
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);*/
+        ImGui::End();
+    }
+
+    // 3. Show another simple window.
+    if (show_another_window)
+    {
+        ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+        ImGui::Text("Hello from another window!");
+        if (ImGui::Button("Close Me"))
+            show_another_window = false;
+        ImGui::End();
+    }
+
+    ImGui::Render();
+    glViewport(0, 0, width, height);
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 uint RenderFrame::config(bool force_update) {
@@ -397,8 +465,19 @@ uint RenderFrame::config(bool force_update) {
         dRdrList[0]->effect = (uint)settings.effect_level;
         dRdrList[1]->effect = (uint)settings.effect_level;
         dRdrList[2]->effect = (uint)settings.effect_level;
-        if(settings.effect_level != level1) sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "BLOOM");
-        else sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "BLOOM");
+        if (settings.effect_level == level1) {
+            sManager.getShader(SID_DEFERRED_SHADING)->removeDef(FSHADER, "BLOOM");
+        }
+        else if (settings.effect_level == level2) {
+            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "BLOOM");
+            sManager.getShader(SID_BLOOM_BLUR)->removeDef(FSHADER, "BLOOM_HIGH");
+            sManager.getShader(SID_BLOOM_BLUR)->reload();
+        }
+        else if (settings.effect_level == level3) {
+            sManager.getShader(SID_DEFERRED_SHADING)->addDef(FSHADER, "BLOOM");
+            sManager.getShader(SID_BLOOM_BLUR)->addDef(FSHADER, "BLOOM_HIGH");
+            sManager.getShader(SID_BLOOM_BLUR)->reload();
+        }
         sManager.getShader(SID_DEFERRED_SHADING)->reload();
     }
     return flag;
@@ -407,24 +486,20 @@ uint RenderFrame::config(bool force_update) {
 void RenderFrame::processInput() {
     if (glfw->mouse_enable) {
         if (glfw->checkCursor()) {
-            if (moving)camera->ProcessMouseMovement(inputs.mouse_xoffset, inputs.mouse_yoffset);
-            screen->cursorPosCallbackEvent(inputs.mouse_xpos, inputs.mouse_ypos);
+            if (moving && !ImGui::GetIO().MouseDownOwned[0])
+                camera->ProcessMouseMovement(inputs.mouse_xoffset, inputs.mouse_yoffset);
         }
         if (glfw->checkMouseButton()) {
-            if (!screen->mouseButtonCallbackEvent(inputs.mouse_button, inputs.mouse_action, inputs.mouse_modifiers) && 
-                inputs.mouse_button == GLFW_MOUSE_BUTTON_LEFT &&
+            if (inputs.mouse_button == GLFW_MOUSE_BUTTON_LEFT &&
                 inputs.mouse_action == GLFW_PRESS) moving = true;
             else if (inputs.mouse_button == GLFW_MOUSE_BUTTON_LEFT && inputs.mouse_action == GLFW_RELEASE) moving = false;
         }
     }
-    if (glfw->checkKey())
-        screen->keyCallbackEvent(inputs.key, inputs.scancode, inputs.key_action, inputs.key_mods);
-    if (glfw->checkChar())
-        screen->charCallbackEvent(inputs.codepoint);
-    if (glfw->checkDrop())
-        screen->dropCallbackEvent(inputs.drop_count, inputs.filenames);
+    if (glfw->checkKey());
+    if (glfw->checkChar());
+    if (glfw->checkDrop());
     if (glfw->checkScroll()) {
-        if (!screen->scrollCallbackEvent(inputs.scroll_xoffset, inputs.scroll_yoffset))
+        if (!ImGui::GetIO().MouseDownOwned[0])
             camera->ProcessMouseScroll(inputs.scroll_yoffset);
     }
     if (glfw->getKey(GLFW_KEY_W))
@@ -461,6 +536,7 @@ void RenderFrame::run() {
         glfw->processInput();
         processInput();
         onFrameRender();
+        onGuiRender();
 
         glfwSwapBuffers(glfw->window);
         glfwPollEvents();

@@ -23,8 +23,6 @@ public:
     uint envIdx;
     bool envMap_enabled = false;
 
-    nanogui::ref<nanogui::Window> sceneWindow;
-
     jsonxx::json jscene;
     bool new_loaded;
 
@@ -118,8 +116,7 @@ public:
             radioLights[i]->setUniforms(shader, i, t_index);
         /* All samplerCube must be initialized, or some errors occured */
         for (uint i = radioLights.size(); i < MAX_RADIOACTIVE_LIGHT; i++) {
-            if(i == radioLights.size()) shader.setTextureSource(getStrFormat("radioLights[%d].shadowMap", i), t_index, 0, GL_TEXTURE_CUBE_MAP);
-            else shader.setInt(getStrFormat("radioLights[%d].shadowMap", i), t_index);
+            shader.setInt(getStrFormat("radioLights[%d].shadowMap", i), DEFAULT_CUBE_MAP_SOURCE);
         }
         /***************************************************************/
 
@@ -135,8 +132,7 @@ public:
             shader.setInt("iblCount", lp_count);
             /* All samplerCube must be initialized, or some errors occured */
             for (uint i = lp_count; i < MAX_IBL_LIGHT; i++) {
-                if(i == lp_count) shader.setTextureSource(getStrFormat("ibls[%d].prefilterMap", i), t_index, 0, GL_TEXTURE_CUBE_MAP);
-                else shader.setInt(getStrFormat("ibls[%d].prefilterMap", i), t_index);
+                shader.setInt(getStrFormat("ibls[%d].prefilterMap", i), DEFAULT_CUBE_MAP_SOURCE);
             }
             /***************************************************************/
         }
@@ -355,31 +351,29 @@ public:
             return !(new_loaded = false);
         return new_loaded;
     }
-
-    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> mainWindow) {
-        gui->addButton(name, [this]() {
-            sceneWindow->setFocused(!sceneWindow->visible());
-            sceneWindow->setVisible(!sceneWindow->visible());
-        })->setIcon(ENTYPO_ICON_MENU);
-        sceneWindow = gui->addWindow(Eigen::Vector2i(250, 0), name);
-        sceneWindow->setWidth(250);
-        sceneWindow->setVisible(false);
-        gui->addGroup("Models");
-        for (uint i = 0; i < models.size(); i++)
-            models[i]->addGui(gui, sceneWindow);
-        gui->addGroup("Lights");
-        for (uint i = 0; i < dirLights.size(); i++)
-            dirLights[i]->addGui(gui, sceneWindow);
-        for (uint i = 0; i < ptLights.size(); i++)
-            ptLights[i]->addGui(gui, sceneWindow);
-        for (uint i = 0; i < radioLights.size(); i++)
-            radioLights[i]->addGui(gui, sceneWindow);
-        for (uint i = 0; i < light_probes.size(); i++)
-            light_probes[i]->addGui(gui, sceneWindow);
-        gui->addGroup("Camera");
-        camera->addGui(gui, sceneWindow);
-        gui->addGroup("Close");
-        gui->addButton("Close", [this]() { sceneWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
-        gui->setWindow(mainWindow);
+    void renderGui() {
+        if (ImGui::TreeNode("Models")) {
+            for (uint i = 0; i < models.size(); i++)
+                models[i]->renderGui();
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Lights")) {
+            for (uint i = 0; i < dirLights.size(); i++)
+                dirLights[i]->renderGui();
+            for (uint i = 0; i < ptLights.size(); i++)
+                ptLights[i]->renderGui();
+            for (uint i = 0; i < radioLights.size(); i++)
+                radioLights[i]->renderGui();
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Light probes")) {
+            for (uint i = 0; i < light_probes.size(); i++)
+                light_probes[i]->renderGui();
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Camera")) {
+            camera->renderGui();
+            ImGui::TreePop();
+        }
     }
 };

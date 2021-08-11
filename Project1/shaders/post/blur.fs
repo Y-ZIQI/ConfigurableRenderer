@@ -11,15 +11,15 @@ uniform bool horizontal;
 uniform sampler2D colorTex;
 uniform sampler2D horizontalTex;
 
-//#define COMPLEX_BLOOM
+//#define BLOOM_HIGH
 
 int kernel(float L){
-    return int(10.0 * min(log(L + 1.5), 2.99));
+    return int(10.0 * min(log(L + 1.4), 2.99));
 }
 
 void main()
 {
-#ifdef COMPLEX_BLOOM
+#ifdef BLOOM_HIGH
     const int ksize = 30;
     const vec3 Lumia = vec3(0.2126, 0.7152, 0.0722);
 

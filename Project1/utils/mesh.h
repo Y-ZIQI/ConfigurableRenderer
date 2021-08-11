@@ -29,17 +29,19 @@ struct Vertex {
 
 struct Material {
     string name;
-    bool texBased = true;
+    bool baseColorTex = false;
+    bool specularTex = false;
+    bool normalTex = false;
+    bool emissiveTex = false;
     int has_tex, use_tex;
     Texture* baseColorMap = nullptr;
     Texture* specularMap = nullptr;
     Texture* normalMap = nullptr;
     Texture* emissiveMap = nullptr;
-    //Texture* heightMap;
 
-    glm::vec4 baseColor;
-    glm::vec3 specular;
-    glm::vec3 emissive;
+    glm::vec4 baseColor = glm::vec4(1.0);
+    glm::vec3 specular = glm::vec3(0.5);
+    glm::vec3 emissive = glm::vec3(0.0);
 
     Material() {};
     ~Material() {
@@ -57,34 +59,34 @@ struct Material {
         ntex->path = str.C_Str();
         switch (type) {
         case aiTextureType_DIFFUSE:
-            baseColorMap = ntex; break;
+            baseColorMap = ntex; 
+            has_tex |= BASECOLOR_BIT; 
+            baseColorTex = true; break;
         case aiTextureType_SPECULAR:
-            specularMap = ntex; break;
+            specularMap = ntex;
+            has_tex |= SPECULAR_BIT;
+            specularTex = true; break;
         case aiTextureType_NORMALS:
-            normalMap = ntex; break;
+            normalMap = ntex;
+            has_tex |= NORMAL_BIT;
+            normalTex = true; break;
         case aiTextureType_EMISSIVE:
-            emissiveMap = ntex; break;
-        //case aiTextureType_AMBIENT:
-        //    heightMap = ntex; break;
+            emissiveMap = ntex;
+            has_tex |= EMISSIVE_BIT;
+            emissiveTex = true; break;
         }
     }
     void loadMaterialTextures(aiMaterial* mat, const std::string& directory = "", bool vfilp = true) {
         aiString str;
         mat->Get(AI_MATKEY_NAME, str);
         name = str.C_Str();
+        has_tex = 0x0;
+        baseColorTex = specularTex = normalTex = emissiveTex = false;
         loadTexture(mat, aiTextureType_DIFFUSE, directory, true, true, vfilp);
         loadTexture(mat, aiTextureType_SPECULAR, directory, true, false, vfilp);
         loadTexture(mat, aiTextureType_NORMALS, directory, true, false, vfilp);
         loadTexture(mat, aiTextureType_EMISSIVE, directory, true, false, vfilp);
-        baseColor = glm::vec4(1.0);
-        specular = glm::vec3(0.5);
-        emissive = glm::vec3(0.0);
-        use_tex = ~0x0;
-        has_tex = 0x0;
-        if (baseColorMap) has_tex |= BASECOLOR_BIT;
-        if (specularMap) has_tex |= SPECULAR_BIT;
-        if (normalMap) has_tex |= NORMAL_BIT;
-        if (emissiveMap) has_tex |= EMISSIVE_BIT;
+        use_tex = has_tex;
     }
 };
 

@@ -44,8 +44,6 @@ public:
     float nearZ, farZ;
     glm::mat4 viewMat, projMat;
 
-    nanogui::ref<nanogui::Window> cameraWindow;
-
     // constructor with vectors
     Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH)
     : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM), Aspect(ASPECT), nearZ(NEARZ), farZ(FARZ)
@@ -163,29 +161,18 @@ public:
             Zoom = 120.0f;
         updateViewProjMat();
     }
-
-    void addGui(nanogui::FormHelper* gui, nanogui::ref<nanogui::Window> sceneWindow) {
-        gui->addButton("Camera", [this]() {
-            cameraWindow->setFocused(!cameraWindow->visible());
-            cameraWindow->setVisible(!cameraWindow->visible()); 
-        })->setIcon(ENTYPO_ICON_CAMERA);
-        cameraWindow = gui->addWindow(Eigen::Vector2i(500, 0), "Camera");
-        cameraWindow->setWidth(250);
-        cameraWindow->setVisible(false);
-        gui->addGroup("Camera");
-        gui->addVariable("Zoom", Zoom)->setSpinnable(true);
-        gui->addVariable("nearZ", nearZ)->setSpinnable(true);
-        gui->addVariable("farZ", farZ)->setSpinnable(true);
-        gui->addVariable("MovementSpeed", MovementSpeed)->setSpinnable(true);
-        gui->addVariable("Position.x", Position[0])->setSpinnable(true);
-        gui->addVariable("Position.y", Position[1])->setSpinnable(true);
-        gui->addVariable("Position.z", Position[2])->setSpinnable(true);
-        gui->addVariable("Front.x", Front[0])->setSpinnable(true);
-        gui->addVariable("Front.y", Front[1])->setSpinnable(true);
-        gui->addVariable("Front.z", Front[2])->setSpinnable(true);
-        gui->addGroup("Close");
-        gui->addButton("Close", [this]() { cameraWindow->setVisible(false); })->setIcon(ENTYPO_ICON_CROSS);
-        gui->setWindow(sceneWindow);
+    void renderGui() {
+        ImGui::DragFloat("Zoom", &Zoom, 0.001f, 0.0f, 180.0f);
+        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.3f);
+        ImGui::DragFloat("Near Z", &nearZ, 0.0001f, 0.0f, 1000.0f);
+        ImGui::SameLine();
+        ImGui::DragFloat("Far Z", &farZ, 0.1f, 0.0f, 100000.0f);
+        ImGui::DragFloat("Yaw", &Yaw, 0.01f, -360.0f, 360.0f);
+        ImGui::SameLine();
+        ImGui::DragFloat("Pitch", &Pitch, 0.01f, -180.0f, 180.0f);
+        ImGui::PopItemWidth();
+        ImGui::DragFloat3("Position", (float*)&Position[0], 0.01f, -10000.0f, 10000.0f);
+        ImGui::DragFloat("MovementSpeed", &MovementSpeed, 0.01f, 0.0f, 1000.0f);
     }
 
 private:
